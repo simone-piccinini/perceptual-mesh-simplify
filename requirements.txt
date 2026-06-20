@@ -1,0 +1,5 @@
+numpy
+scipy
+# numba accelerates the rasteriser but is optional; the renderer falls back to
+# pure Python if it is unavailable (e.g. no wheel for your Python version yet).
+numba; python_version < "3.14"

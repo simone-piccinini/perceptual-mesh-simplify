@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "imc-eval"
+version = "0.1.0"
+description = "Local offline evaluator for IMC 2026 Problem B (perception-aware mesh simplification)"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "scipy",
+    "numba; python_version < '3.14'",
+]
+
+[project.optional-dependencies]
+fast = ["numba"]
+
+[project.scripts]
+imc-score = "imc_eval.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
