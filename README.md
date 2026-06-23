@@ -34,12 +34,14 @@ src/imc_eval/     Python — the oracle (truth + validation), local only
   obj_io.py     read/write the modified-OBJ format
   cli.py        `imc-score` command
 scripts/          Python — dev harness
+  setup.sh             one-command bootstrap (oracle venv + Eigen + build + verify)
   validate_oracle.py   self-check against identity + the sample case
   run_and_score.py     (planned) run solver -> validate + score with oracle
   sweep_ratio.py       (planned) binary-search the cut locally (Phase 3)
 tests/data/     sample.in, sample.out (the cube from the statement)
 baseline/       provided I/O scaffold (baseline.cpp)
-notes/          problem analysis
+docs/           problem summary, theory write-ups, and references (papers)
+submissions/    versioned solver snapshots + per-attempt results
 ```
 
 ## Setup
