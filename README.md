@@ -101,8 +101,10 @@ platform Clarification:
    into [0,255] differently, depth SSIM near the 0.9 boundary will drift.
 2. **Normal space.** We use world-space face normals (view-independent), as the
    statement describes a single per-face normal. View-space is the alternative.
-3. **Hausdorff.** v1 is vertex-to-vertex (KD-tree), not point-to-surface.
-   Conservative and loose; upgrade to surface sampling if it ever binds.
+3. **Hausdorff.** Exact point-to-surface (each vertex to the nearest target
+   *triangle*, Ericson), matching the judge's "vertex covered by the other
+   surface" definition. Brute force O(V*F) -- fine for the oracle's small meshes;
+   a BVH is the drop-in upgrade for million-vertex inputs.
 
 These do not affect the *identity* and *sample* checks (both meshes are rendered
 with the identical pipeline), so those validate the machinery, not the absolute

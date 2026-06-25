@@ -15,9 +15,12 @@ import numpy as np
 def parse_mesh(text):
     tok = text.split()
     idx = 0
+    
+    """ from the first line take info about number of vertices and faces """
     nv = int(tok[idx]); idx += 1
     nf = int(tok[idx]); idx += 1
 
+    """ building points list """
     V = np.empty((nv, 3), np.float64)
     for i in range(nv):
         # token at idx is the literal 'v'
@@ -26,6 +29,7 @@ def parse_mesh(text):
         V[i, 2] = float(tok[idx + 3])
         idx += 4
 
+    """ building triangles list """
     F = np.empty((nf, 3), np.int64)
     for i in range(nf):
         # token at idx is the literal 'f'
@@ -42,6 +46,7 @@ def load_mesh(path):
         return parse_mesh(fh.read())
 
 
+""" write on a text file """
 def save_mesh(path, V, F, sig=10):
     """Write a mesh, mirroring baseline.cpp's '%.10g' precision budget."""
     fmt = "v %.{}g %.{}g %.{}g".format(sig, sig, sig)

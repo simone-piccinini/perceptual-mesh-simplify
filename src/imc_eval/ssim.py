@@ -16,19 +16,26 @@ C2 = (0.03 * 255.0) ** 2
 
 def _ssim_map(X, Y):
     """Per-pixel SSIM map using uniform (box) 11x11 local statistics."""
+
+    """ compute the mean """
     mu_x = uniform_filter(X, WIN)
     mu_y = uniform_filter(Y, WIN)
     mu_x2 = mu_x * mu_x
     mu_y2 = mu_y * mu_y
     mu_xy = mu_x * mu_y
+
+    """ compute the variance """
     sigma_x = uniform_filter(X * X, WIN) - mu_x2
     sigma_y = uniform_filter(Y * Y, WIN) - mu_y2
+
     sigma_xy = uniform_filter(X * Y, WIN) - mu_xy
+
     num = (2.0 * mu_xy + C1) * (2.0 * sigma_xy + C2)
     den = (mu_x2 + mu_y2 + C1) * (sigma_x + sigma_y + C2)
     return num / den
 
 
+""" this is to put away the useless background pixels, which would otherwise mess up the SSIM stats."""
 def _masked_mean(smap, mask):
     """Average the SSIM map over valid (fully in-image) foreground windows."""
     s = smap[RAD:-RAD, RAD:-RAD]

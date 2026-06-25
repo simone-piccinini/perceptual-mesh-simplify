@@ -1,22 +1,99 @@
-"""Symmetric Hausdorff distance between two meshes.
+"""Symmetric point-to-surface Hausdorff distance (matches the judge).
 
-v1 APPROXIMATION: this compares vertex sets via a KD-tree, i.e. it computes a
-*vertex-to-vertex* Hausdorff distance, not the exact point-to-surface distance
-the judge uses. It is fast and a reasonable early proxy because the 5%-of-
-diagonal tolerance is loose and rarely the binding constraint. Upgrade path:
-sample points across faces (or use point-to-triangle queries) for the directed
-distances. See README "Known calibration gaps".
+The judge measures, in each direction, the largest distance from the *vertices*
+of one mesh to the *surface* (triangles) of the other:
+
+    d_dir(A, B) = max over a in vertices(A) of  min over triangles t of B  dist(a, t)
+    d_H(A, B)   = max( d_dir(A, B), d_dir(B, A) )
+
+This replaces the old vertex-to-vertex shortcut, which over-reported badly: a
+removed surface-interior vertex sits far from any surviving *vertex* yet still
+lies on the simplified *surface* (distance ~0). Distances here use the exact
+closest point on each triangle.
+
+Performance: for each source vertex we test all target triangles (vectorised),
+which is O(V * F) -- fine for the oracle's small/medium test meshes. For
+million-vertex inputs the drop-in upgrade is a BVH / AABB-tree (e.g. libigl's
+`point_mesh_squared_distance`); the maths below is identical, only the candidate
+search changes.
 """
 
-from scipy.spatial import cKDTree
+import numpy as np
 
 
-def directed_hausdorff(Va, Vb):
-    """max over a in Va of distance to nearest vertex in Vb."""
-    tree_b = cKDTree(Vb)
-    d, _ = tree_b.query(Va, k=1)
-    return float(d.max())
+def _point_triangle_sqdist(p, a, b, c):
+    """Squared distance from point p (3,) to each triangle, exact.
+
+    a, b, c are (M, 3) arrays holding the three vertices of M triangles.
+    Returns (M,) squared distances. This is the standard closest-point-on-
+    triangle test (Christer Ericson, *Real-Time Collision Detection*), with the
+    seven Voronoi regions resolved by overwriting in priority order.
+    """
+    ab = b - a
+    ac = c - a
+    ap = p - a
+    bp = p - b
+    cp = p - c
+
+    d1 = np.einsum("ij,ij->i", ab, ap)
+    d2 = np.einsum("ij,ij->i", ac, ap)
+    d3 = np.einsum("ij,ij->i", ab, bp)
+    d4 = np.einsum("ij,ij->i", ac, bp)
+    d5 = np.einsum("ij,ij->i", ab, cp)
+    d6 = np.einsum("ij,ij->i", ac, cp)
+
+    va = d3 * d6 - d5 * d4
+    vb = d5 * d2 - d1 * d6
+    vc = d1 * d4 - d3 * d2
+    denom = va + vb + vc
+
+    # default: interior (face) region
+    denom_safe = np.where(denom != 0.0, denom, 1.0)
+    v = vb / denom_safe
+    w = vc / denom_safe
+    closest = a + ab * v[:, None] + ac * w[:, None]
+
+    # edge points
+    den_ab = np.where((d1 - d3) != 0.0, d1 - d3, 1.0)
+    c_ab = a + ab * (d1 / den_ab)[:, None]
+    den_ac = np.where((d2 - d6) != 0.0, d2 - d6, 1.0)
+    c_ac = a + ac * (d2 / den_ac)[:, None]
+    den_bc = np.where(((d4 - d3) + (d5 - d6)) != 0.0, (d4 - d3) + (d5 - d6), 1.0)
+    c_bc = b + (c - b) * ((d4 - d3) / den_bc)[:, None]
+
+    # region masks
+    m_a = (d1 <= 0) & (d2 <= 0)
+    m_b = (d3 >= 0) & (d4 <= d3)
+    m_c = (d6 >= 0) & (d5 <= d6)
+    m_ab = (vc <= 0) & (d1 >= 0) & (d3 <= 0)
+    m_ac = (vb <= 0) & (d2 >= 0) & (d6 <= 0)
+    m_bc = (va <= 0) & ((d4 - d3) >= 0) & ((d5 - d6) >= 0)
+
+    # apply low priority -> high priority (vertices win over edges over face)
+    closest[m_bc] = c_bc[m_bc]
+    closest[m_ac] = c_ac[m_ac]
+    closest[m_c] = c[m_c]
+    closest[m_ab] = c_ab[m_ab]
+    closest[m_b] = b[m_b]
+    closest[m_a] = a[m_a]
+
+    diff = p - closest
+    return np.einsum("ij,ij->i", diff, diff)
 
 
-def symmetric_hausdorff(Va, Vb):
-    return max(directed_hausdorff(Va, Vb), directed_hausdorff(Vb, Va))
+def directed_hausdorff(P, Vb, Fb):
+    """max over points P of the distance to the surface (Vb, Fb)."""
+    a = Vb[Fb[:, 0]]
+    b = Vb[Fb[:, 1]]
+    c = Vb[Fb[:, 2]]
+    worst = 0.0
+    for p in P:
+        d2min = _point_triangle_sqdist(p, a, b, c).min()
+        if d2min > worst:
+            worst = d2min
+    return float(np.sqrt(worst))
+
+
+def symmetric_hausdorff(Va, Fa, Vb, Fb):
+    """Symmetric vertex-to-surface Hausdorff between meshes (Va,Fa) and (Vb,Fb)."""
+    return max(directed_hausdorff(Va, Vb, Fb), directed_hausdorff(Vb, Va, Fa))
