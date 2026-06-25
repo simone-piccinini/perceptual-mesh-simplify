@@ -1,5 +1,6 @@
 """
 Every constant here is dictated by the judge and must not be tuned:
+
 the image is 1024x1024, focal length 800, principal point at the centre,
 six cameras on the signed axes at distance D = 2.5 looking at the origin.
 """

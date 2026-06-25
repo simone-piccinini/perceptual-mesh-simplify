@@ -11,6 +11,8 @@ The inner rasteriser is numba-jitted when numba is available, and falls back
 to pure Python otherwise (correct, just slower — fine for the small cases).
 """
 
+""" turns a 3D shape (vertices and triangles) into a flat, 2D image made of pixels, exactly like taking a photograph. """
+
 import numpy as np
 
 from .geometry import IMG_W, IMG_H, FOCAL, CU, CV
