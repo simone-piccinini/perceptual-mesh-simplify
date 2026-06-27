@@ -42,7 +42,7 @@ def evaluate(Vo, Fo, Vs, Fs):
     validity = check_validity(Vs, Fs, len(Vo))
 
     diag = aabb_diagonal(Vo)
-    haus = symmetric_hausdorff(Vo, Fo, Vs, Fs)
+    haus = symmetric_hausdorff(Vo, Vs)
     haus_limit = HAUSDORFF_FRACTION * diag
     haus_ok = haus <= haus_limit
 

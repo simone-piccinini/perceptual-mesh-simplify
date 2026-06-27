@@ -1,4 +1,14 @@
 
+The task is one constrained optimization:
+
+maximize compression subject to (vertex-coverage Hausdorff ≤ 5%·diag, SSIM ≥ 0.9, manifold).
+
+The algorithm that respects the constraints tightly is the compression maximizer. So:
+
+"Pass all 7" = never violate the constraints on any mesh.
+"Push compression" = ride right up against whichever constraint binds.
+
+
 This is the base algorithm adapted to the challenge case.
 The first phase is the initialization phase, where for each face in the mesh, (in our case every triangle of the mesh), we compute the plane $p_f$.
 Then for each vertex we compute the error, summing the squared distance from the vertex into consideration and every plane attached to that vertex.

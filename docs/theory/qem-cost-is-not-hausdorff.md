@@ -58,6 +58,19 @@ meshes accumulate continuous deviation that the quadric cost underestimates.
 ## Status
 
 - Best real score so far is still the mild `keep = 0.5` run (~50/100).
-- Next: add a **true-deviation guard** (a per-collapse point-to-surface check),
-  and fix the oracle's Hausdorff to point-to-surface so we can measure this
-  locally instead of discovering it on the judge.
+- Next: add a **true-deviation guard** during decimation (see the correction
+  below for which metric).
+
+## Correction (judge clarification, 2026-06-18)
+
+The judge confirmed the Hausdorff is **vertex-to-vertex** — `a` and `b` range
+over vertices only, *not* surface points. So:
+
+- The core finding stands: **QEM cost is not a deviation certificate.** It does
+  not bound the vertex-to-vertex Hausdorff either.
+- But the metric to guard is **vertex coverage**, not point-to-surface: every
+  original vertex must stay within `5% × diagonal` of some *surviving vertex*
+  (and vice versa). This is cheap to enforce exactly during decimation with a
+  KD-tree / nearest-survivor tracking — a real advantage.
+- The oracle's `hausdorff.py` is therefore **vertex-to-vertex** (correct); do not
+  change it to point-to-surface.

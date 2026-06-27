@@ -21,8 +21,9 @@ submissions/
 
 | Version | Approach | Cases | Score | Note |
 |---|---|---|---|---|
-| [v1-keep-ratio](v1-keep-ratio/RESULT.md) | blind 50% vertex ratio | 6/7 | ~50 | sample fails on deviation; best real score so far |
-| [v2-cost-budget](v2-cost-budget/RESULT.md) | quadric cost budget (frac 0.5) | 2/7 | 16.52 | sample fixed, but over-compresses 5/6 |
+| [v1-keep-ratio](v1-keep-ratio/RESULT.md) | blind 50% vertex ratio | 6/7 | ~50 | **best real score**; sample fails on deviation |
+| [v2-cost-budget](v2-cost-budget/RESULT.md) | quadric cost budget (frac 0.5) | 2/7 | 16.52 | sample fixed, over-compresses 5/6 (deviation) |
+| [v3-coverage-guard](v3-coverage-guard/RESULT.md) | vertex-coverage Hausdorff guard | 2/7 | 16.54 | Hausdorff fixed, but SSIM now binds -> over-compresses 5/6 |
 
 ## Rolling back
 
