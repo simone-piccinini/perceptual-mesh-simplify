@@ -21,8 +21,15 @@ submissions/
 
 | Version | Approach | Cases | Score | Note |
 |---|---|---|---|---|
-| [v1-keep-ratio](v1-keep-ratio/RESULT.md) | blind 50% vertex ratio | 6/7 | ~50 | sample fails on deviation; best real score so far |
+| [v1-keep-ratio](v1-keep-ratio/RESULT.md) | blind 50% vertex ratio | 6/7 | ~50 | sample fails on deviation; first real score |
 | [v2-cost-budget](v2-cost-budget/RESULT.md) | quadric cost budget (frac 0.5) | 2/7 | 16.52 | sample fixed, but over-compresses 5/6 |
+| [v3-evolved-regression](v3-evolved-regression/RESULT.md) | cost-budget + dev-guard + normal | 2/7 | ~16 | over-deviation 3-6, TLE 7 |
+| [v4-keep-mode](v4-keep-mode/RESULT.md) | uniform keep (STEP-2 engine, keep mode) | **7/7** | **50→64** | keep 0.50→50.0005, keep 0.36→64. SAFE lever (only kOpKeep changes) |
+| [v5-adaptive-guard-FAILED](v5-adaptive-guard-FAILED/RESULT.md) | adaptive target_error + Hausdorff guard | 2/7 | 15.92 | over-deviation 3-7; guard bounds only direction-1. **Adaptive parked.** |
+
+**Current best: keep 0.36 → 64 @ 7/7 (v4).** Live solver reverted to it.
+The judge runs the binary with NO argv, so the compiled-in `kOp*` constants (top of
+`solver/main.cpp`) are the operating point — change those, not command-line args.
 
 ## Rolling back
 
