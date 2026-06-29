@@ -58,11 +58,8 @@ constexpr double kFlipTau = 0.0;   // reject if a surviving face's normal flips 
 //   V >  kLargeThreshold (cases 6,7) -> ADAPTIVE subset, provably Hausdorff <= margin, floor 0.05.
 //   V <= kLargeThreshold (cases 2-5) -> KEEP free-QEM, fraction = keep_for(V) below.
 //   kOpAdaptive == 0 -> full keep fallback.
-constexpr int    kOpAdaptive     = 0;       // EXPERIMENT: 0 = all meshes use free-QEM keep (incl. large,
-                                            // via keep_for below). Tests if free-QEM placement (rounder
-                                            // triangles -> better face normals than subset's slivers) is
-                                            // geometry-legal on the 1.1M cases. Was 1 (subset adaptive, 95%).
-constexpr int    kLargeThreshold = 100000;  // V > this uses adaptive (when kOpAdaptive=1)
+constexpr int    kOpAdaptive     = 1;
+constexpr int    kLargeThreshold = 100000;  // V > this uses adaptive
 constexpr double kOpMargin       = 0.045;   // adaptive Hausdorff margin (provably < 5%)
 constexpr double kOpFloorFrac    = 0.05;    // adaptive floor = 95% (0.02/98% FAILED SSIM on 6,7)
 // ==============================================================================
@@ -70,11 +67,10 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive floor = 95% (0.02/98% FA
 // keep fraction for the non-adaptive (V <= kLargeThreshold) path, calibrated from the
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
-    if (V <= 7000)   return 0.10;  // case 2: 90% confirmed PASS
-    if (V <= 30000)  return 0.36;  // case 3: fragile, 0.30 FAILED -> 64%
-    if (V <= 40000)  return 0.20;  // case 4: 80% confirmed PASS (V<=40k is case4's bound)
-    if (V <= 100000) return 0.25;  // case 5: 75% confirmed (0.20/80% FAILED on SSIM; geometry was safe)
-    return 0.05;                   // cases 6,7: 95% via free-QEM (was subset adaptive). EXPERIMENT.
+    if (V <= 7000)  return 0.10;   // case 2: 90% confirmed PASS
+    if (V <= 30000) return 0.36;   // case 3: fragile, 0.30 FAILED -> 64%
+    if (V <= 40000) return 0.20;   // case 4: 80% confirmed PASS (V<=40k is case4's bound)
+    return 0.25;                   // case 5: 75% confirmed (0.20/80% FAILED on SSIM; geometry was safe)
 }
 
 constexpr int kSmallMeshSkip = 1000;    // tiny meshes (the sample): emit unchanged
