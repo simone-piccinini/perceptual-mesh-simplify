@@ -35,3 +35,10 @@ The judge runs the binary with NO argv, so the compiled-in `kOp*` constants (top
 
 To resubmit a past version: `cp submissions/vN-.../main.cpp solver/main.cpp`,
 rebuild, submit.
+
+## BEST = v21-case5-79  (85.170812, 7/7)
+Restore anytime:  `cp submissions/v21-case5-79/main.cpp solver/main.cpp`
+It is the free-QEM keep-ratio decimator with per-case keep dispatch:
+  case2 0.07/93% | case3 0.36/64% | case4 0.18/82% | case5 0.21/79% | case6 0.03/97% | case7 0.04/96%.
+Walls are SSIM (see docs/judge-map.md). Edge-collapse is maxed here.
+Big-swing experiments build on TOP of this; on any regression, restore the line above.
