@@ -24,7 +24,7 @@ distilled model of its behavior so we never re-test a dead idea. Update it every
 |---|---|---|---|---|---|
 | 2 | 5,000 | 0.07 | 93% | SSIM (~geom) | near max; 94% untested |
 | 3 | 25,000 | 0.36 | **64%** | SSIM, **INTRINSIC** | fails 66%; 9 methods pinned (see below) |
-| 4 | 40,000 | 0.18 | 82% | SSIM | 83% AND 84% FAILED → hard wall exactly 82% |
+| 4 | 40,000 | 0.18 | 82% | SSIM, **INTRINSIC** | 83/84% FAILED incl. image-driven → wall exactly 82% |
 | 5 | 50,000 | 0.21 | 79% | SSIM | 80% FAILED |
 | 6 | 400,000 | 0.03 | 97% | SSIM | 98% untested |
 | 7 | 1,100,000 | 0.04 | 96% | SSIM | 97% FAILED |
@@ -48,6 +48,6 @@ detail-dense: there is no low-importance region to sacrifice. It fundamentally n
 
 ## Where score can still come from
 - Cheap, risky nudges: case 2 → 94%, case 6 → 98% (each +0.17 if they hold).
-- Image-driven on case 4/5: untested — those meshes MAY have flat regions case 3 lacks.
+- Image-driven on case 4: TESTED @83% -> RED. case 4 is also intrinsic. (case 5 untested but likely same.)
 - 90 average needs the medium cases (3,4) to break, which looks intrinsic for edge-collapse.
   Practical ceiling of this approach is ~85–86 unless a fundamentally different mesh is built.
