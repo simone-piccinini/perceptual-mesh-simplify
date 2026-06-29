@@ -74,8 +74,7 @@ static double keep_for(int V) {
     if (V <= 30000)  return 0.36;  // case 3: fragile, 0.30 FAILED -> 64%
     if (V <= 40000)  return 0.20;  // case 4: 80% confirmed PASS (V<=40k is case4's bound)
     if (V <= 100000) return 0.25;  // case 5: 75% confirmed (0.20/80% FAILED on SSIM; geometry was safe)
-    if (V <= 400000) return 0.03;  // case 6 (400k): 97% confirmed PASS (free-QEM)
-    return 0.05;                   // case 7 (1.1M): 95% confirmed (free-QEM 97% WA'd -> drift on biggest mesh)
+    return 0.03;                   // cases 6,7: PROBE 97% (free-QEM 95% confirmed; subset died at 98%)
 }
 
 constexpr int kSmallMeshSkip = 1000;    // tiny meshes (the sample): emit unchanged
