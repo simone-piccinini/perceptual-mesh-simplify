@@ -38,6 +38,24 @@
 - **Reference C++ impl (header-only): https://github.com/Philip-Trettner/probabilistic-quadrics** — drop-in if we want better placement.
 - Paper: https://onlinelibrary.wiley.com/doi/abs/10.1111/cgf.13933
 
+### PQ implementation recipe (from the reference header) — ready to code in Eigen
+Convention: **Q(x) = xᵀA x − 2 bᵀx + c**, A sym 3×3, b vec3, c scalar. (Note the −2b — NOT the GH homogeneous 4×4.) Combine = add {A,b,c}. Weight = scale {A,b,c}. Minimizer **x\* = A⁻¹ b** (LDLT). Cost(x) = x·(A x) − 2 b·x + c.
+
+**Isotropic probabilistic TRIANGLE quadric** (vertices p,q,r; one stddev σ):
+```
+pq=p×q  qr=q×r  rp=r×p     s=pq+qr+rp     det=pq·r
+δpq=p−q δqr=q−r δrp=r−p
+A = s sᵀ + σ²·( ‖δpq‖²I − δpq δpqᵀ + ‖δqr‖²I − δqr δqrᵀ + ‖δrp‖²I − δrp δrpᵀ ) + 6σ²I
+b = s·det − σ²·( δpq×pq + δqr×qr + δrp×rp ) + 2σ²·(p+q+r)
+c = det² + σ²(‖pq‖²+‖qr‖²+‖rp‖²) + 2σ²(‖p‖²+‖q‖²+‖r‖²) + 6σ⁴
+```
+(Isotropic PLANE quadric, mean p,n: A=nnᵀ+σ_n²I, b=n(p·n)+σ_n²p, c=(p·n)²+σ_n²‖p‖²+σ_p²‖n‖²+3σ_p²σ_n².)
+
+**Why it fixes slivers:** the `+σ²(…)+6σ²I` makes A full-rank even on flat/coplanar regions (plain QEM is rank-1 there → position undetermined → slivers). σ regularizes → rounder triangles → better face normals → the normal-map SSIM lever.
+- σ=0 ⇒ exact GH quadric. Bigger σ ⇒ rounder/more-regular, less geometrically tight. **σ is the single knob** (units = model length; start ~ mean edge length, tune ON THE JUDGE).
+- Stability: A ← A + ε I (ε~1e-8); skip/endpoint-fallback if det(A) tiny. Double precision.
+- **How we'd use it:** keep our manifold gates + per-case dispatch; swap only the per-edge *cost+position* (Q[i]+Q[j], minimize). Drift not provably bounded ⇒ keep a Hausdorff check OR only use where geometry is slack (which the judge says it is at our compression).
+
 ## Open-access PDFs worth pulling when coding
 - Lindstrom-Turk 1998 (memoryless placement): http://mesh.brown.edu/DGP/pdfs/Lindstrom-vis98.pdf
 - Memoryless eval: https://faculty.cc.gatech.edu/~turk/my_papers/memless_tvcg99.pdf
