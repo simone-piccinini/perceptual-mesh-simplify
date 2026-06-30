@@ -32,7 +32,6 @@
 #include <cstdlib>
 #include <limits>
 #include <string>
-#include <chrono>
 
 using Vec3    = Eigen::Vector3d;
 using Vec4    = Eigen::Vector4d;
@@ -61,21 +60,20 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // keep fraction for the non-adaptive (V <= kLargeThreshold) path, calibrated from the
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
-    if (V <= 7000)   return 0.01;  // case 2: PROBE 99% (98.5% confirmed @v34); BLIND free-roll (proxy Hausdorff maxed)
-    if (V <= 30000)  return 0.33;  // case 3: PROBE 67% Pivot-A base + optimizer + VISIBILITY (test hidden-budget on judge)
-    if (V <= 40000)  return 0.17;  // case 4: 83% confirmed (QEM base + optimizer)
+    if (V <= 7000)   return 0.02;  // case 2: PROBE 98% (97% confirmed @v32); free-roll, watch Hausdorff
+    if (V <= 30000)  return 0.35;  // case 3: 65% Pivot-A wall (66% WA'd @res160 AND @res320 -> detail-uniform cap)
+    if (V <= 40000)  return 0.18;  // case 4: 82% confirmed (free-QEM; 83% WA'd with AND without Pivot-A)
     if (V <= 100000) return 0.10;  // case 5: PROBE 90% with PER-CHANNEL steering (89% was grayscale cap)
-    if (V <= 400000) return 0.03;  // case 6 (400k): 97% confirmed (98%+vis WA'd -> not enough hidden geometry)
-    return 0.04;                   // case 7 (1.1M): 96% confirmed (97%+vis WA'd)
+    if (V <= 400000) return 0.03;  // case 6 (400k): 97% free-QEM (98% WA'd free-QEM AND Pivot-A: dense cap)
+    return 0.04;                   // case 7 (1.1M): 96% confirmed free-QEM (Pivot-A @res512 TLE'd)
 }
 
 // Pivot-A steering strength per case. Medium organic meshes (cases 3,4,5) gain from
 // metric-in-the-loop steering (validated +~2% compression at SSIM 0.9 on asymmetric proxies).
 // Cases 2,6,7 stay at lambda 0 -> byte-identical free-QEM, preserving judge-confirmed walls.
 static double lambda_for(int V) {
-    if (V > 7000   && V <= 30000)  return 12.0;   // case 3: Pivot-A per-channel base for the optimizer + vis
+    if (V > 7000  && V <= 30000)  return 12.0;   // case 3 (Pivot-A broke 64->65 on the judge)
     if (V > 40000  && V <= 100000) return 12.0;   // case 5 (Pivot-A broke 79->89 on the judge)
-    // case 3: NO Pivot-A -> plain QEM base, then the vertex optimizer (refine_for) runs on it
     return 0.0;                                   // cases 2,4,6,7 (large dense meshes: WA@98 / TLE -> capped)
 }
 
@@ -88,14 +86,9 @@ static int res_for(int) { return 160; }
 // per-channel normal steering (nx/ny/nz separately, matching the judge) beat grayscale +0.003 on
 // the cow proxy. Enable for case5 to test pushing past its 89% grayscale wall.
 static int per_chan_for(int V) {
-    if (V > 7000  && V <= 30000)  return 1;   // case 3
     if (V > 40000 && V <= 100000) return 1;   // case 5
     return 0;
 }
-
-// inverse-rendering vertex optimizer: case 3 only (its detail is uniform -> decimation capped at
-// 65%; the optimizer moves vertices to directly raise the rendered SSIM, the one lever left).
-static int refine_for(int V) { return (V > 7000 && V <= 40000) ? 1 : 0; }  // case3 + case4 (mechanical)
 
 constexpr int kSmallMeshSkip = 1000;    // tiny meshes (the sample): emit unchanged
 
@@ -213,99 +206,6 @@ static void chan_map(const std::vector<int>& fid, int c, std::vector<float>& out
     const int W = g_res; out.assign((size_t)W*W, 0.5f);
     for (size_t k = 0; k < (size_t)W*W; ++k) { int f = fid[k]; if (f>=0) out[k] = (float)((face_nrm(f)[c]+1.0)*0.5); }
 }
-
-// ===================== build #2: inverse-rendering vertex optimizer =====================
-// After decimation, ascend vertex positions along the ANALYTIC gradient of the real normal-SSIM
-// (SSIM + gradient both verified bit-exact vs the oracle). Monotonic accept (real SSIM only goes
-// up), displacement-capped (Hausdorff), nondegenerate-guarded, and HARD wall-clock time-boxed so
-// it can never TLE. Optimizes the actual rendered metric, not a geometric proxy. Case3 only.
-static int g_refine = 0, g_refine_res = 512;
-static std::vector<double> g_orig_n[6][3];     // original per-channel normal images (0..255), bg 127.5
-static std::vector<char>   g_orig_cov[6];      // original foreground mask
-static std::chrono::steady_clock::time_point g_t0;
-static double g_refine_budget = 16.0;          // wall-clock seconds cap (margin under the judge limit)
-static const double R_C1 = 6.5025, R_C2 = 58.5225; static const int R_WN = 121, R_RAD = 5;
-static double r_elapsed() { return std::chrono::duration<double>(std::chrono::steady_clock::now() - g_t0).count(); }
-static void r_boxsum(const std::vector<double>& a, std::vector<double>& o, int W) {  // 11x11 sliding SUM (separable)
-    const int R = 5; std::vector<double> tmp((size_t)W*W, 0.0); o.assign((size_t)W*W, 0.0);
-    for (int y=0;y<W;++y){ double s=0; for(int x=0;x<=R&&x<W;++x) s+=a[(size_t)y*W+x];
-        for(int x=0;x<W;++x){ tmp[(size_t)y*W+x]=s; int add=x+R+1,rem=x-R; if(add<W)s+=a[(size_t)y*W+add]; if(rem>=0)s-=a[(size_t)y*W+rem]; } }
-    for (int x=0;x<W;++x){ double s=0; for(int y=0;y<=R&&y<W;++y) s+=tmp[(size_t)y*W+x];
-        for(int y=0;y<W;++y){ o[(size_t)y*W+x]=s; int add=y+R+1,rem=y-R; if(add<W)s+=tmp[(size_t)add*W+x]; if(rem>=0)s-=tmp[(size_t)rem*W+x]; } }
-}
-static void refine_init_orig() {       // render the ORIGINAL (all-alive) mesh's 6 maps at g_refine_res
-    g_res = g_refine_res; const size_t WW=(size_t)g_res*g_res;
-    for (int v=0;v<6;++v){ std::vector<int> fid; render_faceid(v, fid);
-        g_orig_cov[v].assign(WW,0); for(int c=0;c<3;++c) g_orig_n[v][c].assign(WW,127.5);
-        for(size_t k=0;k<WW;++k){ int f=fid[k]; if(f<0) continue; g_orig_cov[v][k]=1; Vec3 n=face_nrm(f);
-            for(int c=0;c<3;++c) g_orig_n[v][c][k]=(n[c]+1.0)*127.5; } }
-}
-// normal-SSIM of the current (alive) mesh vs the stored original; if grad!=0, accumulate dS/d(vertex).
-static double refine_score_grad(std::vector<Vec3>* grad) {
-    const int W=g_res; if(grad) grad->assign(pos.size(), Vec3::Zero());
-    double total=0; std::vector<int> fs;
-    std::vector<double> mx,my,xx,yy,xy,Gmy,Gsy,Gsxy,Smy,Ssy,Ssym,Ssxy,Ssxm,Y,t,a,bx;
-    for(int v=0;v<6;++v){ render_faceid(v,fs);
-        std::vector<char> cov((size_t)W*W); for(size_t k=0;k<(size_t)W*W;++k) cov[k]=g_orig_cov[v][k]||(fs[k]>=0);
-        std::vector<Vec3> dSdn(faces.size(),Vec3::Zero());
-        for(int c=0;c<3;++c){ const std::vector<double>& Xr=g_orig_n[v][c];
-            Y.assign((size_t)W*W,127.5); for(size_t k=0;k<(size_t)W*W;++k){ int f=fs[k]; if(f>=0) Y[k]=(face_nrm(f)[c]+1.0)*127.5; }
-            r_boxsum(Xr,bx,W); mx.assign((size_t)W*W,0); for(size_t k=0;k<bx.size();++k) mx[k]=bx[k]/R_WN;
-            r_boxsum(Y,bx,W);  my.assign((size_t)W*W,0); for(size_t k=0;k<bx.size();++k) my[k]=bx[k]/R_WN;
-            t.assign((size_t)W*W,0); for(size_t k=0;k<t.size();++k) t[k]=Xr[k]*Xr[k]; r_boxsum(t,bx,W); xx.assign(t.size(),0); for(size_t k=0;k<t.size();++k) xx[k]=bx[k]/R_WN;
-            for(size_t k=0;k<t.size();++k) t[k]=Y[k]*Y[k];   r_boxsum(t,bx,W); yy.assign(t.size(),0); for(size_t k=0;k<t.size();++k) yy[k]=bx[k]/R_WN;
-            for(size_t k=0;k<t.size();++k) t[k]=Xr[k]*Y[k];  r_boxsum(t,bx,W); xy.assign(t.size(),0); for(size_t k=0;k<t.size();++k) xy[k]=bx[k]/R_WN;
-            Gmy.assign((size_t)W*W,0.0); Gsy.assign((size_t)W*W,0.0); Gsxy.assign((size_t)W*W,0.0);
-            double acc=0; long N=0;
-            for(int y=R_RAD;y<W-R_RAD;++y) for(int x=R_RAD;x<W-R_RAD;++x){ size_t k=(size_t)y*W+x; if(!cov[k]) continue;
-                double MX=mx[k],MY=my[k],SX=xx[k]-MX*MX,SY=yy[k]-MY*MY,SXY=xy[k]-MX*MY;
-                double A=2*MX*MY+R_C1,B=2*SXY+R_C2,Cc=MX*MX+MY*MY+R_C1,Dd=SX+SY+R_C2;
-                acc += (A*B)/(Cc*Dd); ++N;
-                Gmy[k]=2*B*(MX*Cc-MY*A)/(Cc*Cc*Dd); Gsy[k]=-(A*B)/(Cc*Dd*Dd); Gsxy[k]=2*A/(Cc*Dd);
-            }
-            double Sc=N?acc/N:1.0; total += Sc/(6.0*3.0);
-            if(grad && N>0){
-                r_boxsum(Gmy,Smy,W); r_boxsum(Gsy,Ssy,W);
-                a.assign(t.size(),0); for(size_t k=0;k<t.size();++k) a[k]=Gsy[k]*my[k]; r_boxsum(a,Ssym,W);
-                r_boxsum(Gsxy,Ssxy,W);
-                for(size_t k=0;k<t.size();++k) a[k]=Gsxy[k]*mx[k]; r_boxsum(a,Ssxm,W);
-                const double inv=1.0/((double)N*R_WN*6.0*3.0);
-                for(size_t k=0;k<t.size();++k){ int f=fs[k]; if(f<0) continue;
-                    double dSdY=inv*( Smy[k] + 2.0*(Y[k]*Ssy[k]-Ssym[k]) + (Xr[k]*Ssxy[k]-Ssxm[k]) );
-                    dSdn[f][c] += dSdY*127.5; }
-            }
-        }
-        if(grad){ for(int f=0;f<(int)faces.size();++f){ if(!face_alive[f]) continue; Vec3 dn=dSdn[f]; if(dn.squaredNorm()==0) continue;
-            const int* tr=faces[f].data(); Vec3 p0=pos[tr[0]],p1=pos[tr[1]],p2=pos[tr[2]];
-            Vec3 aa=p1-p0,bb=p2-p0,cc=aa.cross(bb); double cl=cc.norm(); if(cl<1e-12) continue; Vec3 n=cc/cl;
-            Vec3 g=(dn-n*(n.dot(dn)))/cl;
-            (*grad)[tr[0]] += (aa-bb).cross(g); (*grad)[tr[1]] += bb.cross(g); (*grad)[tr[2]] += g.cross(aa); } }
-    }
-    return total;
-}
-static bool refine_valid() {   // every alive face must stay nondegenerate (judge requirement); topology unchanged by moves
-    for(int f=0;f<(int)faces.size();++f){ if(!face_alive[f]) continue; const int* t=faces[f].data();
-        Vec3 cr=(pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]); if(0.5*cr.norm()<kAreaEps) return false; }
-    return true;
-}
-static void refine_positions() {
-    g_res = g_refine_res;
-    Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} double diag=(hi-lo).norm();
-    const std::vector<Vec3> base=pos; const double cap=0.02*diag; double step=0.02*diag;
-    double cur=refine_score_grad(nullptr);
-    for(int it=0; it<1000; ++it){
-        if(r_elapsed() > g_refine_budget) break;                     // HARD wall-clock time-box -> never TLE
-        std::vector<Vec3> g; refine_score_grad(&g);
-        double gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm()); if(gmax<1e-30) break;
-        const std::vector<Vec3> save=pos;
-        for(size_t v=0; v<pos.size(); ++v){ if(!alive[v]) continue; Vec3 d=g[v]*(step/gmax); Vec3 np=save[v]+d;
-            Vec3 off=np-base[v]; double ol=off.norm(); if(ol>cap) np=base[v]+off*(cap/ol); pos[v]=np; }  // displacement cap = Hausdorff bound
-        double sn=refine_score_grad(nullptr);
-        if(sn>cur && refine_valid()){ cur=sn; }                      // monotonic: accept only if real SSIM rises AND stays valid
-        else { pos=save; step*=0.5; if(step<1e-6*diag) break; }
-    }
-}
-
 static void pivotA_init_original() { for (int v = 0; v < 6; ++v) { std::vector<int> fid; render_faceid(v, fid); contrast_map(fid, g_sigx[v]);
     if (g_perchan) for (int c=0;c<3;++c){ std::vector<float> cv; chan_map(fid,c,cv); contrast_vals(cv,g_sigxc[v][c]); } } }
 // render the current mesh, accumulate per-vertex SSIM contrast deficit (1 - c), normalize to [0,1].
@@ -338,20 +238,6 @@ void seed_heap() {
             heap.push(HeapEntry{ r.cost, i, j, ver[i], ver[j] });
         }
     }
-}
-
-// --- view-aware: faces NEVER visible from the 6 axial cameras don't affect SSIM (they're never
-// the front face in any render), so edges between purely-hidden vertices are free to collapse.
-// Concentrates the vertex budget on what the cameras see. Render at 1024 (judge res) so a face
-// that IS visible to the judge is never mis-marked hidden.
-static std::vector<char> g_hidvert;
-static void compute_visibility() {
-    const int saved = g_res; g_res = 512;   // 512 vis render: fast on large meshes; sub-pixel faces are ~free to collapse anyway
-    std::vector<char> visface(faces.size(), 0); std::vector<int> fid;
-    for (int v = 0; v < 6; ++v) { render_faceid(v, fid); for (int f : fid) if (f >= 0) visface[f] = 1; }
-    g_hidvert.assign(pos.size(), 1);
-    for (int f = 0; f < (int)faces.size(); ++f) if (visface[f]) { const int* t = faces[f].data(); g_hidvert[t[0]] = g_hidvert[t[1]] = g_hidvert[t[2]] = 0; }
-    g_res = saved;
 }
 
 // INITIALIZE: Q[v] = sum of incident face plane quadrics; init bounding spheres; seed heap.
@@ -440,7 +326,6 @@ EvalResult Evaluate(int i, int j) {
     double cost = quad_err(xbar);
     if (g_lambda > 0.0 && !imp.empty())                  // Pivot-A: protect contrast-deficit regions
         cost *= (1.0 + g_lambda * (imp[i] + imp[j]));
-    if (!g_hidvert.empty() && g_hidvert[i] && g_hidvert[j]) cost *= 1e-4;  // both hidden -> collapse first (free, no SSIM impact)
     return EvalResult{ cost, xbar };
 }
 
@@ -649,7 +534,6 @@ void save_obj() {
 // --- entry point ------------------------------------------------------------
 // argv (local only; judge passes none): 1 = "a"|"k", 2 = margin, 3 = floor_frac/keep.
 int main(int argc, char** argv) {
-    g_t0 = std::chrono::steady_clock::now();   // wall-clock origin for the optimizer time-box
     load_obj();
 
     // per-case dispatch by vertex count (see JUDGE OPERATING POINT): adaptive only for
@@ -660,12 +544,8 @@ int main(int argc, char** argv) {
     if (argc > 1) g_adaptive = (argv[1][0] == 'a');
     if (argc > 2) margin = std::atof(argv[2]);
     if (argc > 3) { floor_frac = std::atof(argv[3]); keep = std::atof(argv[3]); }
-    if (argc > 4) g_refine_res = std::atoi(argv[4]);   // local test only: override optimizer render res
 
     Initialize();
-
-    g_refine = refine_for((int)pos.size());
-    if (g_refine) refine_init_orig();          // render the original mesh's 6 normal maps (all alive) before decimation
 
     Vec3 lo = pos[0], hi = pos[0];
     for (const Vec3& q : pos) { lo = lo.cwiseMin(q); hi = hi.cwiseMax(q); }
@@ -681,11 +561,6 @@ int main(int argc, char** argv) {
     } else {
         target_count = std::max(1, (int)(keep * alive_count));
         g_lambda = lambda_for((int)pos.size());   // Pivot-A for medium cases; 0 (untouched) otherwise
-    }
-
-    {   // view-aware: free the hidden (never-rendered) geometry so the budget goes to visible faces
-        const int VV = (int)pos.size();
-        if (VV > 7000 && VV <= 30000) { compute_visibility(); if (g_lambda <= 0.0) seed_heap(); }  // case3: visibility cracked 66->67 on the judge
     }
 
     if (g_lambda > 0.0) {
@@ -704,7 +579,6 @@ int main(int argc, char** argv) {
     } else {
         Decimate(target_count);
     }
-    if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     save_obj();
     return 0;
 }

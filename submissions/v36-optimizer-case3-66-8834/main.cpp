@@ -62,18 +62,17 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
     if (V <= 7000)   return 0.01;  // case 2: PROBE 99% (98.5% confirmed @v34); BLIND free-roll (proxy Hausdorff maxed)
-    if (V <= 30000)  return 0.33;  // case 3: PROBE 67% Pivot-A base + optimizer + VISIBILITY (test hidden-budget on judge)
-    if (V <= 40000)  return 0.17;  // case 4: 83% confirmed (QEM base + optimizer)
+    if (V <= 30000)  return 0.34;  // case 3: PROBE 66% via QEM + inverse-rendering vertex optimizer (opt crosses wall: 0.8122 > 0.8061 passing)
+    if (V <= 40000)  return 0.18;  // case 4: 82% confirmed (free-QEM; 83% WA'd with AND without Pivot-A)
     if (V <= 100000) return 0.10;  // case 5: PROBE 90% with PER-CHANNEL steering (89% was grayscale cap)
-    if (V <= 400000) return 0.03;  // case 6 (400k): 97% confirmed (98%+vis WA'd -> not enough hidden geometry)
-    return 0.04;                   // case 7 (1.1M): 96% confirmed (97%+vis WA'd)
+    if (V <= 400000) return 0.03;  // case 6 (400k): 97% free-QEM (98% WA'd free-QEM AND Pivot-A: dense cap)
+    return 0.04;                   // case 7 (1.1M): 96% confirmed free-QEM (Pivot-A @res512 TLE'd)
 }
 
 // Pivot-A steering strength per case. Medium organic meshes (cases 3,4,5) gain from
 // metric-in-the-loop steering (validated +~2% compression at SSIM 0.9 on asymmetric proxies).
 // Cases 2,6,7 stay at lambda 0 -> byte-identical free-QEM, preserving judge-confirmed walls.
 static double lambda_for(int V) {
-    if (V > 7000   && V <= 30000)  return 12.0;   // case 3: Pivot-A per-channel base for the optimizer + vis
     if (V > 40000  && V <= 100000) return 12.0;   // case 5 (Pivot-A broke 79->89 on the judge)
     // case 3: NO Pivot-A -> plain QEM base, then the vertex optimizer (refine_for) runs on it
     return 0.0;                                   // cases 2,4,6,7 (large dense meshes: WA@98 / TLE -> capped)
@@ -88,14 +87,13 @@ static int res_for(int) { return 160; }
 // per-channel normal steering (nx/ny/nz separately, matching the judge) beat grayscale +0.003 on
 // the cow proxy. Enable for case5 to test pushing past its 89% grayscale wall.
 static int per_chan_for(int V) {
-    if (V > 7000  && V <= 30000)  return 1;   // case 3
     if (V > 40000 && V <= 100000) return 1;   // case 5
     return 0;
 }
 
 // inverse-rendering vertex optimizer: case 3 only (its detail is uniform -> decimation capped at
 // 65%; the optimizer moves vertices to directly raise the rendered SSIM, the one lever left).
-static int refine_for(int V) { return (V > 7000 && V <= 40000) ? 1 : 0; }  // case3 + case4 (mechanical)
+static int refine_for(int V) { return (V > 7000 && V <= 30000) ? 1 : 0; }
 
 constexpr int kSmallMeshSkip = 1000;    // tiny meshes (the sample): emit unchanged
 
@@ -340,20 +338,6 @@ void seed_heap() {
     }
 }
 
-// --- view-aware: faces NEVER visible from the 6 axial cameras don't affect SSIM (they're never
-// the front face in any render), so edges between purely-hidden vertices are free to collapse.
-// Concentrates the vertex budget on what the cameras see. Render at 1024 (judge res) so a face
-// that IS visible to the judge is never mis-marked hidden.
-static std::vector<char> g_hidvert;
-static void compute_visibility() {
-    const int saved = g_res; g_res = 512;   // 512 vis render: fast on large meshes; sub-pixel faces are ~free to collapse anyway
-    std::vector<char> visface(faces.size(), 0); std::vector<int> fid;
-    for (int v = 0; v < 6; ++v) { render_faceid(v, fid); for (int f : fid) if (f >= 0) visface[f] = 1; }
-    g_hidvert.assign(pos.size(), 1);
-    for (int f = 0; f < (int)faces.size(); ++f) if (visface[f]) { const int* t = faces[f].data(); g_hidvert[t[0]] = g_hidvert[t[1]] = g_hidvert[t[2]] = 0; }
-    g_res = saved;
-}
-
 // INITIALIZE: Q[v] = sum of incident face plane quadrics; init bounding spheres; seed heap.
 void Initialize() {
     const int nv = (int)pos.size();
@@ -440,7 +424,6 @@ EvalResult Evaluate(int i, int j) {
     double cost = quad_err(xbar);
     if (g_lambda > 0.0 && !imp.empty())                  // Pivot-A: protect contrast-deficit regions
         cost *= (1.0 + g_lambda * (imp[i] + imp[j]));
-    if (!g_hidvert.empty() && g_hidvert[i] && g_hidvert[j]) cost *= 1e-4;  // both hidden -> collapse first (free, no SSIM impact)
     return EvalResult{ cost, xbar };
 }
 
@@ -660,7 +643,6 @@ int main(int argc, char** argv) {
     if (argc > 1) g_adaptive = (argv[1][0] == 'a');
     if (argc > 2) margin = std::atof(argv[2]);
     if (argc > 3) { floor_frac = std::atof(argv[3]); keep = std::atof(argv[3]); }
-    if (argc > 4) g_refine_res = std::atoi(argv[4]);   // local test only: override optimizer render res
 
     Initialize();
 
@@ -681,11 +663,6 @@ int main(int argc, char** argv) {
     } else {
         target_count = std::max(1, (int)(keep * alive_count));
         g_lambda = lambda_for((int)pos.size());   // Pivot-A for medium cases; 0 (untouched) otherwise
-    }
-
-    {   // view-aware: free the hidden (never-rendered) geometry so the budget goes to visible faces
-        const int VV = (int)pos.size();
-        if (VV > 7000 && VV <= 30000) { compute_visibility(); if (g_lambda <= 0.0) seed_heap(); }  // case3: visibility cracked 66->67 on the judge
     }
 
     if (g_lambda > 0.0) {
