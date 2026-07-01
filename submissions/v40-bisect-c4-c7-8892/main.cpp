@@ -61,12 +61,12 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // keep fraction for the non-adaptive (V <= kLargeThreshold) path, calibrated from the
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
-    if (V <= 7000)   return 0.0075;// case 2: PROBE 99.25% (99 confirmed -> bisect)
-    if (V <= 30000)  return 0.33;  // case 3: 67% CONFIRMED cap (67.5% WA'd, 68% WA'd)
-    if (V <= 40000)  return 0.1605;// case 4: PROBE 83.95% (83.9 pass -> near wall)
+    if (V <= 7000)   return 0.01;  // case 2: PROBE 99% (98.5% confirmed @v34); BLIND free-roll (proxy Hausdorff maxed)
+    if (V <= 30000)  return 0.33;  // case 3: 67% CONFIRMED (Pivot-A base + optimizer + visibility)
+    if (V <= 40000)  return 0.1625;// case 4: PROBE 83.75% (83.5 pass, 84 fail -> bisect)
     if (V <= 100000) return 0.10;  // case 5: 90% confirmed (90.5% WA'd -> wall at 90)
     if (V <= 400000) return 0.03;  // case 6: 97% confirmed (97.5% WA'd -> wall at 97)
-    return 0.0305;                 // case 7: PROBE 96.95% (96.9 pass -> near wall)
+    return 0.0325;                 // case 7: PROBE 96.75% (96.5 pass, 97 fail -> bisect)
 }
 
 // Pivot-A steering strength per case. Medium organic meshes (cases 3,4,5) gain from
