@@ -12,3 +12,6 @@ dumps/
 solver/Eigen
 solver/main
 *.o
+# OS / IDE cruft
+.DS_Store
+.idea/

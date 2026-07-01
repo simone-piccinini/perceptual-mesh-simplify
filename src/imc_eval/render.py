@@ -33,8 +33,14 @@ except Exception:  # numba missing or unsupported on this Python — run as plai
 
 
 @njit(cache=True)
-def _rasterize(u, v, depth, faces, H, W):
-    """Z-buffered rasteriser. Returns (faceid HxW int64, zbuf HxW float64)."""
+def _rasterize(u, v, depth, faces, H, W, edge_eps, ztie_le):
+    """Z-buffered rasteriser. Returns (faceid HxW int64, zbuf HxW float64).
+
+    `edge_eps`  : barycentric tolerance for triangle-edge coverage (a pixel counts
+                  as inside if all weights >= -edge_eps).
+    `ztie_le`   : z-buffer tie-break. False -> first triangle wins on equal depth
+                  (strict <), True -> last triangle wins (<=). Both are oracle
+                  guesses for the under-specified edge/tie rules."""
     faceid = np.full((H, W), -1, np.int64)
     zbuf = np.full((H, W), 1e30)
     M = faces.shape[0]
@@ -82,19 +88,19 @@ def _rasterize(u, v, depth, faces, H, W):
                 w0 = ((v1 - v2) * (cx - u2) + (u2 - u1) * (cy - v2)) * inv
                 w1 = ((v2 - v0) * (cx - u2) + (u0 - u2) * (cy - v2)) * inv
                 w2 = 1.0 - w0 - w1
-                if w0 < -1e-9 or w1 < -1e-9 or w2 < -1e-9:
+                if w0 < -edge_eps or w1 < -edge_eps or w2 < -edge_eps:
                     continue
                 denom = w0 / d0 + w1 / d1 + w2 / d2
                 if denom <= 0.0:
                     continue
                 zP = 1.0 / denom  # perspective-correct depth
-                if zP < zbuf[py, px]:
+                if zP < zbuf[py, px] or (ztie_le and zP == zbuf[py, px]):
                     zbuf[py, px] = zP
                     faceid[py, px] = f
     return faceid, zbuf
 
 
-def render_view(V, F, fnormals, view, W=IMG_W, H=IMG_H):
+def render_view(V, F, fnormals, view, W=IMG_W, H=IMG_H, edge_eps=1e-9, ztie_le=False):
     eye, right, up, forward = view
     rel = V - eye
     xp = rel @ right
@@ -110,7 +116,7 @@ def render_view(V, F, fnormals, view, W=IMG_W, H=IMG_H):
         np.ascontiguousarray(u),
         np.ascontiguousarray(v),
         np.ascontiguousarray(dp),
-        faces, H, W,
+        faces, H, W, float(edge_eps), bool(ztie_le),
     )
 
     cov = faceid >= 0

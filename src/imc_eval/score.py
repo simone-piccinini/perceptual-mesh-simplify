@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .config import DEFAULT_CONFIG
 from .geometry import aabb_diagonal, build_views, face_normals
 from .hausdorff import symmetric_hausdorff
 from .render import render_view
@@ -38,7 +39,11 @@ class Report:
         return self.compression if self.passed else 0.0
 
 
-def evaluate(Vo, Fo, Vs, Fs):
+def evaluate(Vo, Fo, Vs, Fs, config=DEFAULT_CONFIG):
+    """Score a simplification against the original. `config` (OracleConfig) tunes the
+    parameters the statement leaves ambiguous; the default reproduces the original
+    behaviour bit-for-bit."""
+    cfg = config
     validity = check_validity(Vs, Fs, len(Vo))
 
     diag = aabb_diagonal(Vo)
@@ -49,16 +54,17 @@ def evaluate(Vo, Fo, Vs, Fs):
     views = build_views()
     fno = face_normals(Vo, Fo)
     fns = face_normals(Vs, Fs)
+    ztie_le = (cfg.ztie == "le")
 
     per_view = []
     finals = []
     for view in views:
-        nO, dO, cO = render_view(Vo, Fo, fno, view)
-        nS, dS, cS = render_view(Vs, Fs, fns, view)
+        nO, dO, cO = render_view(Vo, Fo, fno, view, edge_eps=cfg.edge_eps, ztie_le=ztie_le)
+        nS, dS, cS = render_view(Vs, Fs, fns, view, edge_eps=cfg.edge_eps, ztie_le=ztie_le)
         cov = cO | cS
-        s_normal = ssim_normal(nO, nS, cov)
-        s_depth = ssim_depth(dO, dS, cov)
-        blended = 0.5 * s_normal + 0.5 * s_depth
+        s_normal = ssim_normal(nO, nS, cov, cfg)
+        s_depth = ssim_depth(dO, dS, cov, cfg)
+        blended = cfg.lambda_normal * s_normal + cfg.lambda_depth * s_depth
         per_view.append({"normal": s_normal, "depth": s_depth, "blended": blended})
         finals.append(blended)
 

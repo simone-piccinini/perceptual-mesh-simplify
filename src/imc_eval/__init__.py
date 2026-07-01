@@ -13,8 +13,10 @@ locally instead of spending submissions:
 from .obj_io import load_mesh, save_mesh, parse_mesh
 from .score import evaluate, Report
 from .validity import check_validity
+from .config import OracleConfig, DEFAULT_CONFIG
 
 __all__ = [
     "load_mesh", "save_mesh", "parse_mesh",
     "evaluate", "Report", "check_validity",
+    "OracleConfig", "DEFAULT_CONFIG",
 ]
