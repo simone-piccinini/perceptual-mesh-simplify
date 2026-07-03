@@ -166,6 +166,7 @@ static double              g_lambda = 0.0;   // steering strength (0 = plain fre
 static int                 g_ndecim = 0;     // VSA-lite: order collapses by induced normal distortion (case3 test)
 static double              g_qweight = 0.0;  // blend weight on the position quadric term (0 = pure normal-error)
 static int                 g_nplace = 0;     // test: pick collapse target minimizing normal distortion
+static int                 g_aniso = 0;      // B: curvature-aligned placement candidates (env G_ANISO)
 static double              g_2stage = 0.0;   // >1: bulk QEM-collapse to (this x target) first, then VSA (case7 speed)
 static double twostage_for(int V) { return (V > 400000) ? 5.0 : 0.0; }  // case7 only (x5 beat x3 and full-VSA locally)
 static int                 g_nmetric = 0;    // test: 0=area*(1-cos) 1=(1-cos) 2=area*(1-cos)^2
@@ -640,9 +641,35 @@ EvalResult Evaluate(int i, int j) {
         }
     }
     if (g_ndecim && g_nplace) {   // test: place at the target minimizing normal distortion
-        Vec3 cand2[4] = { xbar, pos[i], pos[j], 0.5*(pos[i]+pos[j]) };
+        Vec3 cand2[8] = { xbar, pos[i], pos[j], 0.5*(pos[i]+pos[j]) };
+        int nc = 4;
+        if (g_aniso) {
+            // B (session 3, curvature-tensor aniso): line-search placement along the merged
+            // star's FLAT tangent direction (min normal variation). Aniso regions want vertices
+            // spread along min-curvature; incident_ndist is already the right objective, the
+            // candidates just have to explore that subspace.
+            Vec3 nbar = Vec3::Zero(); Eigen::Matrix3d M = Eigen::Matrix3d::Zero(); double aw = 0.0;
+            for (int vtx = 0; vtx < 2; ++vtx) for (int f : vfaces[vtx ? j : i]) {
+                if (!face_alive[f]) continue; const int* t = faces[f].data();
+                Vec3 c = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]); double l = c.norm();
+                if (l <= 0) continue; Vec3 n = c / l; double a = 0.5*l;
+                nbar += a*n; M += a*(n*n.transpose()); aw += a;
+            }
+            if (aw > 0 && nbar.norm() > 1e-12*aw) {
+                nbar /= aw; M = M/aw - nbar*nbar.transpose();
+                Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(M);
+                Vec3 nrm = nbar.normalized();
+                Vec3 emax = es.eigenvectors().col(2);      // max normal-variation = max-curvature dir
+                Vec3 d = nrm.cross(emax); double dl = d.norm();
+                if (dl > 1e-12) { d /= dl;
+                    const double sc = (pos[i]-pos[j]).norm();
+                    cand2[nc++] = xbar + 0.5*sc*d; cand2[nc++] = xbar - 0.5*sc*d;
+                    cand2[nc++] = xbar + 1.0*sc*d; cand2[nc++] = xbar - 1.0*sc*d;
+                }
+            }
+        }
         double bnd=1e300; Vec3 bx=xbar;
-        for (const Vec3& c : cand2) { double nd=incident_ndist(i,j,c); if (nd<bnd){bnd=nd; bx=c;} }
+        for (int cc = 0; cc < nc; ++cc) { double nd=incident_ndist(i,j,cand2[cc]); if (nd<bnd){bnd=nd; bx=cand2[cc];} }
         xbar = bx;
     }
     double cost = quad_err(xbar);
@@ -942,6 +969,7 @@ int main(int argc, char** argv) {
         if (const char* e = getenv("G_NDECIM")) g_ndecim = atoi(e);          // test overrides (judge sets no env)
         if (const char* e = getenv("G_QWEIGHT")) g_qweight = atof(e);
         if (const char* e = getenv("G_NPLACE")) g_nplace = atoi(e);
+        if (const char* e = getenv("G_ANISO")) g_aniso = atoi(e);
         if (const char* e = getenv("G_NMETRIC")) g_nmetric = atoi(e);
         if (const char* e = getenv("G_NOLAMBDA")) g_lambda = 0.0;            // ablate Pivot-A for a clean VSA test
         if (const char* e = getenv("G_LAMBDA")) g_lambda = atof(e);          // test override: force Pivot-A strength

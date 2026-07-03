@@ -257,3 +257,10 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   the family: greedy VSA-lite ordering strictly dominates any static-partition-derived
   connectivity; a true dual-mesh retriangulation inherits the same partition and cannot recover
   −0.07 by placement. Code stays env-gated (G_VSAC), judge-inert.
+
+- **B (curvature-tensor aniso placement) CLOSED (2026-07-03):** flat-tangent line-search
+  candidates (±0.5/±1.0 edge-lengths along min-normal-variation direction, incident_ndist
+  objective): c3 −0.0007, c4 −0.0014 (vs matched control), c5 −0.0003. Off-edge-locus placement
+  overfits the immediate star's normal cost and degrades downstream collapses (meshoptimizer
+  sliver class). With nplace2's earlier ±0.25/0.75 blends (noise), the placement-subspace family
+  is bracketed. Brief §4 now fully measured: A,B,C,D dead w/ mechanism; E z-tie corner remains.
