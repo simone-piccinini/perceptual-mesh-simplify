@@ -294,3 +294,7 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   signal at the WA'd rungs: c3 +0.0001, c4 +0.001, c5 +0.0002 — noise. Protecting saturated
   deficit regions reallocates budget to no effect (same mechanism as splits/E1).
 - **SESSION 3 FINAL: bank 90.099634 (v84). Handoff = handoff/FABLE5_PROMPT_V3.md.**
+
+- **Subdivide-then-decimate CLOSED (2026-07-03):** midpoint-subdivide 25k→100k (surface-exact),
+  VSA-decimate to matched V_out=7547: 0.8938 matched-config (λ16+vis) vs 0.8995 direct (−0.006).
+  Finer collapse granularity hurts: redundant midpoint verts dilute the greedy discrimination.
