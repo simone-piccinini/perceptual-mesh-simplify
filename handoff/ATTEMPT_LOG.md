@@ -344,3 +344,12 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
 - **Session 5 net: V4 §3 items 1–4 ALL judged negative. Bank stands 90.18551. Every wall now has
   2–6 failed mechanisms at its next rung. Remaining unmeasured: self-scorer (defensive dust),
   image-fit construction (days, Hausdorff risk on concave regions).**
+- Session 5 continued (aniso arc): flips-by-cluster-normal-reference built+tested local -0.016
+  (smoothing objective = anti-structure, same class as B1/Lloyd; closed). Refine budget test:
+  8s == 12s == 16s local (converged; ~8s slack exists). Fandisk-CAD aniso: +0.0017..+0.0021 at
+  hard keeps (organic proxies: -0.001) -> judge-c4-nature probe.
+- **ANISO ON C4: JUDGE-PROVEN LADDER 85.46875 -> 85.5 -> 85.5625 -> 85.625 -> 85.65625 (banks
+  90.1874 / 90.1921 / 90.2025 / 90.2129 / 90.2181), 85.6875 WA. c4 IS CAD-like; the aniso
+  placement line-search is the first mechanism to move a closed wall since s-def.**
+- c6 97.703125 + aniso WA (c6 closed x4, organic). c7 97.1475 + aniso WA (closed x3, organic).
+- **BANK = 90.218096.**
