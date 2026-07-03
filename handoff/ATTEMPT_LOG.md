@@ -298,3 +298,10 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
 - **Subdivide-then-decimate CLOSED (2026-07-03):** midpoint-subdivide 25k→100k (surface-exact),
   VSA-decimate to matched V_out=7547: 0.8938 matched-config (λ16+vis) vs 0.8995 direct (−0.006).
   Finer collapse granularity hurts: redundant midpoint verts dilute the greedy discrimination.
+
+- **Optimizer-quality family CLOSED (2026-07-03):** (a) per-component Adam: sign-steps crash the
+  score 0.877→0.70 instantly (landscape is knife-edged; every-vertex moves lethal); (b) momentum
+  + adaptive alpha, no rejection: same crash, never recovers; (c) basin-hop restarts around the
+  stock monotone optimizer: 0 hops at full budget (convergence eats 16s ST); with T1=10s carve-out,
+  best hop result 0.88466 < 0.88481 plain-16s. The stock reject-and-halve ascent run to full
+  budget IS the optimum under ST CPU. Env-gated code: G_ADAM/G_HOP/G_T1/G_ETA, judge-inert.

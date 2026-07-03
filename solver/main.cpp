@@ -34,6 +34,7 @@
 #include <limits>
 #include <string>
 #include <chrono>
+#include <random>
 #include <thread>
 
 using Vec3    = Eigen::Vector3d;
@@ -403,6 +404,60 @@ static void refine_positions() {
         if (ldlt.info()!=Eigen::Success) use_lapl=false;
     }
     double cur=refine_score_grad(nullptr);
+    // ===== Adam + basin-hop ascent (session 3, env G_ADAM) =====
+    // The stock loop is normalized-gradient with step halving: "converged" = ITS plateau.
+    // Same analytic gradient, per-component adaptive moments + patience + deterministic
+    // normal-jitter restarts from the best snapshot -> deeper optima at identical CPU.
+    // Fused: refine_score_grad(&g) returns the score of the CURRENT state AND its gradient,
+    // so each iteration costs ONE pass instead of grad+accept-score.
+    if (getenv("G_ADAM")) {
+        double alpha = 0.02*diag;   if (const char* e = getenv("G_ALPHA")) alpha = atof(e)*diag;
+        int patience = 25;          if (const char* e = getenv("G_PAT"))   patience = atoi(e);
+        const double amin = 1e-6*diag, amax = 0.05*diag;
+        std::vector<Vec3> m(pos.size(), Vec3::Zero());
+        std::vector<Vec3> best = pos; double bestS = cur; double prev = cur;
+        std::minstd_rand rng(12345);
+        int since = 0;
+        for (int it = 0; it < 1000000; ++it) {
+            if (r_elapsed() > g_refine_budget) break;
+            std::vector<Vec3> g; const double sc = refine_score_grad(&g);
+            if (sc > bestS && refine_valid()) { bestS = sc; best = pos; since = 0; }
+            else ++since;
+            if (getenv("G_RDBG") && it % 10 == 0)
+                std::fprintf(stderr, "[ad %d] sc=%.6f best=%.6f a=%.5f valid=%d\n", it, sc, bestS, alpha, (int)refine_valid());
+            if (sc >= prev) alpha = std::min(amax, alpha*1.1); else alpha = std::max(amin, alpha*0.6);
+            prev = sc;
+            if (since >= patience) {
+                pos = best;                                   // basin hop: jitter the best along vertex normals
+                std::vector<Vec3> vn(pos.size(), Vec3::Zero());
+                for (int f = 0; f < (int)faces.size(); ++f) { if (!face_alive[f]) continue;
+                    const int* t = faces[f].data();
+                    Vec3 c = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
+                    vn[t[0]] += c; vn[t[1]] += c; vn[t[2]] += c; }
+                std::uniform_real_distribution<double> U(-1.0, 1.0);
+                const double eta = 2.0*alpha;
+                for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
+                    double l = vn[v].norm(); if (l < 1e-30) continue;
+                    Vec3 np = pos[v] + (eta*U(rng))*(vn[v]/l);
+                    Vec3 off = np - base[v]; double ol = off.norm(); if (ol > cap) np = base[v] + off*(cap/ol);
+                    pos[v] = np; }
+                for (auto& q : m) q.setZero();
+                alpha = 0.01*diag; prev = -1.0; since = 0; continue;
+            }
+            double mmax = 0.0;
+            for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
+                m[v] = 0.85*m[v] + 0.15*g[v]; double l = m[v].norm(); if (l > mmax) mmax = l; }
+            if (mmax < 1e-30) break;
+            const double sc2 = alpha/mmax;
+            for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
+                Vec3 np = pos[v] + sc2*m[v];
+                Vec3 off = np - base[v]; double ol = off.norm(); if (ol > cap) np = base[v] + off*(cap/ol);
+                pos[v] = np; }
+        }
+        pos = best;
+        if (getenv("G_RDBG")) std::fprintf(stderr, "[adam] best %.6f (start %.6f) %.1fs\n", bestS, cur, r_elapsed());
+        return;
+    }
     if (getenv("G_SHARP")) {
         // unsharp mask: decimation smooths the normal field and the SSIM contrast term
         // punishes the lost variance; v' = v + alpha*(v - neighbor_mean(v)) restores
@@ -431,22 +486,59 @@ static void refine_positions() {
             Vec3 off = np - base[v]; double ol = off.norm(); if (ol > cap) np = base[v] + off*(cap/ol);
             pos[v] = np; }
     }
-    for(int it=0; it<1000; ++it){
-        if(r_elapsed() > g_refine_budget) break;                     // HARD wall-clock time-box -> never TLE
-        std::vector<Vec3> g; refine_score_grad(&g);
-        if (use_lapl) {
-            Eigen::MatrixXd G((int)rev.size(), 3);
-            for (size_t r=0;r<rev.size();++r) G.row((int)r) = g[rev[r]].transpose();
-            Eigen::MatrixXd X = ldlt.solve(G);
-            for (size_t r=0;r<rev.size();++r) g[rev[r]] = X.row((int)r).transpose();
+    auto stock_pass = [&](double step0){
+        double stp = step0;
+        for(int it=0; it<1000; ++it){
+            if(r_elapsed() > g_refine_budget) break;                 // HARD wall-clock time-box -> never TLE
+            std::vector<Vec3> g; refine_score_grad(&g);
+            if (use_lapl) {
+                Eigen::MatrixXd G((int)rev.size(), 3);
+                for (size_t r=0;r<rev.size();++r) G.row((int)r) = g[rev[r]].transpose();
+                Eigen::MatrixXd X = ldlt.solve(G);
+                for (size_t r=0;r<rev.size();++r) g[rev[r]] = X.row((int)r).transpose();
+            }
+            double gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm()); if(gmax<1e-30) break;
+            const std::vector<Vec3> save=pos;
+            for(size_t v=0; v<pos.size(); ++v){ if(!alive[v]) continue; Vec3 d=g[v]*(stp/gmax); Vec3 np=save[v]+d;
+                Vec3 off=np-base[v]; double ol=off.norm(); if(ol>cap) np=base[v]+off*(cap/ol); pos[v]=np; }  // displacement cap = Hausdorff bound
+            double sn=refine_score_grad(nullptr);
+            if(sn>cur && refine_valid()){ cur=sn; }                  // monotonic: accept only if real SSIM rises AND stays valid
+            else { pos=save; stp*=0.5; if(stp<1e-6*diag) break; }
         }
-        double gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm()); if(gmax<1e-30) break;
-        const std::vector<Vec3> save=pos;
-        for(size_t v=0; v<pos.size(); ++v){ if(!alive[v]) continue; Vec3 d=g[v]*(step/gmax); Vec3 np=save[v]+d;
-            Vec3 off=np-base[v]; double ol=off.norm(); if(ol>cap) np=base[v]+off*(cap/ol); pos[v]=np; }  // displacement cap = Hausdorff bound
-        double sn=refine_score_grad(nullptr);
-        if(sn>cur && refine_valid()){ cur=sn; }                      // monotonic: accept only if real SSIM rises AND stays valid
-        else { pos=save; step*=0.5; if(step<1e-6*diag) break; }
+    };
+    {   // optional: cap the first convergence pass to leave budget for basin hops (G_T1 seconds)
+        double t1 = g_refine_budget; if (const char* e = getenv("G_T1")) t1 = atof(e);
+        const double save_budget = g_refine_budget; g_refine_budget = std::min(g_refine_budget, t1);
+        stock_pass(step);
+        g_refine_budget = save_budget;
+    }
+    if (getenv("G_HOP")) {
+        // basin-hop restarts: tiny deterministic normal-jitter from the best snapshot, re-converge,
+        // keep-if-better. Uses whatever budget the first convergence left over.
+        double eta = 2e-4*diag; if (const char* e = getenv("G_ETA")) eta = atof(e)*diag;
+        std::vector<Vec3> best = pos; double bestS = cur;
+        std::minstd_rand rng(12345);
+        int hops = 0, wins = 0;
+        while (r_elapsed() < g_refine_budget - 0.5) {
+            ++hops;
+            std::vector<Vec3> vn(pos.size(), Vec3::Zero());
+            for (int f = 0; f < (int)faces.size(); ++f) { if (!face_alive[f]) continue;
+                const int* t = faces[f].data();
+                Vec3 c = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
+                vn[t[0]] += c; vn[t[1]] += c; vn[t[2]] += c; }
+            std::uniform_real_distribution<double> U(-1.0, 1.0);
+            for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
+                double l = vn[v].norm(); if (l < 1e-30) continue;
+                Vec3 np = pos[v] + (eta*U(rng))*(vn[v]/l);
+                Vec3 off = np - base[v]; double ol = off.norm(); if (ol > cap) np = base[v] + off*(cap/ol);
+                pos[v] = np; }
+            cur = refine_score_grad(nullptr);        // re-baseline after jitter (jitter lowers score)
+            stock_pass(4.0*eta);
+            if (cur > bestS && refine_valid()) { bestS = cur; best = pos; ++wins; }
+            else pos = best;
+        }
+        pos = best; cur = bestS;
+        if (getenv("G_RDBG")) std::fprintf(stderr, "[hop] %d hops %d wins best=%.6f %.1fs\n", hops, wins, bestS, r_elapsed());
     }
 }
 
