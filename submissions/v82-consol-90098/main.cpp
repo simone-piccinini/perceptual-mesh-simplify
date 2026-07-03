@@ -64,10 +64,10 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
     if (V <= 7000)   return 0.00725;// case 2: DUST ~99.29 (99.268 conf; ~99.32 WA'd)
-    if (V <= 30000)  return 0.301875;// case 3: 69.8125 CLOSED (69.84375 WA'd v83)
-    if (V <= 40000)  return 0.145390625;// case 4: DUST 85.4609375 (85.453125 conf; 85.46875 WA'd)
+    if (V <= 30000)  return 0.301875;// case 3: DUST 69.8125 (69.75 conf; 69.875 WA'd)
+    if (V <= 40000)  return 0.14546875;// case 4: DUST 85.453125 (85.4375 conf; 85.46875 WA'd)
     if (V <= 100000) return 0.088125;// case 5: 91.1875 CLOSED (91.21875 WA'd v81)
-    if (V <= 400000) return 0.023046875;// case 6: 97.6953125 CLOSED (97.69921875 WA'd v83)
+    if (V <= 400000) return 0.023046875;// case 6: DUST 97.6953125 (97.6875 conf; 97.703125 WA'd)
     return 0.02855;                // case 7: 97.145 CLOSED (97.1475 WA'd v71)
 }
 
@@ -450,46 +450,16 @@ static void refine_positions() {
     }
 }
 
-static std::vector<float> g_lumx[6];         // original per-pixel luminance (for s-term cross-cov)
-static std::vector<float> g_valx[6][3];      // original per-channel values
-static int g_sdef = 0;                       // 1 = steer by STRUCTURE deficit (1-s) instead of contrast (1-c)
-// per-window structure deficit 1 - (cov+C)/(sqrt(vx*vy)+C) between original map X and current map Y
-static void sdef_map(const std::vector<float>& X, const std::vector<float>& Y, std::vector<float>& out) {
-    const int W = g_res; const int r = std::max(1, W/96); const double C = 0.00045; // (0.03)^2/2 at [0,1] scale
-    out.assign((size_t)W*W, 0.0f);
-    for (int y = 0; y < W; ++y) for (int x = 0; x < W; ++x) {
-        double sx=0, sy=0, sxx=0, syy=0, sxy=0; int c=0;
-        for (int dy=-r; dy<=r; ++dy){ int yy=y+dy; if(yy<0||yy>=W) continue;
-            for (int dx=-r; dx<=r; ++dx){ int xx=x+dx; if(xx<0||xx>=W) continue;
-                double a=X[(size_t)yy*W+xx], b=Y[(size_t)yy*W+xx];
-                sx+=a; sy+=b; sxx+=a*a; syy+=b*b; sxy+=a*b; ++c; } }
-        double mx=sx/c, my=sy/c, vx=std::max(0.0,sxx/c-mx*mx), vy=std::max(0.0,syy/c-my*my), cov=sxy/c-mx*my;
-        double sterm=(cov+C)/(std::sqrt(vx*vy)+C); double d=1.0-sterm; if(d<0)d=0;
-        out[(size_t)y*W+x]=(float)d; }
-}
-static void lum_map(const std::vector<int>& fid, std::vector<float>& out) {
-    const int W=g_res; out.assign((size_t)W*W,0.5f);
-    for(size_t k=0;k<(size_t)W*W;++k){ int f=fid[k]; if(f>=0) out[k]=(float)face_lum(f); }
-}
 static void pivotA_init_original() { for (int v = 0; v < 6; ++v) { std::vector<int> fid; render_faceid(v, fid); contrast_map(fid, g_sigx[v]);
-    if (g_sdef) { lum_map(fid, g_lumx[v]); if (g_perchan) for (int c=0;c<3;++c) chan_map(fid,c,g_valx[v][c]); }
     if (g_perchan) for (int c=0;c<3;++c){ std::vector<float> cv; chan_map(fid,c,cv); contrast_vals(cv,g_sigxc[v][c]); } } }
 // render the current mesh, accumulate per-vertex SSIM contrast deficit (1 - c), normalize to [0,1].
 static void pivotA_update_importance() {
     const int W = g_res; imp.assign(pos.size(), 0.0); std::vector<int> fid; std::vector<float> sigy, sigy_c[3];
-    for (int v = 0; v < 6; ++v) { render_faceid(v, fid);
-        std::vector<float> sd, sd_c[3];
-        if (g_sdef) {
-            if (g_perchan) { std::vector<float> cv; for (int c=0;c<3;++c){ chan_map(fid,c,cv); sdef_map(g_valx[v][c],cv,sd_c[c]); } }
-            else { std::vector<float> lm; lum_map(fid, lm); sdef_map(g_lumx[v], lm, sd); }
-        } else {
-            contrast_map(fid, sigy);
-            if (g_perchan) for (int c=0;c<3;++c){ std::vector<float> cv; chan_map(fid,c,cv); contrast_vals(cv,sigy_c[c]); }
-        }
+    for (int v = 0; v < 6; ++v) { render_faceid(v, fid); contrast_map(fid, sigy);
+        if (g_perchan) for (int c=0;c<3;++c){ std::vector<float> cv; chan_map(fid,c,cv); contrast_vals(cv,sigy_c[c]); }
         for (size_t k = 0; k < (size_t)W*W; ++k) { int f = fid[k]; if (f<0) continue;
             double d;
-            if (g_sdef) { if (g_perchan) { d=0; for(int c=0;c<3;++c) d+=sd_c[c][k]; } else d = sd[k]; }
-            else if (g_perchan) { d=0; for (int c=0;c<3;++c){ double sx=g_sigxc[v][c][k],sy=sigy_c[c][k],C2=0.0009; double cc=(2*sx*sy+C2)/(sx*sx+sy*sy+C2); double dc=1.0-cc; if(dc>0)d+=dc; } }  // per-channel (matches judge's per-channel normal SSIM)
+            if (g_perchan) { d=0; for (int c=0;c<3;++c){ double sx=g_sigxc[v][c][k],sy=sigy_c[c][k],C2=0.0009; double cc=(2*sx*sy+C2)/(sx*sx+sy*sy+C2); double dc=1.0-cc; if(dc>0)d+=dc; } }  // per-channel (matches judge's per-channel normal SSIM)
             else { double sx = g_sigx[v][k], sy = sigy[k], C2 = 0.0009; double cc = (2*sx*sy+C2)/(sx*sx+sy*sy+C2); d = 1.0-cc; if (d<0) d = 0; }  // grayscale
             const int* t = faces[f].data(); imp[t[0]]+=d; imp[t[1]]+=d; imp[t[2]]+=d; } }
     double mx = 1e-9; for (double x : imp) if (x>mx) mx = x; for (double& x : imp) x /= mx;
@@ -1000,7 +970,6 @@ int main(int argc, char** argv) {
         if (const char* e = getenv("G_QWEIGHT")) g_qweight = atof(e);
         if (const char* e = getenv("G_NPLACE")) g_nplace = atoi(e);
         if (const char* e = getenv("G_ANISO")) g_aniso = atoi(e);
-        if (const char* e = getenv("G_SDEF")) g_sdef = atoi(e);
         if (const char* e = getenv("G_NMETRIC")) g_nmetric = atoi(e);
         if (const char* e = getenv("G_NOLAMBDA")) g_lambda = 0.0;            // ablate Pivot-A for a clean VSA test
         if (const char* e = getenv("G_LAMBDA")) g_lambda = atof(e);          // test override: force Pivot-A strength

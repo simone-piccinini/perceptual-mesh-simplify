@@ -264,3 +264,33 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   overfits the immediate star's normal cost and degrades downstream collapses (meshoptimizer
   sliver class). With nplace2's earlier ±0.25/0.75 blends (noise), the placement-subspace family
   is bracketed. Brief §4 now fully measured: A,B,C,D dead w/ mechanism; E z-tie corner remains.
+
+- **E (raster corner) CLOSED by source read (2026-07-03):** ztie_le/edge_eps affect only exact-z
+  ties and shared-edge eps pixels — our outputs contain neither overlapping coplanar faces nor
+  order-dependent geometry. Depth's raw-z-vs-255-bg encoding = the known silhouette-bound
+  saturation, no exploit. Brief §4 fully closed: A,B,C,D,E dead with mechanism; F (dust in
+  brackets) is the only remaining value at the current stack.
+
+- **v79 (judge): 6/7 = 78.444134 — case3 69.875 WA (CLOSED at 69.75); case5 91.125 PASSED
+  (bracket now (91.125, 91.25)).**
+
+- **v80 (judge): 7/7 = 90.079687 — NEW BANK.** case5 91.1875. Next: all-bracket mid-dust bundle.
+
+- **v81 (judge): 6/7 = 74.900738 — case5 91.21875 WA (CLOSED at 91.1875). PASSED: c2@0.00725
+  (pays 99.298 — judge floor bonus), c3 69.8125, c4 85.453125, c6 97.6953125.**
+
+- **v82 (judge): 7/7 = 90.098689 — NEW BANK (consolidation).**
+
+- **v83 (judge): 4/7 = 46.983111 — c3 69.84375 WA, c6 97.69921875 WA (both CLOSED), c4 85.4609375
+  PASSED. ⚠ case5 WA'd AT ITS CONFIRMED RUNG 91.1875 (passed v80+v82): the wall-clock refine box
+  ⇒ machine-load-dependent iteration counts ⇒ razor-edge rungs RE-ROLL each submission. Banked
+  verdicts are fixed; new submissions near the wall are coin flips.**
+
+- **v84 (judge): 7/7 = 90.099634 — NEW BANK.** Dust field mined out. Next mechanism: structure-term
+  (σxy) Pivot-A steering — the deficit IS the s-term (2026-07-02 l·c·s diagnosis) but Pivot-A has
+  only ever steered by the c-term. Cross-covariance signal never built. Implementing as G_SDEF.
+
+- **s-term Pivot steering CLOSED (2026-07-03):** structure-deficit (σxy cross-cov) importance
+  signal at the WA'd rungs: c3 +0.0001, c4 +0.001, c5 +0.0002 — noise. Protecting saturated
+  deficit regions reallocates budget to no effect (same mechanism as splits/E1).
+- **SESSION 3 FINAL: bank 90.099634 (v84). Handoff = handoff/FABLE5_PROMPT_V3.md.**

@@ -1,4 +1,5 @@
-# CURRENT BEST = 90.048679 (v77, 7/7, 2026-07-03) — ⚠ JUDGE BILLS CUMULATIVE CPU ACROSS THREADS
+# CURRENT BEST = 90.099634 (v84, 7/7, 2026-07-03) — see handoff/FABLE5_PROMPT_V3.md (authoritative)
+# ⚠ JUDGE BILLS CUMULATIVE CPU ACROSS THREADS; near-wall rungs re-roll per submission
 NEVER ship std::thread (v60/v63: refine set TLE'd at nthreads× CPU bill). ST wall boxes only.
 Session-3 climb 89.8247 → 90.007: case5 91 (ST-refine converges), case6 97.6875, case7 97.145,
 case4 85.4375 (Pivot-A λ6 — per-case λ tuning was never done by session 1!).
