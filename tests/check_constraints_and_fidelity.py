@@ -885,7 +885,7 @@ def gen_irregular0():
 # budget UNDER-estimate the true point-to-surface Hausdorff: pushed to high
 # compression it genuinely blows past 5% of the diagonal (measured 102-716% of the
 # budget), and the oracle correctly rejects it. (See scripts that produced it /
-# docs/theory/qem-cost-is-not-hausdorff.md "Why the cube hid this".)
+# docs/postmortems/qem-cost-is-not-hausdorff.md "Why the cube hid this".)
 def _load_real(stem):
     """Load + self-validate a bundled real watertight mesh (AABB-centered, in the
     unit sphere); returns (V, F0). These real models are the only proxies that can

@@ -15,7 +15,7 @@ explaining what it is and where we rely on it.
   `Q[v] = Σ K`). See [../theory/qem-pseudocode.md](../theory/qem-pseudocode.md).
 - Key caveat we learned: the quadric error is an *average squared distance to
   planes*, not the *worst-case point-to-surface* distance the judge measures —
-  see [../theory/qem-cost-is-not-hausdorff.md](../theory/qem-cost-is-not-hausdorff.md).
+  see [../postmortems/qem-cost-is-not-hausdorff.md](../postmortems/qem-cost-is-not-hausdorff.md).
 
 ### Wang, Bovik, Sheikh & Simoncelli, 2004 — *Image Quality Assessment: From Error Visibility to Structural Similarity*
 - File: not vendored (link only) — https://www.cns.nyu.edu/~lcv/ssim/

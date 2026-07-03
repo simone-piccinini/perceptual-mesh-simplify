@@ -40,7 +40,8 @@ scripts/          Python — dev harness
   sweep_ratio.py       (planned) binary-search the cut locally (Phase 3)
 tests/data/     sample.in, sample.out (the cube from the statement)
 baseline/       provided I/O scaffold (baseline.cpp)
-docs/           problem summary, theory write-ups, and references (papers)
+docs/           problem summary + judge-map + roadmap (read-first), theory/,
+                postmortems/ (what failed & why), references/ (papers). See docs/README.md
 submissions/    versioned solver snapshots + per-attempt results
 ```
 
