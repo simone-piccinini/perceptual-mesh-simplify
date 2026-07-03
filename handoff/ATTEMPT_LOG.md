@@ -359,3 +359,9 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   accepts nothing (step 0.0025*diag likely too coarse on sparser meshes) and the phase-A cap
   costs 512-convergence.
 - **BANK = 90.228153.** Session-5 total: +0.0427 avg, two walls broken (aniso->c4, hybrid->c3).
+- R18: c4 85.6875 WA w/ aniso+hybrid (c4 CLOSED at 85.65625). c5 re-rolled at its rung again (2nd
+  time today) -> hybrid now kept ON for c5 at the confirmed rung as +0.0006 re-roll insurance.
+- R19: c5 91.5625 WA w/ hybrid small-B-step (B accepted +0.0006 judge-exact locally; not enough).
+  c5 CLOSED x7. Final session-5 state: c3 70.03125 | c4 85.65625 | c5 91.546875+hyb | others as V4.
+- **SESSION 5 FINAL BANK: 90.228153** (from 90.18551; +0.0426 avg; walls broken: c4 via aniso
+  placement (+0.20 compression), c3 via ST hybrid-1024 refine (+0.0625)).
