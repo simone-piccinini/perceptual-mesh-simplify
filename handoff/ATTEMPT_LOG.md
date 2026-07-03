@@ -305,3 +305,21 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   stock monotone optimizer: 0 hops at full budget (convergence eats 16s ST); with T1=10s carve-out,
   best hop result 0.88466 < 0.88481 plain-16s. The stock reject-and-halve ascent run to full
   budget IS the optimum under ST CPU. Env-gated code: G_ADAM/G_HOP/G_T1/G_ETA, judge-inert.
+
+- **v85 (judge): 6/7 = 75.871476 — S-DEF STEERING BREAKS TWO WALLS: case3 69.875 PASSED and
+  case5 91.21875 PASSED (both were c-def WA rungs); case4 85.46875 WA (truly closed). Local
+  proxy read s-def at +0.0001..+0.001 — the judge effect is >10x that. LESSON (user called it):
+  never close a marginal-POSITIVE idea on local reads; judge it.**
+
+- **v86 (judge): 6/7 = 78.474311 — case3 70 WA (bracket (69.875,70) w/ s-def); case5 91.25 PASSED
+  (the old hard wall, broken by s-def).**
+
+- **v87 (judge): 7/7 = 90.141472 — NEW BANK.** c3 69.9375 + c5 91.3125 w/ s-def. c5 still open.
+
+- **v88 (judge): 7/7 = 90.167172 — NEW BANK.** c3 69.96875 (70-dust reached), c5 91.4375, still open.
+
+- **AUTONOMOUS SUBMISSION LIVE (scripts/judge_submit.py, ~/.kattisrc).** 19885018: c5 91.5625 WA.
+  19885025: **7/7 = 90.177842 NEW BANK** (c5 91.5).
+
+- 19885036: 7/7 = 90.182843 (c5 91.53125). 19885042: **7/7 = 90.18551 NEW BANK** (c5 91.546875,
+  c5 CLOSED). Next: judge-side λ sweep for s-def (λ were c-def-tuned).

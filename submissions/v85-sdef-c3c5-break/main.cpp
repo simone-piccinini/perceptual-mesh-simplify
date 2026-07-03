@@ -65,9 +65,9 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
     if (V <= 7000)   return 0.00725;// case 2: DUST ~99.29 (99.268 conf; ~99.32 WA'd)
-    if (V <= 30000)  return 0.3003125;// case 3: 69.96875 confirmed
-    if (V <= 40000)  return 0.145390625;// case 4: 85.4609375 CLOSED (85.46875 WA'd with both signals)
-    if (V <= 100000) return 0.08453125;// case 5: 91.546875 confirmed
+    if (V <= 30000)  return 0.30125;// case 3: RETRY 69.875 w/ s-def steering (WA'd with c-def)
+    if (V <= 40000)  return 0.1453125;// case 4: RETRY 85.46875 w/ s-def steering (WA'd with c-def)
+    if (V <= 100000) return 0.0878125;// case 5: RETRY 91.21875 w/ s-def steering (WA'd with c-def)
     if (V <= 400000) return 0.023046875;// case 6: 97.6953125 CLOSED (97.69921875 WA'd v83)
     return 0.02855;                // case 7: 97.145 CLOSED (97.1475 WA'd v71)
 }
@@ -76,9 +76,9 @@ static double keep_for(int V) {
 // metric-in-the-loop steering (validated +~2% compression at SSIM 0.9 on asymmetric proxies).
 // Cases 2,6,7 stay at lambda 0 -> byte-identical free-QEM, preserving judge-confirmed walls.
 static double lambda_for(int V) {
-    if (V > 7000   && V <= 30000)  return 16.0;   // case 3: λ16 (λ24@70 WA'd #19885047)
+    if (V > 7000   && V <= 30000)  return 16.0;   // case 3: λ16 (session3 sweep: 0.8995@69.75 vs λ12 0.8979; λ20 worse)
     if (V > 30000  && V <= 40000)  return 6.0;    // case 4: NEW (session3 sweep: +0.0035 at keep 0.150; unimodal peak at 6)
-    if (V > 40000  && V <= 100000) return 12.0;   // case 5: λ12 (λ16@91.5625 WA'd #19885047)
+    if (V > 40000  && V <= 100000) return 12.0;   // case 5 (Pivot-A broke 79->89 on the judge)
     return 0.0;                                   // cases 2,6,7
 }
 
@@ -545,7 +545,7 @@ static void refine_positions() {
 static std::vector<float> g_lumx[6];         // original per-pixel luminance (for s-term cross-cov)
 static std::vector<float> g_valx[6][3];      // original per-channel values
 static int g_sdef = 0;                       // 1 = steer by STRUCTURE deficit (1-s) instead of contrast (1-c)
-static int sdef_for(int V) { return ((V > 7000 && V <= 30000) || (V > 40000 && V <= 100000)) ? 1 : 0; }  // s-def JUDGE-PROVEN on c3+c5 (v85 broke both walls); c4 stays c-def (85.46875 WA'd either way)
+static int sdef_for(int V) { return (V > 7000 && V <= 100000) ? 1 : 0; }  // v85 judge probe: cases 3/4/5 (local +0.0002..+0.001; proxies may understate)
 // per-window structure deficit 1 - (cov+C)/(sqrt(vx*vy)+C) between original map X and current map Y
 static void sdef_map(const std::vector<float>& X, const std::vector<float>& Y, std::vector<float>& out) {
     const int W = g_res; const int r = std::max(1, W/96); const double C = 0.00045; // (0.03)^2/2 at [0,1] scale

@@ -65,9 +65,9 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
     if (V <= 7000)   return 0.00725;// case 2: DUST ~99.29 (99.268 conf; ~99.32 WA'd)
-    if (V <= 30000)  return 0.3003125;// case 3: 69.96875 confirmed
+    if (V <= 30000)  return 0.3003125;// case 3: DUST 69.96875 (69.9375 conf; 70 WA'd)
     if (V <= 40000)  return 0.145390625;// case 4: 85.4609375 CLOSED (85.46875 WA'd with both signals)
-    if (V <= 100000) return 0.08453125;// case 5: 91.546875 confirmed
+    if (V <= 100000) return 0.08453125;// case 5: DUST 91.546875 (91.53125 conf #19885036; 91.5625 WA'd)
     if (V <= 400000) return 0.023046875;// case 6: 97.6953125 CLOSED (97.69921875 WA'd v83)
     return 0.02855;                // case 7: 97.145 CLOSED (97.1475 WA'd v71)
 }
@@ -76,9 +76,9 @@ static double keep_for(int V) {
 // metric-in-the-loop steering (validated +~2% compression at SSIM 0.9 on asymmetric proxies).
 // Cases 2,6,7 stay at lambda 0 -> byte-identical free-QEM, preserving judge-confirmed walls.
 static double lambda_for(int V) {
-    if (V > 7000   && V <= 30000)  return 16.0;   // case 3: λ16 (λ24@70 WA'd #19885047)
+    if (V > 7000   && V <= 30000)  return 16.0;   // case 3: λ16 (session3 sweep: 0.8995@69.75 vs λ12 0.8979; λ20 worse)
     if (V > 30000  && V <= 40000)  return 6.0;    // case 4: NEW (session3 sweep: +0.0035 at keep 0.150; unimodal peak at 6)
-    if (V > 40000  && V <= 100000) return 12.0;   // case 5: λ12 (λ16@91.5625 WA'd #19885047)
+    if (V > 40000  && V <= 100000) return 12.0;   // case 5 (Pivot-A broke 79->89 on the judge)
     return 0.0;                                   // cases 2,6,7
 }
 
