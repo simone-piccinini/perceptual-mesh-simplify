@@ -249,3 +249,11 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   Live main.cpp = exactly the banked config. Session climb +0.224 in ~17 judge rounds.
   Beyond this = new mechanism class: C (retriangulating VSA), B (curvature-tensor aniso),
   E (z-tie/edge_eps corner) — all must fit ~18s SINGLE-THREAD CPU (judge bills summed CPU).
+
+- **C (retriangulating-VSA family) CLOSED (2026-07-03, VSA-constrained contraction):** Lloyd
+  partition (10 iters, k=target) + HARD intra-region-only collapses until full contraction
+  (reached target exactly, V=7560), then unconstrained finish. case3@69.75 no-pivot:
+  **0.8236 vs 0.8935 unconstrained control (−0.07)**. With B2's soft form (−0.002) this brackets
+  the family: greedy VSA-lite ordering strictly dominates any static-partition-derived
+  connectivity; a true dual-mesh retriangulation inherits the same partition and cannot recover
+  −0.07 by placement. Code stays env-gated (G_VSAC), judge-inert.

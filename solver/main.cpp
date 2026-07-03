@@ -151,6 +151,14 @@ static double g_margin   = std::numeric_limits<double>::infinity();
 static std::priority_queue<HeapEntry, std::vector<HeapEntry>,
                            std::greater<HeapEntry>> heap;
 
+// ===== C probe (session 3): VSA-constrained contraction =====
+// Lloyd/VSA partition on the ORIGINAL mesh (g_flabel), then HARD-constrain collapses to stay
+// intra-region until each region contracts toward a point; finish unconstrained. Unlike B2's
+// soft penalty (which only distorted the greedy order), this REPLACES the nested-greedy
+// partition with the Lloyd optimum while keeping every collapse manifold-safe.
+static int              g_vsac = 0;
+static std::vector<int> g_vlab;       // per-vertex dominant region label (-1 = none)
+
 // --- Pivot A (metric-in-the-loop) state: render the current mesh's 6 normal maps, measure
 // the SSIM CONTRAST DEFICIT (1-c) per window vs the original, steer collapse cost by it.
 static int                 g_res    = 160;   // render resolution for the in-loop normal maps
@@ -795,6 +803,7 @@ void Decimate(int target_count) {
         if (!alive[i] || !alive[j])           continue;
         if (e.vi != ver[i] || e.vj != ver[j]) continue;
         if (!EdgeExists(i, j))                continue;
+        if (g_vsac && (g_vlab[i] < 0 || g_vlab[i] != g_vlab[j])) continue;   // C probe: intra-region only
 
         const EvalResult r = Evaluate(i, j);
         const Vec3 xb = r.target;
@@ -950,6 +959,28 @@ int main(int argc, char** argv) {
         if (vis) { compute_visibility(); if (g_lambda <= 0.0) seed_heap(); }
     }
 
+    if (const char* e = getenv("G_VSAC")) {   // C probe: VSA-constrained contraction (local test)
+        const int iters = atoi(e);
+        if (iters > 0) {
+            double kf = 1.0; if (const char* e2 = getenv("G_VSACK")) kf = atof(e2);
+            lloyd_partition((int)(kf * target_count), iters);
+            g_vlab.assign(pos.size(), -1);
+            for (int v = 0; v < (int)pos.size(); ++v) {
+                int lab[64], cnt[64], nl = 0, bi = -1, bc = 0;
+                for (int f : vfaces[v]) { const int L = g_flabel[f]; if (L < 0) continue;
+                    bool fo = false;
+                    for (int t2 = 0; t2 < nl; ++t2) if (lab[t2] == L) { if (++cnt[t2] > bc) { bc = cnt[t2]; bi = L; } fo = true; break; }
+                    if (!fo && nl < 64) { lab[nl] = L; cnt[nl] = 1; if (bc < 1) { bc = 1; bi = L; } ++nl; } }
+                g_vlab[v] = bi;
+            }
+            g_flabel.clear();              // disable B2's soft-penalty path; we use the labels HARD
+            g_vsac = 1;
+            Decimate(target_count);        // contracts regions (stalls when only cross-region edges remain)
+            g_vsac = 0;
+            std::fprintf(stderr, "[vsac] after constrained: V=%d (target %d)\n", alive_count, target_count);
+            seed_heap();                   // finish unconstrained with the normal VSA-lite ordering
+        }
+    }
     if (g_lambda > 0.0) {
         // metric-in-the-loop: render the current mesh's contrast deficit, re-seed, decimate in
         // stages so the steering tracks the deficit as it grows. Cases 2,6,7 (lambda 0) skip this.
