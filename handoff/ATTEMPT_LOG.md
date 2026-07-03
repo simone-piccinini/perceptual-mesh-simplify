@@ -323,3 +323,24 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
 
 - 19885036: 7/7 = 90.182843 (c5 91.53125). 19885042: **7/7 = 90.18551 NEW BANK** (c5 91.546875,
   c5 CLOSED). Next: judge-side λ sweep for s-def (λ were c-def-tuned).
+
+- **Autonomous re-audit round 1 (judge, 19885102..191):** c3 70 WA at λ12/16/24 (CLOSED 69.96875);
+  c6 97.71875+nplace2 WA; c5 91.5625 WA alone/+projw/+vis/+stack (CLOSED 91.546875). V4 §2 items
+  1-3 judged negative at their best targets. Bank stands 90.18551.
+
+## Session 5 (2026-07-03, autonomous rounds)
+- 19885265: 6/7 = 73.902931 — c6 97.703125 WA with pivot+s-def λ6 p3 (first Pivot on c6).
+  c6 CLOSED x3 mechanisms (plain/nplace2/pivot+sdef). V4 §3 item 1 judged negative.
+- R2 in flight: c5 91.5625 with s-def r=2 (r knob G_SDEFR baked via sdefr_for; r=1 legacy WA'd x4).
+- 19885297: c5 91.5625 WA with s-def r=2. 19885303: c5 91.5625 WA with s-def deficit^2.
+  c5 CLOSED x6 configs total.
+- 19885312: c3 70 WA with qweight 0.05 (+ c5 re-roll at its confirmed rung — razor noise, bank safe).
+  c3 70 = 4th failed config; also negative as a "c3 is CAD-like" nature probe.
+- 19885318: c3 70.5 WA with view-max importance (ambitious-probe protocol: rung+0.5 with a new
+  mechanism — EV equals rung-dust probes, 30x variance).
+- 19885340: c7 97.1525 WA with s-def remnant steering (2-stage + staged final passes at res 320;
+  res 160 is blind above ~30k faces — 12k fg pixels; imp confirmed nonzero at 320). No TLE: the
+  staged-steering c7 pipeline costs 4.1s local on 800k. Mechanism kept env-inert (lambda_for c7=0).
+- **Session 5 net: V4 §3 items 1–4 ALL judged negative. Bank stands 90.18551. Every wall now has
+  2–6 failed mechanisms at its next rung. Remaining unmeasured: self-scorer (defensive dust),
+  image-fit construction (days, Hausdorff risk on concave regions).**

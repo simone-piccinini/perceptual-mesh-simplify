@@ -1,60 +1,63 @@
-# Orchestration brief V4 — judge-first re-audit, bank 90.18551+ (2026-07-03)
+# Orchestration brief V4.1 — judge-first, bank 90.18551, re-audit half done (2026-07-03)
 
-You are the fifth researcher. Read this, then `handoff/ATTEMPT_LOG.md` (ground truth per round).
-V3 documents the mechanism map; THIS document supersedes its "closed" labels — see §2.
+You are the fifth researcher. This is the ONLY authoritative brief (V1–V3 = history; their
+"closed" labels were partly wrong — see §1). Ground truth per round: `handoff/ATTEMPT_LOG.md`.
 
-**Deadline 2026-07-18. Leader ≈ 91.6. Bank ≥ 90.18551 (submission 19885042, 7/7).**
+**Deadline 2026-07-18. Leader ≈ 91.6 avg. Our bank = 90.18551 (7/7). Gap +1.4 avg ≈ +8.5 case-sum.**
 
-## 0. THE LESSON THAT DEFINES THIS SESSION (from the user, and he was right)
-Local proxies UNDERSTATE real effects by >10x. The structure-term Pivot steering (s-def) read
-**+0.0002 on the local proxy** — on the judge it **broke two walls that had been "CLOSED"**
-(case3 69.875→69.96875+, case5 91→91.546875, worth +0.26 avg so far). Sessions 1–3 closed a
-dozen idea families on local reads of ±0.001. Some of those closures are WRONG.
+## 0. How you work now (this changed everything)
+- **You submit AUTONOMOUSLY**: `python3 scripts/judge_submit.py solver/main.cpp` → prints
+  VERDICT / SCORE / CASES (7 chars, sample+c2..c7, `.`=pass `x`=fail). Needs `~/.kattisrc`
+  (present). A round takes ~2 minutes. Best-counts: a WA costs nothing.
+- Edit `solver/main.cpp` IN PLACE (per-case config = keep_for / lambda_for / sdef_for /
+  refine_for / projw_for / vis block / twostage_for). Snapshot to `submissions/` after verdicts.
+- **The judge is the only test.** Local proxies understate real effects >10x (proven: s-def read
+  +0.0002 local, broke two judge walls worth +0.26 avg). Local runs ONLY for (a) TLE/memory
+  safety (≤16.5s CPU single-thread per case), (b) ordering candidates within a family.
+- Hard judge facts: CPU limit is SUMMED ACROSS THREADS (never ship std::thread); refine wall-box
+  16s is proven, more TLEs; keep→compression = 100·(1−keep), verify per edit; near-wall rungs can
+  re-roll (wall-clock refine box + judge load) — margins <0.001 are coin flips.
 
-**Protocol now: the judge is the only test that counts.**
-- Local runs ONLY for: (a) TLE/memory safety, (b) ORDERING candidates of a family (local ordering
-  proved reliable even when magnitudes were wrong: λ unimodality, res/passes optima).
-- Anything locally-marginal (|Δ| ≤ ~0.002) gets a judge round, not an archive entry.
-- Submissions are FREE and AUTONOMOUS: `python3 scripts/judge_submit.py solver/main.cpp`
-  (needs ~/.kattisrc; prints VERDICT/SCORE/CASES with per-case pass/fail: sample,c2..c7).
-  Edit solver/main.cpp in place; snapshot to submissions/ after each verdict.
+## 1. Story so far (sessions 3–4, 89.82 → 90.186)
+Wins, all judge-confirmed: ST-refine convergence (case5 91), per-case Pivot-A λ retune (c4 λ6,
+c3 λ16), wall ladders (c6 97.695, c7 97.145), and the big one — **s-def steering**: Pivot-A
+importance from the per-window STRUCTURE deficit (1−s, cross-covariance orig-vs-current; function
+`sdef_map`, dispatch `sdef_for` = c3+c5) instead of the contrast deficit. It broke the c3 and c5
+walls that the old signal could not (c3 69.5→69.96875, c5 91→91.546875).
 
-## 1. Current state
-Walls (judge, with s-def steering on c3/c5): c2 99.298 | c3 69.96875 (70 WA'd at λ16 AND λ24) |
-c4 85.4609375 (razor; WA'd with both signals) | c5 91.546875 (91.5625 WA'd at λ12 AND λ16) |
-c6 97.6953125 | c7 97.145. Stack per case: see keep_for/lambda_for/sdef_for in solver/main.cpp.
-Pending when session 3 ended: local λ-ordering sweeps (c3: 8/12/20 s-def @70; c5: 6/8/10 s-def
-@91.5625) and case6 pivot+s-def λ6 passes3 @97.71875 — check scratchpad eval_* files or rerun.
+## 2. Current walls (ALL judge-closed, multiple configs each)
+| case | wall | closing evidence |
+|---|---|---|
+| 2 | 99.298 (keep 0.00725) | 29-verts SSIM cliff (0.007 WA) |
+| 3 | 69.96875 | 70 WA at λ12/λ16/λ24 with s-def (19885047/102) |
+| 4 | 85.4609375 | 85.46875 WA with c-def AND s-def |
+| 5 | 91.546875 | 91.5625 WA alone/+projw/+vis/+stack ×4 (19885018..191) |
+| 6 | 97.6953125 | 97.703125 WA plain; 97.71875 WA +nplace2 (19885133) |
+| 7 | 97.145 | 97.1475 WA |
+Sum 541.10 → 90.1836 (+ case2 floor dust = 90.18551 observed).
 
-## 2. RE-AUDIT LIST — "closed" only by LOCAL reads → each deserves ONE judge round
-Ranked by (local read) × (plausibility). Test at the NEXT rung of the relevant case (a pass = wall
-moves; a WA = clean negative). One family per case per submission; judge names failing cases.
-1. **nplace2** (edge-blend placement candidates 0.25/0.75): local +0.0003 c4, **+0.0009 c6**.
-   Never judged. Code exists only in v60 lineage — reimplement (5 lines in Evaluate's nplace block).
-2. **projw beyond case4** (projected-screen-area VSA weighting): local c5 +0.0009, c3 0.0000,
-   never judged on c5/c6/c7. Toggle projw_for.
-3. **vis for case5** (visibility culling, 512-res): local +0.0003 "noise" — never judged at c5's
-   current rungs. (vis>100k stays dead: −0.058 is not marginal.)
-4. **G_PASSES/G_RES for Pivot on c3/c5** (local −0.0002/−0.0008 = marginal-negative but local!):
-   one judge shot at passes=12 or res=240 on the c3 70 rung.
-5. **qweight small** (0.05–0.1 blend; only 0.3 was swept locally at −0.008).
-6. **s-def for case6/case7 ordering** (no Pivot loop there — but sdef could WEIGHT the VSA cost
-   like projw does; new code, small).
-7. **Aniso/curvature placement** (local −0.001..−0.0014): weakest case, but the s-def precedent
-   says one judge round on c6 (its best local read) is honest.
-8. **2-stage for case6** (local −0.001 at 200–400k): one judge shot at the 97.703125 rung.
-Judge-verified closures that STAND (do not redo): all keep ladders/brackets in ATTEMPT_LOG;
-λ∈{12,16,24} c3 / {12,16} c5 / 6 c4 at the listed rungs; MT/threads (CPU-billing, hard fact);
-refine>16s budget (TLE'd); case2 29-verts (SSIM cliff); case4 85.46875 (both signals).
+## 3. Re-audit of locally-closed ideas — JUDGED status
+Done, negative (do NOT redo): nplace2@c6, projw@c5, vis@c5, vis+projw stack@c5, λ sweep at the
+next rungs of c3/c5. Still open, in priority order:
+1. **c6 pivot+s-def** (c6 never had Pivot; local eval was pending at session end —
+   `G_LAMBDA=6 G_SDEF=1 G_PASSES=3` on big400k @0.0228125; check/rerun, then judge at 97.703125).
+2. **s-def variants at the closed rungs** (window radius W/96→W/48 or W/192; c×s product;
+   deficit^2; per-channel vs luminance for c5). New signal family beat everything once — its
+   hyper-space is barely explored. One variant per round at the WA'd rungs.
+3. **qweight small** (0.05/0.1) at c3/c5 rungs (only 0.3 ever tested, locally).
+4. **s-def-weighted VSA cost for c6/c7** (needs a staged loop like Pivot since deficit needs a
+   current-vs-orig comparison; passes=2-3 for CPU).
+5. **Self-scorer**: in-process 1024 Final-SSIM of own output (normal-SSIM code exists bit-exact;
+   depth-SSIM must be written), attempt aggressive keep → fallback safe keep. Immunizes re-rolls,
+   harvests brackets (~+0.02-0.04 avg), enables sitting exactly on razor walls.
+6. **Image-fit construction** (V3 §4): the only unmeasured big-swing family. Days of work.
+Judge-verified closures that STAND: everything in ATTEMPT_LOG marked with submission IDs;
+MT/threads; refine budgets; case4 both-signals; partitions/splits/aniso/optimizer families
+(V3 §3 — those were local closures BUT their mechanisms were measured at −0.006..−0.07, not
+marginal; only re-open one if you have a genuinely different form).
 
-## 3. Beyond the re-audit (if the list exhausts)
-- s-def variants: window radius (W/96 is arbitrary), luminance vs per-channel mix, c×s product
-  steering, deficit^p powers. Cheap code, judge-probe each at the open rungs.
-- Self-scorer (V3 §4): solver evaluates its own output at 1024 in-process, attempts aggressive
-  keep, falls back if <0.90. Immunizes razor rungs (case5-style re-roll WAs) + harvests brackets.
-- The out-of-family image-fit construction (V3 §4) remains the only unmeasured big swing.
-
-## 4. Safety rails (unchanged, judge-proven)
-Single-thread ONLY (CPU billed summed). ~16.5s local-CPU ceiling per case. No env vars reach the
-judge — defaults in code decide. Keep→compression = 100·(1−keep): verify arithmetic every edit.
-Best-counts protects the bank; a WA costs one round, nothing else.
+## 4. Protocol per round
+One question per submission; the verdict must answer it. Failing cases are NAMED (CASES string).
+Probe at the NEXT rung of the target case with everything else at confirmed rungs: pass = wall
+moves (then ladder), WA = clean negative (revert, next idea). Log every round in ATTEMPT_LOG with
+submission ID. Snapshot bank-improving configs to submissions/vNN/. Commit regularly.

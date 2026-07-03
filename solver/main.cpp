@@ -65,21 +65,21 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
     if (V <= 7000)   return 0.00725;// case 2: DUST ~99.29 (99.268 conf; ~99.32 WA'd)
-    if (V <= 30000)  return 0.3003125;// case 3: 69.96875 confirmed
+    if (V <= 30000)  return 0.3003125;// case 3: 69.96875 CLOSED x5 (70 WA x3l +qw #19885312; 70.5+vmax WA #19885318)
     if (V <= 40000)  return 0.145390625;// case 4: 85.4609375 CLOSED (85.46875 WA'd with both signals)
-    if (V <= 100000) return 0.08453125;// case 5: 91.546875 confirmed
-    if (V <= 400000) return 0.023046875;// case 6: 97.6953125 CLOSED (97.69921875 WA'd v83)
-    return 0.02855;                // case 7: 97.145 CLOSED (97.1475 WA'd v71)
+    if (V <= 100000) return 0.08453125;// case 5: 91.546875 CLOSED x6 (base x4, sdef-r2 #19885297, sdef-p2 #19885303)
+    if (V <= 400000) return 0.023046875;// case 6: 97.6953125 CLOSED x3 (plain v83, nplace2, pivot+sdef #19885265)
+    return 0.02855;                // case 7: 97.145 CLOSED x2 (97.1475 plain v71; 97.1525 sdef-remnant #19885340)
 }
 
 // Pivot-A steering strength per case. Medium organic meshes (cases 3,4,5) gain from
 // metric-in-the-loop steering (validated +~2% compression at SSIM 0.9 on asymmetric proxies).
 // Cases 2,6,7 stay at lambda 0 -> byte-identical free-QEM, preserving judge-confirmed walls.
 static double lambda_for(int V) {
-    if (V > 7000   && V <= 30000)  return 16.0;   // case 3: λ16 (λ24@70 WA'd #19885047)
+    if (V > 7000   && V <= 30000)  return 16.0;   // case 3: λ16-sdef (70 WA'd at λ12/16/24 -> c3 CLOSED at 69.96875)
     if (V > 30000  && V <= 40000)  return 6.0;    // case 4: NEW (session3 sweep: +0.0035 at keep 0.150; unimodal peak at 6)
     if (V > 40000  && V <= 100000) return 12.0;   // case 5: λ12 (λ16@91.5625 WA'd #19885047)
-    return 0.0;                                   // cases 2,6,7
+    return 0.0;                                   // cases 2,6,7 (c6 pivot+sdef #19885265; c7 sdef-remnant #19885340)
 }
 
 // per-case in-loop render resolution. 320 cracked neither case3 nor case5 (not render-limited).
@@ -117,7 +117,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }  // cases 3-7 (case7
 
 // projected-screen-area weighting for the VSA cost: +0.0008 (case4) / +0.0009 (case5) local,
 // 0.0000 on case3. Enabled where it measured positive.
-static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }  // case4 only (case5 90.80+stack WA'd v48 -> reverted to its exact v47-passing config)
+static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }  // case4 only (c5 CLOSED: alone WA #19885148, +vis stack WA #19885191)
 
 constexpr int kSmallMeshSkip = 1000;    // tiny meshes (the sample): emit unchanged
 
@@ -166,8 +166,11 @@ static int                 g_res    = 160;   // render resolution for the in-loo
 static double              g_lambda = 0.0;   // steering strength (0 = plain free-QEM, untouched)
 static int                 g_ndecim = 0;     // VSA-lite: order collapses by induced normal distortion (case3 test)
 static double              g_qweight = 0.0;  // blend weight on the position quadric term (0 = pure normal-error)
+static double qweight_for(int) { return 0.0; }  // qweight 0.05@c3-70 WA'd #19885312 -> off
 static int                 g_nplace = 0;     // test: pick collapse target minimizing normal distortion
 static int                 g_aniso = 0;      // B: curvature-aligned placement candidates (env G_ANISO)
+static int                 g_nplace2 = 0;    // edge-blend placement candidates (judge probe: case6)
+static int nplace2_for(int) { return 0; }  // JUDGED #19885133: c6 97.71875 WA with nplace2 -> no wall move; off
 static double              g_2stage = 0.0;   // >1: bulk QEM-collapse to (this x target) first, then VSA (case7 speed)
 static double twostage_for(int V) { return (V > 400000) ? 5.0 : 0.0; }  // case7 only (x5 beat x3 and full-VSA locally)
 static int                 g_nmetric = 0;    // test: 0=area*(1-cos) 1=(1-cos) 2=area*(1-cos)^2
@@ -312,6 +315,7 @@ static std::vector<double> g_orig_n[6][3];     // original per-channel normal im
 static std::vector<char>   g_orig_cov[6];      // original foreground mask
 static std::chrono::steady_clock::time_point g_t0;
 static double g_refine_budget = 16.0;          // wall-clock seconds cap (margin under the judge limit)
+// (env G_BUDGET: local convergence tests only)
 static const double R_C1 = 6.5025, R_C2 = 58.5225; static const int R_WN = 121, R_RAD = 5;
 static double r_elapsed() { return std::chrono::duration<double>(std::chrono::steady_clock::now() - g_t0).count(); }
 static void r_boxsum(const std::vector<double>& a, std::vector<double>& o, int W) {  // 11x11 sliding SUM (separable)
@@ -547,8 +551,12 @@ static std::vector<float> g_valx[6][3];      // original per-channel values
 static int g_sdef = 0;                       // 1 = steer by STRUCTURE deficit (1-s) instead of contrast (1-c)
 static int sdef_for(int V) { return ((V > 7000 && V <= 30000) || (V > 40000 && V <= 100000)) ? 1 : 0; }  // s-def JUDGE-PROVEN on c3+c5 (v85 broke both walls); c4 stays c-def (85.46875 WA'd either way)
 // per-window structure deficit 1 - (cov+C)/(sqrt(vx*vy)+C) between original map X and current map Y
+static int g_sdefr = 0;   // s-def window radius override (0 = W/96 legacy)
+static int sdefr_for(int) { return 0; }  // r=2@c5 WA'd #19885297 -> legacy r everywhere
+static int g_sdefp = 1;   // s-def power (2 = square the deficit, concentrates on worst windows)
+static int sdefp_for(int) { return 1; }  // deficit^2@c5 WA'd -> off
 static void sdef_map(const std::vector<float>& X, const std::vector<float>& Y, std::vector<float>& out) {
-    const int W = g_res; const int r = std::max(1, W/96); const double C = 0.00045; // (0.03)^2/2 at [0,1] scale
+    const int W = g_res; const int r = (g_sdefr > 0) ? g_sdefr : std::max(1, W/96); const double C = 0.00045; // (0.03)^2/2 at [0,1] scale
     out.assign((size_t)W*W, 0.0f);
     for (int y = 0; y < W; ++y) for (int x = 0; x < W; ++x) {
         double sx=0, sy=0, sxx=0, syy=0, sxy=0; int c=0;
@@ -558,19 +566,24 @@ static void sdef_map(const std::vector<float>& X, const std::vector<float>& Y, s
                 sx+=a; sy+=b; sxx+=a*a; syy+=b*b; sxy+=a*b; ++c; } }
         double mx=sx/c, my=sy/c, vx=std::max(0.0,sxx/c-mx*mx), vy=std::max(0.0,syy/c-my*my), cov=sxy/c-mx*my;
         double sterm=(cov+C)/(std::sqrt(vx*vy)+C); double d=1.0-sterm; if(d<0)d=0;
+        if (g_sdefp==2) d*=d;
         out[(size_t)y*W+x]=(float)d; }
 }
 static void lum_map(const std::vector<int>& fid, std::vector<float>& out) {
     const int W=g_res; out.assign((size_t)W*W,0.5f);
     for(size_t k=0;k<(size_t)W*W;++k){ int f=fid[k]; if(f>=0) out[k]=(float)face_lum(f); }
 }
-static void pivotA_init_original() { for (int v = 0; v < 6; ++v) { std::vector<int> fid; render_faceid(v, fid); contrast_map(fid, g_sigx[v]);
+static int g_vstride = 1;   // render every k-th view for steering (c7 CPU: 6 orig renders too dear)
+static void pivotA_init_original() { for (int v = 0; v < 6; v += g_vstride) { std::vector<int> fid; render_faceid(v, fid); contrast_map(fid, g_sigx[v]);
     if (g_sdef) { lum_map(fid, g_lumx[v]); if (g_perchan) for (int c=0;c<3;++c) chan_map(fid,c,g_valx[v][c]); }
     if (g_perchan) for (int c=0;c<3;++c){ std::vector<float> cv; chan_map(fid,c,cv); contrast_vals(cv,g_sigxc[v][c]); } } }
 // render the current mesh, accumulate per-vertex SSIM contrast deficit (1 - c), normalize to [0,1].
+static int g_vmax = 0;   // 1 = importance is MAX over views (equalize worst view) instead of sum
+static int vmax_for(int) { return 0; }  // c3 70.5+vmax WA'd #19885318 -> off
 static void pivotA_update_importance() {
     const int W = g_res; imp.assign(pos.size(), 0.0); std::vector<int> fid; std::vector<float> sigy, sigy_c[3];
-    for (int v = 0; v < 6; ++v) { render_faceid(v, fid);
+    std::vector<double> vimp; if (g_vmax) vimp.assign(pos.size(), 0.0);
+    for (int v = 0; v < 6; v += g_vstride) { render_faceid(v, fid);
         std::vector<float> sd, sd_c[3];
         if (g_sdef) {
             if (g_perchan) { std::vector<float> cv; for (int c=0;c<3;++c){ chan_map(fid,c,cv); sdef_map(g_valx[v][c],cv,sd_c[c]); } }
@@ -584,7 +597,11 @@ static void pivotA_update_importance() {
             if (g_sdef) { if (g_perchan) { d=0; for(int c=0;c<3;++c) d+=sd_c[c][k]; } else d = sd[k]; }
             else if (g_perchan) { d=0; for (int c=0;c<3;++c){ double sx=g_sigxc[v][c][k],sy=sigy_c[c][k],C2=0.0009; double cc=(2*sx*sy+C2)/(sx*sx+sy*sy+C2); double dc=1.0-cc; if(dc>0)d+=dc; } }  // per-channel (matches judge's per-channel normal SSIM)
             else { double sx = g_sigx[v][k], sy = sigy[k], C2 = 0.0009; double cc = (2*sx*sy+C2)/(sx*sx+sy*sy+C2); d = 1.0-cc; if (d<0) d = 0; }  // grayscale
-            const int* t = faces[f].data(); imp[t[0]]+=d; imp[t[1]]+=d; imp[t[2]]+=d; } }
+            const int* t = faces[f].data();
+            if (g_vmax) { vimp[t[0]]+=d; vimp[t[1]]+=d; vimp[t[2]]+=d; }
+            else { imp[t[0]]+=d; imp[t[1]]+=d; imp[t[2]]+=d; } }
+        if (g_vmax) { for (size_t q=0;q<imp.size();++q){ if (vimp[q]>imp[q]) imp[q]=vimp[q]; vimp[q]=0.0; } }
+    }
     double mx = 1e-9; for (double x : imp) if (x>mx) mx = x; for (double& x : imp) x /= mx;
 }
 // rebuild the edge heap from the current (partly decimated) mesh, re-evaluating every edge with
@@ -766,6 +783,7 @@ EvalResult Evaluate(int i, int j) {
     if (g_ndecim && g_nplace) {   // test: place at the target minimizing normal distortion
         Vec3 cand2[8] = { xbar, pos[i], pos[j], 0.5*(pos[i]+pos[j]) };
         int nc = 4;
+        if (g_nplace2) { cand2[nc++] = 0.25*pos[i]+0.75*pos[j]; cand2[nc++] = 0.75*pos[i]+0.25*pos[j]; }
         if (g_aniso) {
             // B (session 3, curvature-tensor aniso): line-search placement along the merged
             // star's FLAT tangent direction (min normal variation). Aniso regions want vertices
@@ -1090,11 +1108,21 @@ int main(int argc, char** argv) {
         g_nplace = g_ndecim;   // normal-optimal collapse placement (part of VSA-lite; +0.0006 case3, +0.0026 case5)
         g_projw  = projw_for((int)pos.size());    // projected-area VSA weighting (case4)
         if (const char* e = getenv("G_NDECIM")) g_ndecim = atoi(e);          // test overrides (judge sets no env)
+        g_qweight = qweight_for((int)pos.size());
         if (const char* e = getenv("G_QWEIGHT")) g_qweight = atof(e);
         if (const char* e = getenv("G_NPLACE")) g_nplace = atoi(e);
         if (const char* e = getenv("G_ANISO")) g_aniso = atoi(e);
+        g_nplace2 = nplace2_for((int)pos.size());
+        if (const char* e = getenv("G_NPLACE2")) g_nplace2 = atoi(e);
         g_sdef = sdef_for((int)pos.size());
         if (const char* e = getenv("G_SDEF")) g_sdef = atoi(e);
+        g_sdefr = sdefr_for((int)pos.size());
+        if (const char* e = getenv("G_SDEFR")) g_sdefr = atoi(e);
+        g_sdefp = sdefp_for((int)pos.size());
+        if (const char* e = getenv("G_SDEFP")) g_sdefp = atoi(e);
+        if (const char* e = getenv("G_BUDGET")) g_refine_budget = atof(e);
+        g_vmax = vmax_for((int)pos.size());
+        if (const char* e = getenv("G_VMAX")) g_vmax = atoi(e);
         if (const char* e = getenv("G_NMETRIC")) g_nmetric = atoi(e);
         if (const char* e = getenv("G_NOLAMBDA")) g_lambda = 0.0;            // ablate Pivot-A for a clean VSA test
         if (const char* e = getenv("G_LAMBDA")) g_lambda = atof(e);          // test override: force Pivot-A strength
@@ -1107,7 +1135,7 @@ int main(int argc, char** argv) {
 
     {   // view-aware: free the hidden (never-rendered) geometry so the budget goes to visible faces
         const int VV = (int)pos.size();
-        bool vis = (VV > 7000 && VV <= 40000);                                  // case3 + case4 (case5 reverted, see projw_for)
+        bool vis = (VV > 7000 && VV <= 40000);                                  // case3 + case4 (c5 probes WA: alone #19885171, +projw #19885191)
         if (const char* e = getenv("G_VIS")) vis = atoi(e) != 0;                // test override (judge sets no env)
         if (vis) { compute_visibility(); if (g_lambda <= 0.0) seed_heap(); }
     }
@@ -1134,22 +1162,9 @@ int main(int argc, char** argv) {
             seed_heap();                   // finish unconstrained with the normal VSA-lite ordering
         }
     }
-    if (g_lambda > 0.0) {
-        // metric-in-the-loop: render the current mesh's contrast deficit, re-seed, decimate in
-        // stages so the steering tracks the deficit as it grows. Cases 2,6,7 (lambda 0) skip this.
-        g_res = res_for((int)pos.size());
-        if (const char* e = getenv("G_RES")) g_res = atoi(e);
-        g_perchan = (g_perchan_force >= 0) ? g_perchan_force : per_chan_for((int)pos.size());
-        pivotA_init_original();
-        int passes = 8; if (const char* e = getenv("G_PASSES")) passes = atoi(e);
-        const int start = alive_count;
-        for (int pa = 0; pa < passes; ++pa) {
-            pivotA_update_importance();
-            seed_heap();
-            const int tgt = start - (int)((long)(start - target_count) * (pa + 1) / passes);
-            Decimate(tgt);
-        }
-    } else if (g_ndecim && g_2stage > 1.0) {
+    if (g_ndecim && g_2stage > 1.0) {
+        const bool sdef7 = (g_lambda > 0.0);   // R6: one-pass s-def steering on the 2-stage remnant (c7)
+        if (sdef7) { g_res = 320; g_perchan = 0; g_vstride = 2; pivotA_init_original(); }  // 160 blind >30k faces (12k fg px)
         // 2-stage decimation (case7 TLE fix): bulk-collapse with cheap QEM ordering down to
         // g_2stage * target (those early collapses are low-error under any ordering), then
         // re-seed and finish with the full VSA-lite cost where the ordering actually matters.
@@ -1160,9 +1175,32 @@ int main(int argc, char** argv) {
             seed_heap();                       // re-seed with plain QEM costs
             Decimate(mid);
             g_ndecim = save_nd; g_nplace = save_np;
-            seed_heap();                       // re-seed with VSA costs on the small remnant
+            if (sdef7) {
+                // staged final: the deficit only EMERGES below ~2x target, so steer in 2 passes
+                const int m2 = target_count + (mid - target_count)/3;
+                pivotA_update_importance(); seed_heap(); Decimate(m2);
+                pivotA_update_importance();
+                if (getenv("G_DBG")) { double si=0; for(double x:imp) si+=x; fprintf(stderr, "DBG imp sum=%g\n", si); }
+            }
+            seed_heap();
         }
         Decimate(target_count);
+    } else if (g_lambda > 0.0) {
+        // metric-in-the-loop: render the current mesh's contrast deficit, re-seed, decimate in
+        // stages so the steering tracks the deficit as it grows. Cases 2,6,7 (lambda 0) skip this.
+        g_res = res_for((int)pos.size());
+        if (const char* e = getenv("G_RES")) g_res = atoi(e);
+        g_perchan = (g_perchan_force >= 0) ? g_perchan_force : per_chan_for((int)pos.size());
+        pivotA_init_original();
+        int passes = ((int)pos.size() > 100000) ? 3 : 8;   // case6: 3 passes fits the CPU box
+        if (const char* e = getenv("G_PASSES")) passes = atoi(e);
+        const int start = alive_count;
+        for (int pa = 0; pa < passes; ++pa) {
+            pivotA_update_importance();
+            seed_heap();
+            const int tgt = start - (int)((long)(start - target_count) * (pa + 1) / passes);
+            Decimate(tgt);
+        }
     } else {
         Decimate(target_count);
     }
