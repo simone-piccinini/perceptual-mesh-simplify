@@ -405,3 +405,14 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   cannot reproduce it. The "mesh is an image codec" X survives as a lens, but image-space layout
   does NOT dominate surface-derived layout: the opposite, by a wide margin. The last unmeasured
   big-swing family is now measured and closed. No 3D stitcher will be built.
+- **Study-retry cycle (2026-07-04):** stage-2 falsification VALIDATED (fitter at K=20000 converges
+  to 0.9116 -> no bug; even 7.3x budget saturates ~0.91, missing sigma_xy structure). Remaining
+  mechanism x case cells all judged WA: c6+hybrid (phase-B +0.0016 local, judge no — 6th mechanism
+  at 97.703125), c3+aniso (3rd at 70.0625), c4+sdef-post-aniso (4th at 85.75), c2 0.007+multistart.
+  MULTISTART (6 restarts, deterministic cost-jitter, polish winner) + in-process depth-SSIM
+  self-score (Final-512 selector) BUILT — but c2 failed AT ITS BANKED RUNG with it: second instance
+  of the "improvement at confirmed rung breaks the case" pattern (after c5-insurance). Restored
+  v95 verbatim -> revalidated 90.238542 7/7. Also: `g_draw` volatile alone does NOT change codegen
+  (identical score to 6 decimals) — real draws need logic/keep changes.
+- **STATE: bank 90.238542. Every family measured. Per-case: 99.298 | 70.03125 | 85.71875 |
+  91.546875 | 97.6953125 | 97.145. Deadline 07-18.**
