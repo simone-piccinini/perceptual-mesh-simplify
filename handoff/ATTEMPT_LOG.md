@@ -365,3 +365,17 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   c5 CLOSED x7. Final session-5 state: c3 70.03125 | c4 85.65625 | c5 91.546875+hyb | others as V4.
 - **SESSION 5 FINAL BANK: 90.228153** (from 90.18551; +0.0426 avg; walls broken: c4 via aniso
   placement (+0.20 compression), c3 via ST hybrid-1024 refine (+0.0625)).
+- **Paradigm-probe arc (2026-07-03, post-90.228):** measured the metric's hidden factorization —
+  the SAME physical vertex move is ~6,850x louder in the normal channel than in depth
+  (w=0.0322, zbar=2.199, depth-sigma^2=0.0021<<C2 all MEASURED on case5; lower bound, s-term
+  makes it larger). Exploitation attempts, all falsified cheaply:
+  (a) tilt-subspace refine (project gradient on vertex normals, cap up to 4.5%): 2x2 arm design
+      LOCAL-ONLY — full-grad+wide-cap inert (+0.00005), tilt arms accept ZERO moves. Root cause:
+      the converged gradient is zero; any linear reparametrization of zero is zero; monotone
+      ascent cannot use the wide tube (same class as Adam/basin-hop). No submission burned.
+  (b) constructive tilt candidates in nplace (xbar +/- {0.15,0.35}*edge along nref): c3 local
+      0.8916 vs 0.8990 anchor (-0.007). Local cost proxies (neighborhood or nref) cannot pick
+      image-correct tilts — same failure class as the flip objective (-0.016).
+  X survives as measurement; its only unfalsified exploitation = full image-driven construction
+  (stage 2, per-dominant-view low-poly fit), days of work. Env knobs: G_TILT/G_CAPF/G_CAPA/G_TCAND
+  all judge-inert defaults.
