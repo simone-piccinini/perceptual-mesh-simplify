@@ -396,3 +396,12 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   the only free variance source (sigma ~0.0002-0.0003, zero mean cost). c5@91.546875 re-roll rate
   observed ~50% across binaries -- EV math says keeping the high rung still ~breaks even vs
   retreating. Bank stands 90.238542. Marginal draw EV now ~+0.0005/round (diminishing).
+- **STAGE-2 (image-fit construction) FALSIFIED CHEAPLY (2026-07-04, local flat test):** free-layout
+  2D triangle fitting of the +X normal image with GENEROUS advantages (all 2738 view-visible verts
+  dedicated, unconstrained unit-normal colors, perfect silhouette assumed, gradient-adaptive
+  Delaunay + deficit-Lloyd) reaches 0.689 vs the current 3D mesh's 0.810 on the same view.
+  Mechanism: surface-derived facet normals are spatially CORRELATED by geometric continuity --
+  that correlation IS the sigma_xy structure SSIM rewards; independent per-triangle recoloring
+  cannot reproduce it. The "mesh is an image codec" X survives as a lens, but image-space layout
+  does NOT dominate surface-derived layout: the opposite, by a wide margin. The last unmeasured
+  big-swing family is now measured and closed. No 3D stitcher will be built.
