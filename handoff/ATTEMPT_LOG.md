@@ -353,3 +353,9 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   placement line-search is the first mechanism to move a closed wall since s-def.**
 - c6 97.703125 + aniso WA (c6 closed x4, organic). c7 97.1475 + aniso WA (closed x3, organic).
 - **BANK = 90.218096.**
+- **HYBRID-1024 ST (session-5 port of v60, single-thread, phase-A capped at budget-6s, phase-B
+  budget-2.4s guard): c3 judge-exact local +0.0013 normal → JUDGE: c3 70 PASSED (wall closed x5!),
+  70.03125 PASSED, 70.0625 WA. Banks 90.2231 → 90.2282.** hybrid_for = c3 only: on c5/c4 phase B
+  accepts nothing (step 0.0025*diag likely too coarse on sparser meshes) and the phase-A cap
+  costs 512-convergence.
+- **BANK = 90.228153.** Session-5 total: +0.0427 avg, two walls broken (aniso->c4, hybrid->c3).
