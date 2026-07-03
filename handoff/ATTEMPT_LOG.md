@@ -389,3 +389,10 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   if pushed case WAs 2-3 draws, retreat. c5@confirmed-rung p(pass)~0.6-0.7 between binaries.
 - **BANK = 90.238542** (session: 90.18551 -> +0.053). Open harvest queue: c4 85.75+, c6 97.703125
   draws, c7 97.1475 draws, c5 91.5625 draws, then T1 = clock-seeded jitter (true per-run entropy).
+- Harvest cycle 2 (2026-07-04): c4 85.75 x3 draws WA (>=1.5sigma beyond); c3 70.0625 x2; c6
+  97.703125 x1 new-stack draw WA; c7 97.1475 x3 binaries = TRUE wall (no refine, near-deterministic).
+  T1 explicit clock-seed jitter DEAD: mean-cost -0.0022 vs sigma +0.0002 (monotone ascent reabsorbs
+  the perturbation, only damage survives; jit_for=0, code kept env-gated). Binary-FP-reordering is
+  the only free variance source (sigma ~0.0002-0.0003, zero mean cost). c5@91.546875 re-roll rate
+  observed ~50% across binaries -- EV math says keeping the high rung still ~breaks even vs
+  retreating. Bank stands 90.238542. Marginal draw EV now ~+0.0005/round (diminishing).
