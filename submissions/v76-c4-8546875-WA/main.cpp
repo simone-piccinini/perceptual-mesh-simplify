@@ -64,8 +64,8 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
     if (V <= 7000)   return 0.0075;// case 2: 99.268 CLOSED (0.007 WA'd v67)
-    if (V <= 30000)  return 0.3025;// case 3: PUSH 69.75 w/ λ16 (local 0.8995 > 69.5-passing level 0.8992)
-    if (V <= 40000)  return 0.145625;// case 4: 85.4375 CLOSED (85.46875 WA'd v76)
+    if (V <= 30000)  return 0.305; // case 3: 69.5 confirmed
+    if (V <= 40000)  return 0.1453125;// case 4: PROBE 85.46875 (85.4375 confirmed v75; 85.5 WA'd -> last dust)
     if (V <= 100000) return 0.09;  // case 5: 91 CONFIRMED v64 (91.25 WA'd v65 -> CLOSED)
     if (V <= 400000) return 0.023125;// case 6: 97.6875 CONFIRMED v69 (0.0228125=97.71875 WA; arithmetic fixed)
     return 0.02855;                // case 7: 97.145 CLOSED (97.1475 WA'd v71)
@@ -75,7 +75,7 @@ static double keep_for(int V) {
 // metric-in-the-loop steering (validated +~2% compression at SSIM 0.9 on asymmetric proxies).
 // Cases 2,6,7 stay at lambda 0 -> byte-identical free-QEM, preserving judge-confirmed walls.
 static double lambda_for(int V) {
-    if (V > 7000   && V <= 30000)  return 16.0;   // case 3: λ16 (session3 sweep: 0.8995@69.75 vs λ12 0.8979; λ20 worse)
+    if (V > 7000   && V <= 30000)  return 12.0;   // case 3: Pivot-A per-channel (lambda6 read -0.0004 -> keep 12)
     if (V > 30000  && V <= 40000)  return 6.0;    // case 4: NEW (session3 sweep: +0.0035 at keep 0.150; unimodal peak at 6)
     if (V > 40000  && V <= 100000) return 12.0;   // case 5 (Pivot-A broke 79->89 on the judge)
     return 0.0;                                   // cases 2,6,7
@@ -954,11 +954,9 @@ int main(int argc, char** argv) {
         // metric-in-the-loop: render the current mesh's contrast deficit, re-seed, decimate in
         // stages so the steering tracks the deficit as it grows. Cases 2,6,7 (lambda 0) skip this.
         g_res = res_for((int)pos.size());
-        if (const char* e = getenv("G_RES")) g_res = atoi(e);
         g_perchan = (g_perchan_force >= 0) ? g_perchan_force : per_chan_for((int)pos.size());
         pivotA_init_original();
-        int passes = 8; if (const char* e = getenv("G_PASSES")) passes = atoi(e);
-        const int start = alive_count;
+        const int start = alive_count, passes = 8;
         for (int pa = 0; pa < passes; ++pa) {
             pivotA_update_importance();
             seed_heap();

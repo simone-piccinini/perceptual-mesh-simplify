@@ -954,11 +954,9 @@ int main(int argc, char** argv) {
         // metric-in-the-loop: render the current mesh's contrast deficit, re-seed, decimate in
         // stages so the steering tracks the deficit as it grows. Cases 2,6,7 (lambda 0) skip this.
         g_res = res_for((int)pos.size());
-        if (const char* e = getenv("G_RES")) g_res = atoi(e);
         g_perchan = (g_perchan_force >= 0) ? g_perchan_force : per_chan_for((int)pos.size());
         pivotA_init_original();
-        int passes = 8; if (const char* e = getenv("G_PASSES")) passes = atoi(e);
-        const int start = alive_count;
+        const int start = alive_count, passes = 8;
         for (int pa = 0; pa < passes; ++pa) {
             pivotA_update_importance();
             seed_heap();

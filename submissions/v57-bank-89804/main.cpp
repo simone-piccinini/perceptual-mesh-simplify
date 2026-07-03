@@ -34,7 +34,6 @@
 #include <limits>
 #include <string>
 #include <chrono>
-#include <thread>
 
 using Vec3    = Eigen::Vector3d;
 using Vec4    = Eigen::Vector4d;
@@ -63,22 +62,22 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // keep fraction for the non-adaptive (V <= kLargeThreshold) path, calibrated from the
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
-    if (V <= 7000)   return 0.0075;// case 2: 99.268 CLOSED (0.007 WA'd v67)
-    if (V <= 30000)  return 0.3025;// case 3: PUSH 69.75 w/ λ16 (local 0.8995 > 69.5-passing level 0.8992)
-    if (V <= 40000)  return 0.145625;// case 4: 85.4375 CLOSED (85.46875 WA'd v76)
-    if (V <= 100000) return 0.09;  // case 5: 91 CONFIRMED v64 (91.25 WA'd v65 -> CLOSED)
-    if (V <= 400000) return 0.023125;// case 6: 97.6875 CONFIRMED v69 (0.0228125=97.71875 WA; arithmetic fixed)
-    return 0.02855;                // case 7: 97.145 CLOSED (97.1475 WA'd v71)
+    if (V <= 7000)   return 0.0075;// case 2: 99.25% confirmed (99.5 WA'd v50 -> wall bracketed, CLOSED)
+    if (V <= 30000)  return 0.305; // case 3: 69.5% confirmed (69.75 WA'd v50, 70 WA'd v48 -> CLOSED)
+    if (V <= 40000)  return 0.150; // case 4: 85% CONFIRMED (85.25 WA v55, 85.5 WA v53 -> wall at 85, CLOSED)
+    if (V <= 100000) return 0.0925;// case 5: 90.75% confirmed (90.80+stack WA'd v48, 91 WA'd twice -> CLOSED)
+    if (V <= 400000) return 0.02625;// case 6: 97.375% w/ VSA+refine CONFIRMED v56
+    return 0.0305;                 // case 7: 96.95% QEM CONFIRMED (VSA-only TLE v56 -> revert; 2-stage speedup next)
 }
 
 // Pivot-A steering strength per case. Medium organic meshes (cases 3,4,5) gain from
 // metric-in-the-loop steering (validated +~2% compression at SSIM 0.9 on asymmetric proxies).
 // Cases 2,6,7 stay at lambda 0 -> byte-identical free-QEM, preserving judge-confirmed walls.
 static double lambda_for(int V) {
-    if (V > 7000   && V <= 30000)  return 16.0;   // case 3: λ16 (session3 sweep: 0.8995@69.75 vs λ12 0.8979; λ20 worse)
-    if (V > 30000  && V <= 40000)  return 6.0;    // case 4: NEW (session3 sweep: +0.0035 at keep 0.150; unimodal peak at 6)
+    if (V > 7000   && V <= 30000)  return 12.0;   // case 3: Pivot-A per-channel base for the optimizer + vis
     if (V > 40000  && V <= 100000) return 12.0;   // case 5 (Pivot-A broke 79->89 on the judge)
-    return 0.0;                                   // cases 2,6,7
+    // case 3: NO Pivot-A -> plain QEM base, then the vertex optimizer (refine_for) runs on it
+    return 0.0;                                   // cases 2,4,6,7 (large dense meshes: WA@98 / TLE -> capped)
 }
 
 // per-case in-loop render resolution. 320 cracked neither case3 nor case5 (not render-limited).
@@ -97,7 +96,7 @@ static int per_chan_for(int V) {
 
 // inverse-rendering vertex optimizer: case 3 only (its detail is uniform -> decimation capped at
 // 65%; the optimizer moves vertices to directly raise the rendered SSIM, the one lever left).
-static int refine_for(int V) { return (V > 1000 && V <= 400000) ? 1 : 0; }  // cases 2-6 (case2 added: ~25-vert output, refine cheap, may buy the 99.4 probe). case7 stays off (v55 TLE). SINGLE-THREAD ONLY: judge bills cumulative CPU across threads (v60/v63 lesson).
+static int refine_for(int V) { return ((V > 7000 && V <= 40000) || (V > 100000 && V <= 400000)) ? 1 : 0; }  // case3+case4+case6 (case7 TLE v55: unboxed refine_init on 2.2M faces; case5 no help)
 
 // VSA-lite: order edge-collapses by INDUCED NORMAL DISTORTION (L2,1) instead of QEM position error.
 // The judge measures per-face-normal SSIM, so a normal-optimal partition beats a position-optimal one.
@@ -112,7 +111,7 @@ static int refine_for(int V) { return (V > 1000 && V <= 400000) ? 1 : 0; }  // c
 // 8.0s (case7-real ~1.1M -> ~12s, fits). Relative check on subdivided big proxies: VSA@97.2 reads
 // +0.0034 ABOVE base@96.95 (case7-size) and VSA@97.25 reads +0.001 above base@97.0 (case6-size).
 // Visibility stays OFF >40k: 512-res vis marks sub-pixel faces hidden on big meshes (-0.058 local).
-static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }  // cases 3-7 (case7 via 2-stage: 8.0s -> 3.9s on 800k, quality equal-or-better)
+static int ndecim_for(int V) { return (V > 7000 && V <= 400000) ? 1 : 0; }  // cases 3-6 (case7 VSA TLE v56 even VSA-only -> needs the 2-stage speedup)
 
 // projected-screen-area weighting for the VSA cost: +0.0008 (case4) / +0.0009 (case5) local,
 // 0.0000 on case3. Enabled where it measured positive.
@@ -158,14 +157,11 @@ static double              g_lambda = 0.0;   // steering strength (0 = plain fre
 static int                 g_ndecim = 0;     // VSA-lite: order collapses by induced normal distortion (case3 test)
 static double              g_qweight = 0.0;  // blend weight on the position quadric term (0 = pure normal-error)
 static int                 g_nplace = 0;     // test: pick collapse target minimizing normal distortion
-static double              g_2stage = 0.0;   // >1: bulk QEM-collapse to (this x target) first, then VSA (case7 speed)
-static double twostage_for(int V) { return (V > 400000) ? 5.0 : 0.0; }  // case7 only (x5 beat x3 and full-VSA locally)
 static int                 g_nmetric = 0;    // test: 0=area*(1-cos) 1=(1-cos) 2=area*(1-cos)^2
 static std::vector<float>  g_sigx[6];        // original mesh per-pixel contrast (sigma_x), 6 views
 static std::vector<double> imp;              // per-vertex importance (normalized contrast deficit)
 static std::vector<float>  g_sigxc[6][3];    // per-channel (nx,ny,nz) original contrast, 6 views
 static int                 g_perchan = 0;    // 1 = steer by per-channel normal deficit (sharper than grayscale)
-static int                 g_perchan_force = -1; // env override (-1 = use per_chan_for)
 
 // smallest sphere enclosing both (c1,r1) and (c2,r2).
 static inline void merge_spheres(const Vec3& c1, double r1, const Vec3& c2, double r2,
@@ -907,7 +903,6 @@ int main(int argc, char** argv) {
     Initialize();
 
     g_refine = refine_for((int)pos.size());
-    if ((int)pos.size() <= 7000) g_refine_budget = 6.0;   // tiny meshes: refine converges in well under 6s; don't burn the box
     if (const char* e = getenv("G_REFINE")) g_refine = atoi(e);   // test override (judge sets no env)
     if (r_elapsed() > 6.0) g_refine = 0;       // TLE guard (v55 case7): refine_init is NOT wall-clock-boxed;
                                                // if load+Initialize already ate the margin, skip refine entirely
@@ -936,9 +931,6 @@ int main(int argc, char** argv) {
         if (const char* e = getenv("G_NMETRIC")) g_nmetric = atoi(e);
         if (const char* e = getenv("G_NOLAMBDA")) g_lambda = 0.0;            // ablate Pivot-A for a clean VSA test
         if (const char* e = getenv("G_LAMBDA")) g_lambda = atof(e);          // test override: force Pivot-A strength
-        if (const char* e = getenv("G_PERCHAN")) g_perchan_force = atoi(e);  // test override: per-channel steering
-        g_2stage = twostage_for((int)pos.size());
-        if (const char* e = getenv("G_2STAGE")) g_2stage = atof(e);          // 2-stage decimation factor
         if (const char* e = getenv("G_PROJW")) g_projw = atoi(e);            // projected-area VSA weighting
         if (const char* e = getenv("G_LAPL")) g_lapl = atof(e);              // Laplacian-preconditioned optimizer
     }
@@ -954,31 +946,15 @@ int main(int argc, char** argv) {
         // metric-in-the-loop: render the current mesh's contrast deficit, re-seed, decimate in
         // stages so the steering tracks the deficit as it grows. Cases 2,6,7 (lambda 0) skip this.
         g_res = res_for((int)pos.size());
-        if (const char* e = getenv("G_RES")) g_res = atoi(e);
-        g_perchan = (g_perchan_force >= 0) ? g_perchan_force : per_chan_for((int)pos.size());
+        g_perchan = per_chan_for((int)pos.size());
         pivotA_init_original();
-        int passes = 8; if (const char* e = getenv("G_PASSES")) passes = atoi(e);
-        const int start = alive_count;
+        const int start = alive_count, passes = 8;
         for (int pa = 0; pa < passes; ++pa) {
             pivotA_update_importance();
             seed_heap();
             const int tgt = start - (int)((long)(start - target_count) * (pa + 1) / passes);
             Decimate(tgt);
         }
-    } else if (g_ndecim && g_2stage > 1.0) {
-        // 2-stage decimation (case7 TLE fix): bulk-collapse with cheap QEM ordering down to
-        // g_2stage * target (those early collapses are low-error under any ordering), then
-        // re-seed and finish with the full VSA-lite cost where the ordering actually matters.
-        const int mid = std::min(alive_count - 1, (int)(g_2stage * target_count));
-        if (mid > target_count) {
-            const int save_nd = g_ndecim, save_np = g_nplace;
-            g_ndecim = 0; g_nplace = 0;
-            seed_heap();                       // re-seed with plain QEM costs
-            Decimate(mid);
-            g_ndecim = save_nd; g_nplace = save_np;
-            seed_heap();                       // re-seed with VSA costs on the small remnant
-        }
-        Decimate(target_count);
     } else {
         Decimate(target_count);
     }

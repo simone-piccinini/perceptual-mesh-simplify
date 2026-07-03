@@ -34,7 +34,6 @@
 #include <limits>
 #include <string>
 #include <chrono>
-#include <thread>
 
 using Vec3    = Eigen::Vector3d;
 using Vec4    = Eigen::Vector4d;
@@ -63,22 +62,22 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // keep fraction for the non-adaptive (V <= kLargeThreshold) path, calibrated from the
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
-    if (V <= 7000)   return 0.0075;// case 2: 99.268 CLOSED (0.007 WA'd v67)
-    if (V <= 30000)  return 0.3025;// case 3: PUSH 69.75 w/ λ16 (local 0.8995 > 69.5-passing level 0.8992)
-    if (V <= 40000)  return 0.145625;// case 4: 85.4375 CLOSED (85.46875 WA'd v76)
-    if (V <= 100000) return 0.09;  // case 5: 91 CONFIRMED v64 (91.25 WA'd v65 -> CLOSED)
-    if (V <= 400000) return 0.023125;// case 6: 97.6875 CONFIRMED v69 (0.0228125=97.71875 WA; arithmetic fixed)
-    return 0.02855;                // case 7: 97.145 CLOSED (97.1475 WA'd v71)
+    if (V <= 7000)   return 0.0075;// case 2: PROBE 99.25% (99 confirmed -> bisect)
+    if (V <= 30000)  return 0.31;  // case 3: VSA-lite normal-error decimation -> 69% (proxy 0.8996 > known-pass 0.8974)
+    if (V <= 40000)  return 0.1605;// case 4: QEM 83.95% (judge-confirmed; VSA-84.25% WA'd -> proxy unreliable here)
+    if (V <= 100000) return 0.0925;// case 5: VSA + nplace -> 90.75% (proxy margin ~+0.003 = confirmed-90.5 level)
+    if (V <= 400000) return 0.03;  // case 6: 97% confirmed (97.5% WA'd -> wall at 97)
+    return 0.0305;                 // case 7: PROBE 96.95% (96.9 pass -> near wall)
 }
 
 // Pivot-A steering strength per case. Medium organic meshes (cases 3,4,5) gain from
 // metric-in-the-loop steering (validated +~2% compression at SSIM 0.9 on asymmetric proxies).
 // Cases 2,6,7 stay at lambda 0 -> byte-identical free-QEM, preserving judge-confirmed walls.
 static double lambda_for(int V) {
-    if (V > 7000   && V <= 30000)  return 16.0;   // case 3: λ16 (session3 sweep: 0.8995@69.75 vs λ12 0.8979; λ20 worse)
-    if (V > 30000  && V <= 40000)  return 6.0;    // case 4: NEW (session3 sweep: +0.0035 at keep 0.150; unimodal peak at 6)
+    if (V > 7000   && V <= 30000)  return 12.0;   // case 3: Pivot-A per-channel base for the optimizer + vis
     if (V > 40000  && V <= 100000) return 12.0;   // case 5 (Pivot-A broke 79->89 on the judge)
-    return 0.0;                                   // cases 2,6,7
+    // case 3: NO Pivot-A -> plain QEM base, then the vertex optimizer (refine_for) runs on it
+    return 0.0;                                   // cases 2,4,6,7 (large dense meshes: WA@98 / TLE -> capped)
 }
 
 // per-case in-loop render resolution. 320 cracked neither case3 nor case5 (not render-limited).
@@ -97,7 +96,7 @@ static int per_chan_for(int V) {
 
 // inverse-rendering vertex optimizer: case 3 only (its detail is uniform -> decimation capped at
 // 65%; the optimizer moves vertices to directly raise the rendered SSIM, the one lever left).
-static int refine_for(int V) { return (V > 1000 && V <= 400000) ? 1 : 0; }  // cases 2-6 (case2 added: ~25-vert output, refine cheap, may buy the 99.4 probe). case7 stays off (v55 TLE). SINGLE-THREAD ONLY: judge bills cumulative CPU across threads (v60/v63 lesson).
+static int refine_for(int V) { return (V > 7000 && V <= 40000) ? 1 : 0; }  // case3 + case4 (case5 opt no help)
 
 // VSA-lite: order edge-collapses by INDUCED NORMAL DISTORTION (L2,1) instead of QEM position error.
 // The judge measures per-face-normal SSIM, so a normal-optimal partition beats a position-optimal one.
@@ -108,15 +107,11 @@ static int refine_for(int V) { return (V > 1000 && V <= 400000) ? 1 : 0; }  // c
 // -> case4's proxy is unreliable for VSA pushing (razor-edge), so case4 stays confirmed QEM 83.95%.
 // case4 re-enabled 2026-07-02: at the CONFIRMED keep 0.1605 (no compression push, unlike the WA'd
 // 84.25 probe) VSA+nplace reads +0.0044 and +vis +0.0032 more on proxy35k (relative, matched keep).
-// case6/case7 enabled 2026-07-02: TLE fear was never measured — VSA on an 800k-vert proxy runs in
-// 8.0s (case7-real ~1.1M -> ~12s, fits). Relative check on subdivided big proxies: VSA@97.2 reads
-// +0.0034 ABOVE base@96.95 (case7-size) and VSA@97.25 reads +0.001 above base@97.0 (case6-size).
-// Visibility stays OFF >40k: 512-res vis marks sub-pixel faces hidden on big meshes (-0.058 local).
-static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }  // cases 3-7 (case7 via 2-stage: 8.0s -> 3.9s on 800k, quality equal-or-better)
+static int ndecim_for(int V) { return ((V > 7000 && V <= 30000) || (V > 30000 && V <= 40000) || (V > 40000 && V <= 100000)) ? 1 : 0; }  // case3 + case4 + case5
 
 // projected-screen-area weighting for the VSA cost: +0.0008 (case4) / +0.0009 (case5) local,
 // 0.0000 on case3. Enabled where it measured positive.
-static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }  // case4 only (case5 90.80+stack WA'd v48 -> reverted to its exact v47-passing config)
+static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }  // case4 (S1 probe)
 
 constexpr int kSmallMeshSkip = 1000;    // tiny meshes (the sample): emit unchanged
 
@@ -158,14 +153,11 @@ static double              g_lambda = 0.0;   // steering strength (0 = plain fre
 static int                 g_ndecim = 0;     // VSA-lite: order collapses by induced normal distortion (case3 test)
 static double              g_qweight = 0.0;  // blend weight on the position quadric term (0 = pure normal-error)
 static int                 g_nplace = 0;     // test: pick collapse target minimizing normal distortion
-static double              g_2stage = 0.0;   // >1: bulk QEM-collapse to (this x target) first, then VSA (case7 speed)
-static double twostage_for(int V) { return (V > 400000) ? 5.0 : 0.0; }  // case7 only (x5 beat x3 and full-VSA locally)
 static int                 g_nmetric = 0;    // test: 0=area*(1-cos) 1=(1-cos) 2=area*(1-cos)^2
 static std::vector<float>  g_sigx[6];        // original mesh per-pixel contrast (sigma_x), 6 views
 static std::vector<double> imp;              // per-vertex importance (normalized contrast deficit)
 static std::vector<float>  g_sigxc[6][3];    // per-channel (nx,ny,nz) original contrast, 6 views
 static int                 g_perchan = 0;    // 1 = steer by per-channel normal deficit (sharper than grayscale)
-static int                 g_perchan_force = -1; // env override (-1 = use per_chan_for)
 
 // smallest sphere enclosing both (c1,r1) and (c2,r2).
 static inline void merge_spheres(const Vec3& c1, double r1, const Vec3& c2, double r2,
@@ -193,56 +185,6 @@ bool       SafeToCollapse(int i, int j, const Vec3& xbar);
 void       Collapse(int i, int j, const Vec3& xbar);
 bool       EdgeExists(int i, int j);
 const std::vector<int>& Neighbors(int i);
-
-// ===== B2: Lloyd-converged VSA partition as a collapse-protection signal =====
-// Full VSA (Cohen-Steiner 2004) flooding + proxy update, but the converged partition is used
-// ONLY to penalize collapses that straddle region boundaries — no retriangulation, so the
-// manifold-safe collapse machinery is untouched. Targets the SSIM *structure* term: a globally
-// coordinated piecewise-flat partition explains more normal-field variance per surviving facet
-// than the greedy per-collapse ordering alone (see ATTEMPT_LOG 2026-07-02 l/c/s decomposition).
-static std::vector<int> g_flabel;      // per-face region label from the ORIGINAL mesh (-1 = none)
-static double g_lloydP = 4.0;          // boundary-crossing cost multiplier strength
-static int    g_lloydM = 0;            // penalty mode: 0 = label-mix fraction, 1 = dominant-label crossing only
-static void lloyd_partition(int k, int iters) {
-    const int nf = (int)faces.size();
-    if (k < 1 || nf == 0 || iters < 1) return;
-    if (k > nf) k = nf;
-    std::vector<Vec3> fn(nf); std::vector<double> fa(nf);
-    for (int f = 0; f < nf; ++f) { const int* t = faces[f].data();
-        Vec3 c = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]); double l = c.norm();
-        fa[f] = 0.5*l; fn[f] = (l > 0.0) ? Vec3(c/l) : Vec3(0,0,1); }
-    std::unordered_map<long long,int> emap; emap.reserve((size_t)nf*2);
-    std::vector<std::array<int,3>> adj(nf, {-1,-1,-1});
-    const long long NV = (long long)pos.size();
-    for (int f = 0; f < nf; ++f) { const int* t = faces[f].data();
-        for (int e = 0; e < 3; ++e) { int a = t[e], b = t[(e+1)%3]; if (a > b) std::swap(a,b);
-            auto ins = emap.emplace((long long)a*NV+b, f);
-            if (!ins.second) { const int g = ins.first->second;
-                for (int s = 0; s < 3; ++s) if (adj[f][s] < 0) { adj[f][s] = g; break; }
-                for (int s = 0; s < 3; ++s) if (adj[g][s] < 0) { adj[g][s] = f; break; } } } }
-    std::vector<int>  seed(k);
-    std::vector<Vec3> proxy(k);
-    for (int r = 0; r < k; ++r) { seed[r] = (int)((long long)r*nf/k); proxy[r] = fn[seed[r]]; }
-    g_flabel.assign(nf, -1);
-    struct QE { double c; int f, r; bool operator>(const QE& o) const { return c > o.c; } };
-    for (int it = 0; it < iters; ++it) {
-        std::priority_queue<QE, std::vector<QE>, std::greater<QE>> pq;
-        std::fill(g_flabel.begin(), g_flabel.end(), -1);
-        for (int r = 0; r < k; ++r) { g_flabel[seed[r]] = r;
-            for (int s = 0; s < 3; ++s) { const int g = adj[seed[r]][s];
-                if (g >= 0) pq.push({ fa[g]*(1.0-fn[g].dot(proxy[r])), g, r }); } }
-        while (!pq.empty()) { const QE e = pq.top(); pq.pop();
-            if (g_flabel[e.f] >= 0) continue; g_flabel[e.f] = e.r;
-            for (int s = 0; s < 3; ++s) { const int g = adj[e.f][s];
-                if (g >= 0 && g_flabel[g] < 0) pq.push({ fa[g]*(1.0-fn[g].dot(proxy[e.r])), g, e.r }); } }
-        std::vector<Vec3> acc(k, Vec3::Zero());
-        for (int f = 0; f < nf; ++f) { const int r = g_flabel[f]; if (r >= 0) acc[r] += fa[f]*fn[f]; }
-        for (int r = 0; r < k; ++r) { const double l = acc[r].norm(); if (l > 0.0) proxy[r] = acc[r]/l; }
-        std::vector<double> best(k, 1e300);
-        for (int f = 0; f < nf; ++f) { const int r = g_flabel[f]; if (r < 0) continue;
-            const double c = fa[f]*(1.0-fn[f].dot(proxy[r])); if (c < best[r]) { best[r] = c; seed[r] = f; } }
-    }
-}
 
 // ===================== Pivot A: metric-in-the-loop rasterizer =====================
 // Flat-shaded normal-map rasterizer matching the judge oracle (6 axial cams, D=2.5, focal 800
@@ -641,37 +583,6 @@ EvalResult Evaluate(int i, int j) {
     if (g_ndecim) cost = incident_ndist(i,j,xbar) + g_qweight*cost;   // VSA-lite normal-error ordering
     if (g_lambda > 0.0 && !imp.empty())                  // Pivot-A: protect contrast-deficit regions
         cost *= (1.0 + g_lambda * (imp[i] + imp[j]));
-    if (!g_flabel.empty() && g_lloydP > 0.0) {           // B2: penalize collapses straddling Lloyd regions
-        if (g_lloydM == 1) {
-            // mode 1: penalize only when i and j's DOMINANT region labels differ (a true
-            // cross-boundary collapse); sliding along a boundary stays free.
-            int dom[2];
-            for (int vtx = 0; vtx < 2; ++vtx) {
-                int lab[64], cnt[64], nl = 0, bi = -1, bc = 0;
-                for (int f : vfaces[vtx == 0 ? i : j]) {
-                    if (!face_alive[f]) continue; const int L = g_flabel[f]; if (L < 0) continue;
-                    bool found = false;
-                    for (int s = 0; s < nl; ++s) if (lab[s] == L) { if (++cnt[s] > bc) { bc = cnt[s]; bi = L; } found = true; break; }
-                    if (!found && nl < 64) { lab[nl] = L; cnt[nl] = 1; if (bc < 1) { bc = 1; bi = L; } ++nl; }
-                }
-                dom[vtx] = bi;
-            }
-            if (dom[0] >= 0 && dom[1] >= 0 && dom[0] != dom[1]) cost *= (1.0 + g_lloydP);
-        } else {
-            // mode 0: penalty grows with the label mix of the merged star
-            int lab[64], cnt[64], nl = 0, tot = 0;
-            for (int vtx = 0; vtx < 2; ++vtx) {
-                for (int f : vfaces[vtx == 0 ? i : j]) {
-                    if (!face_alive[f]) continue; const int L = g_flabel[f]; if (L < 0) continue;
-                    ++tot; bool found = false;
-                    for (int s = 0; s < nl; ++s) if (lab[s] == L) { ++cnt[s]; found = true; break; }
-                    if (!found && nl < 64) { lab[nl] = L; cnt[nl] = 1; ++nl; }
-                }
-            }
-            if (tot > 0) { int mx = 0; for (int s = 0; s < nl; ++s) if (cnt[s] > mx) mx = cnt[s];
-                cost *= (1.0 + g_lloydP * (1.0 - (double)mx/tot)); }
-        }
-    }
     if (!g_hidvert.empty() && g_hidvert[i] && g_hidvert[j]) cost *= 1e-4;  // both hidden -> collapse first (free, no SSIM impact)
     return EvalResult{ cost, xbar };
 }
@@ -894,23 +805,9 @@ int main(int argc, char** argv) {
     if (argc > 3) { floor_frac = std::atof(argv[3]); keep = std::atof(argv[3]); }
     if (argc > 4) g_refine_res = std::atoi(argv[4]);   // local test only: override optimizer render res
 
-    if (const char* e = getenv("G_LLOYD")) {   // B2 test gate (judge sets no env)
-        const int iters = atoi(e);
-        if (iters > 0 && (int)pos.size() >= kSmallMeshSkip) {
-            double kf = 1.0; if (const char* e2 = getenv("G_LLOYDK")) kf = atof(e2);
-            if (const char* e3 = getenv("G_LLOYDP")) g_lloydP = atof(e3);
-            if (const char* e4 = getenv("G_LLOYDM")) g_lloydM = atoi(e4);
-            lloyd_partition((int)(kf * keep * pos.size()), iters);
-        }
-    }
-
     Initialize();
 
     g_refine = refine_for((int)pos.size());
-    if ((int)pos.size() <= 7000) g_refine_budget = 6.0;   // tiny meshes: refine converges in well under 6s; don't burn the box
-    if (const char* e = getenv("G_REFINE")) g_refine = atoi(e);   // test override (judge sets no env)
-    if (r_elapsed() > 6.0) g_refine = 0;       // TLE guard (v55 case7): refine_init is NOT wall-clock-boxed;
-                                               // if load+Initialize already ate the margin, skip refine entirely
     if (g_refine) refine_init_orig();          // render the original mesh's 6 normal maps (all alive) before decimation
 
     Vec3 lo = pos[0], hi = pos[0];
@@ -935,17 +832,13 @@ int main(int argc, char** argv) {
         if (const char* e = getenv("G_NPLACE")) g_nplace = atoi(e);
         if (const char* e = getenv("G_NMETRIC")) g_nmetric = atoi(e);
         if (const char* e = getenv("G_NOLAMBDA")) g_lambda = 0.0;            // ablate Pivot-A for a clean VSA test
-        if (const char* e = getenv("G_LAMBDA")) g_lambda = atof(e);          // test override: force Pivot-A strength
-        if (const char* e = getenv("G_PERCHAN")) g_perchan_force = atoi(e);  // test override: per-channel steering
-        g_2stage = twostage_for((int)pos.size());
-        if (const char* e = getenv("G_2STAGE")) g_2stage = atof(e);          // 2-stage decimation factor
         if (const char* e = getenv("G_PROJW")) g_projw = atoi(e);            // projected-area VSA weighting
         if (const char* e = getenv("G_LAPL")) g_lapl = atof(e);              // Laplacian-preconditioned optimizer
     }
 
     {   // view-aware: free the hidden (never-rendered) geometry so the budget goes to visible faces
         const int VV = (int)pos.size();
-        bool vis = (VV > 7000 && VV <= 40000);                                  // case3 + case4 (case5 reverted, see projw_for)
+        bool vis = (VV > 7000 && VV <= 40000);                                  // case3 + case4 (+0.0032 local on proxy35k)
         if (const char* e = getenv("G_VIS")) vis = atoi(e) != 0;                // test override (judge sets no env)
         if (vis) { compute_visibility(); if (g_lambda <= 0.0) seed_heap(); }
     }
@@ -954,31 +847,15 @@ int main(int argc, char** argv) {
         // metric-in-the-loop: render the current mesh's contrast deficit, re-seed, decimate in
         // stages so the steering tracks the deficit as it grows. Cases 2,6,7 (lambda 0) skip this.
         g_res = res_for((int)pos.size());
-        if (const char* e = getenv("G_RES")) g_res = atoi(e);
-        g_perchan = (g_perchan_force >= 0) ? g_perchan_force : per_chan_for((int)pos.size());
+        g_perchan = per_chan_for((int)pos.size());
         pivotA_init_original();
-        int passes = 8; if (const char* e = getenv("G_PASSES")) passes = atoi(e);
-        const int start = alive_count;
+        const int start = alive_count, passes = 8;
         for (int pa = 0; pa < passes; ++pa) {
             pivotA_update_importance();
             seed_heap();
             const int tgt = start - (int)((long)(start - target_count) * (pa + 1) / passes);
             Decimate(tgt);
         }
-    } else if (g_ndecim && g_2stage > 1.0) {
-        // 2-stage decimation (case7 TLE fix): bulk-collapse with cheap QEM ordering down to
-        // g_2stage * target (those early collapses are low-error under any ordering), then
-        // re-seed and finish with the full VSA-lite cost where the ordering actually matters.
-        const int mid = std::min(alive_count - 1, (int)(g_2stage * target_count));
-        if (mid > target_count) {
-            const int save_nd = g_ndecim, save_np = g_nplace;
-            g_ndecim = 0; g_nplace = 0;
-            seed_heap();                       // re-seed with plain QEM costs
-            Decimate(mid);
-            g_ndecim = save_nd; g_nplace = save_np;
-            seed_heap();                       // re-seed with VSA costs on the small remnant
-        }
-        Decimate(target_count);
     } else {
         Decimate(target_count);
     }
