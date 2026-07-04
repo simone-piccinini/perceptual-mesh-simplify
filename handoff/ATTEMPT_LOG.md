@@ -569,6 +569,25 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   here: switched to LIVE-binary keep ladder (single-constant change keeps the other six cases
   bit-identical to the bank; a pass banks immediately, a WA costs nothing under best-counts, and
   the live 19 s refine box gives better odds than any probe read).
+- **FLOAT32 refine buffers BUILT + measured locally (2026-07-05):** the SIMD-probe corollary
+  (refine loop memory-bound, ratio 1.000 under pragmas) finally has a reason to matter — the
+  per-run nondeterminism proof shows judge boxes CUT refine mid-flight, so iteration throughput
+  is now S on the judge. Converted the 17 refine image buffers + r_boxsum storage to float32
+  (double running accumulators inside boxsum against catastrophic cancellation; render_faceid/zb
+  and all decimation-side code left in double ON PURPOSE — decimation stays semantically
+  untouched, proven by identical V=7490 outputs). Local A/B on the case-3 path (proxy25k, hybrid
+  1024): box 10 s f32 0.902871 vs f64 0.902569 (+0.0003 where the cut binds); box 16 s equal
+  (both converge locally); f32@10s BEATS f64@16s. Judge-side the 1024 iterations are 4× costlier
+  and the box always binds → expected razor-mean lift +0.001-0.004 on cases 3/5/6 (+ lower MLE
+  pressure: −4 MiB × 17 buffers).
+- **FLOAT32 judge debut (19894800): cases 3/4/6/7 ALL PASSED at banked rungs** on freshly
+  re-rolled meshes — float32 breaks nothing. Case 3 runtime 20.7-21.0 s → **17.5 s**: its refine
+  now CONVERGES inside the box (TLE razor gone, S at its reachable max). Case 5 at V=4189 still
+  WA — its 512-refine was never box-cut (converges), so f32 gives it nothing: case 5 is
+  OPTIMUM-limited, not throughput-limited.
+- **Case-5 hybrid-1024 (f32, box 18, 19894828): WA case 5, time fine (19.0 s)** — the old TLE
+  is cured but the 1024 polish does not clear the rung. Local A/B agreed (hybrid −0.0008 at
+  t1=12, worse at 13.5/15). Hybrid-for-case5 CLOSED ×2 (local + judge); c3 keeps it.
 - **LIVE ladder, keep 0.080 (19894592): WA case 5** (21.1 s, run completed → genuine SSIM fail).
   The other five cases paid EXACTLY their banked rungs (ARITH residual −0.0049 = label rounding).
 - **LIVE ladder, keep 0.082 (19894606): WA cases 3+4+5 (!!)** — cases 3 and 4 were "bit-identical"
