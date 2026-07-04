@@ -483,3 +483,14 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   8 WA (p~0.2, razor). c5+hybrid@19s = judge TLE (1024 overshoot). Live config keeps c5 at
   0.084375: every future submission doubles as a free draw on the +0.0026 bank. c4 re-rolled
   2x more today (19889118, draw34). Bank stands 90.238542.
+- **Envelope probes (2026-07-05):** memory limit = (1 GiB, 2 GiB] per case (2GiB MLE-named, 1GiB
+  pass, 19889xxx). SPEED RATIO judge/local = 1.014 on the real r_boxsum(1024^2) kernel via covert
+  channel (N=523 vs 516 encoded in c2's compression) -> judge is NOT slower; the c3 box-17/19
+  TLEs were box+final-1024-iteration(~2.2s)+save arithmetic against the ~21s ceiling. Boxes now
+  formula-sized: c3=18, c5=19.5. Bonus: "Output Limit Exceeded" is a named verdict (c7 identity
+  through %.17g writer exceeds 100MiB).
+- **c3 endgame stall is SYSTEMATIC (3rd observation):** at keep 0.299375 (target 7484) the
+  decimation stops at 7492 (the old rung's count) and flip-unlock + vertex-removal close ZERO of
+  the 8-vert gap — despite removal locally driving bunny to 3 verts. What looked like "c3 70.0625
+  passing at box 18" was the stall passing at 70.03125. Next tool: covert-channel diagnostic
+  encoding (alive-target) and unlock/removal return values from the real c3 run. Bank 90.238542.

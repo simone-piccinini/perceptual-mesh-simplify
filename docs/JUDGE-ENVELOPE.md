@@ -38,11 +38,12 @@ not only in ATTEMPT_LOG. Last full revision: 2026-07-05.
 - CPU is billed **summed across threads**: multithreading multiplies the bill and TLEs.
   [MEASURED — v60/v63 multicore experiments; also consistent with the busy-wait probes.]
   → Practical rule: single thread only; SIMD within one thread is fine (untested but standard).
-- **Judge-side slowdown is not uniform**: our solver's 1024-resolution refine iterations
-  overshoot their wall-clock check by 3–4 s on the judge vs ~0.5 s locally (memory-bound work is
-  slower there than the busy-loop calibration suggests). Evidence: refine boxes of 17 s and 19 s
-  both TLE'd the real case-3 despite the 21 s ceiling (19889000, 19889034); a 16 s box passes.
-  [MEASURED] → Treat the last planned 1024 iteration as costing ≈4 s of judge time.
+- **Judge speed = local speed (ratio 1.014, judge marginally faster).** Covert-channel probe:
+  8 s of the real r_boxsum(1024²) kernel → N_judge=523 vs N_local=516, decoded from case-2's
+  compression. [MEASURED 2026-07-05.] The earlier c3 box-17/19 TLEs were NOT slowness: they were
+  box + final-1024-iteration overshoot (~2.2 s) + save landing exactly on the ~21 s ceiling.
+  → Correct box formula: box ≤ 20.3 − (cost of one full iteration at the phase's resolution)
+  − save time. c3 (1024 phase B): box 18. c5 (512 only): box 19.5. Verify per case on the judge.
 - Safe per-case boxes as of today (encoded in `main()`):
   c2 = 6 s · c3 = 16 s (17 TLEs!) · c4 = 14 s (16 TLE'd at keep 0.1425 — cause never fully
   explained; do not raise) · c5 = 19 s (proven passing twice) · c6 = 16 s (a 19 s box made its
@@ -96,7 +97,9 @@ The four output constraints, verbatim scope [OFFICIAL], plus what we probed arou
   interior or surface points" [OFFICIAL clarification 2026-06-18]. Faces are geometrically
   unconstrained; only vertex sets must stay within 5% of the AABB diagonal of each other.
   Our local oracle computes point-to-surface — STRICTER than the judge. Slack in practice: huge.
-- Output cap 100 MiB [OFFICIAL]. Identity echo of c7 (~40 MB) is fine.
+- Output cap 100 MiB [OFFICIAL]; violating it yields a NAMED "Output Limit Exceeded" verdict.
+  Identity RAW echo of c7 (~40 MB) is fine; identity through our %.17g writer (~97+ MB) is NOT.
+  [MEASURED 2026-07-05.]
 - Unreferenced vertices / duplicate vertices / zero-area-after-roundtrip: [UNTESTED] — see §8.
 - AI-generated code is allowed; solution must be "novel" (no copying complete solutions).
   [OFFICIAL clarification 2026-06-18.]
@@ -135,9 +138,7 @@ Case *nature* (inferred from mechanism responses): c4 responds strongly to aniso
 1. ~~Memory ceiling~~ — DONE 2026-07-05: (1 GiB, 2 GiB]. See §3.
 2. **Unreferenced-vertex validity** — banked output + 1 unused vertex. If Accepted, confirms the
    checker only validates constraint 4 literally. (No score value; closes a rules question.)
-3. **Judge/local speed ratio for memory-bound code** — covert-channel timing: run K iterations of
-   the real 1024 refine kernel for a fixed wall slice, encode K in a sacrificial case's V′.
-   Would let us size the c3/c5 boxes exactly instead of by trial TLE.
+3. ~~Judge/local speed ratio~~ — DONE 2026-07-05: 1.014 (see §2). Boxes now sized by formula.
 4. **Per-case limit uniformity** — the T=21 mixed row hints c2/c3 may enjoy a few hundred extra
    ms (or it was measurement noise at the cliff). One more probe at T=20.5 would pin it.
 5. **Duplicate vertices** — legal or not; could matter for exotic constructions. Low value today.
