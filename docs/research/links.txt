@@ -21,3 +21,10 @@ InstaLOD / Simplygon imposter docs — pratica industriale degli imposter (stess
 GitHub: "simplifygeometry", "imc2 kattis" — nessun codice pubblico del contest
 Codeforces: "IMC challenge Huawei" — solo annunci; i challenge ICPC/Huawei su CF sono altra cosa
 "SSIM-optimal piecewise constant" — vedi Brunet/Vrscay/Wang sopra
+
+== Sweep 2 (2026-07-04, angoli obliqui) ==
+Wang et al., "Perceptual Video Coding Based on SSIM-Inspired Divisive Normalization", IEEE TIP (ece.uwaterloo.ca/~z70wang/publications/TIP_SSIM-DNT.pdf) — ★ LA TROVATA: dal mondo codec video. Distorsione SSIM-ottimale = errore DIVISO per (2σ²+C2) locale. Trasferibile al costo di collasso: pesare la distorsione normale di ogni faccia per 1/(σ²_locale+C2) — le zone lisce pagano di più per unità di errore (masking percettivo come PRIOR, non reattivo). Mai testato da noi: tutti i nostri steering erano deficit-reattivi.
+Lavoué, "A Roughness Measure for 3D Mesh Visual Masking", APGV 2007 (perso.liris.cnrs.fr/guillaume.lavoue/conference/APGV2007.pdf) — conferma indipendente dal lato mesh: la distorsione è meno visibile su superfici ruvide (masking). Convergente con la divisive normalization.
+Jakob et al., "Instant Field-Aligned Meshes", SIGGRAPH Asia 2015 (igl.ethz.ch/projects/instant-meshes/) — remeshing globale allineato alle curvature (cross-field), lineare, <1s su centinaia di migliaia di facce. L'anisotropia che ha vinto su c4, in forma GLOBALE. Non testato; richiederebbe port C++ single-file; la famiglia remesh fu chiusa su varianti diverse.
+Attacchi alle metriche di qualità (arxiv 2310.06958, R-LPIPS 2307.15157) — confermano che SSIM tollera shift di colore/media se la struttura è preservata; il nostro refine è già un "attaccante SSIM" analitico. Niente di nuovo azionabile.
+Hoppe, "Mesh Optimization", SIGGRAPH 1993 — riferimento storico: energia globale con termini di conteggio vertici + spring; il nostro pipeline ne è una versione specializzata.
