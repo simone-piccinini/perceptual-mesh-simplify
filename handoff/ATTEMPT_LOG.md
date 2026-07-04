@@ -526,3 +526,12 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   (half the traffic) could buy up to ~2x refine throughput — a rewrite, not a pragma; and the
   box-filter's serial running-sum could be restructured. Also: any FUTURE compute-bound code we
   add (e.g. in-process scoring math) gets 3.26x for free via the pragma region.
+- **PROBE-CAL-7 series (2026-07-05, 19891287/365/522/587):** in-process FinalSSIM self-scorer
+  (bit-exact vs oracle, verified locally to 6 decimals) measured the judge's case-5 banked-rung
+  mesh via covert channel. 7a failed (bare-QEM carrier at 82% compression WA'd — design error,
+  carrier moved to 64-73% band; c7 identity OLE fixed with %.7g). 7b: S=0.89158 @refine9s.
+  7c: S=0.89266 @refine13s. Judge passes that mesh at >=0.9000 => JUDGE IS ~+0.005-0.006 MORE
+  GENEROUS THAN OUR MATH. Rule not yet identified (coverage/depth-norm/disparity/view-space/
+  quantization/gaussian all falsified locally). 7d (split Sn/Sd) inconsistent with 7b/7c —
+  probe bug, redo. Agreement with prior session's SIMD work: 92% (corrections: anchor at banked
+  rung not razor; carrier in bare-QEM-safe band).

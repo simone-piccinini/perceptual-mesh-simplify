@@ -1,3 +1,5 @@
+OLD FILE, IT MUST BE UPDATED! NOT THAT GOOD... IT SHOULD HAVE BETTER DESCRIPTION AND BETTER EXPLAINATIONS.. TOO VAGUE
+
 # CURRENT BEST = 90.099634 (v84, 7/7, 2026-07-03) — see handoff/FABLE5_PROMPT_V3.md (authoritative)
 # ⚠ JUDGE BILLS CUMULATIVE CPU ACROSS THREADS; near-wall rungs re-roll per submission
 NEVER ship std::thread (v60/v63: refine set TLE'd at nthreads× CPU bill). ST wall boxes only.

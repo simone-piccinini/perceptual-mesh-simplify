@@ -46,6 +46,28 @@ made past notes confusing.
 
 ---
 
+## 0b. ORACLE-vs-JUDGE CALIBRATION (probe #7 series, 2026-07-05) — ⚠ BIAS FOUND
+
+The self-scorer (our full FinalSSIM math at 1024², C++, verified BIT-EXACT against the Python
+oracle locally) measured the judge's own case-5 mesh via the covert channel:
+
+- CAL-7b (19891365): banked-rung mesh, refine 9 s → **S_ours = 0.89158**
+- CAL-7c (19891522): same, refine 13 s → **S_ours = 0.89266** (+0.0011 per +4 s of refine;
+  extrapolated to the banked 19 s box: ≈ 0.894–0.895)
+- The judge PASSES that mesh (threshold 0.9000, banked rung passes ~always).
+
+⇒ **The judge's SSIM is MORE GENEROUS than our math by ≈ +0.005–0.006** on this mesh. The rule
+that explains it is NOT yet found — falsified locally: coverage variants (union/orig/simp/
+intersection ±0.0001; all-windows +0.13 too big), depth normalizations (max +0.002), disparity
+(+0.003), view-space normals (−0.001), uint8 quantization (−0.0003), Gaussian window (wrong
+direction). Refine-convergence confound excluded on the judge itself (7b vs 7c delta).
+- CAL-7d (19891587, split Sn/Sd encode) returned values INCONSISTENT with 7b/7c (would imply
+  S=0.859) — probe bug suspected, treat as unreliable, REDO before use.
+Consequences if pinned: the refine optimizes a slightly wrong function; a bias-corrected
+self-scorer becomes a pass/fail predictor (razor p≈0.2 on the 44.8k case would be readable
+in advance). NEXT: redo the split-channel probe, then hypothesis grid on whichever channel
+carries the bias.
+
 ## 1. Execution model
 
 - Each test case runs the submitted program as a **separate process** on its own input.
