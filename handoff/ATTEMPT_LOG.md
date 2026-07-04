@@ -499,3 +499,21 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   With the keep binary-verified (proxy -> 7482) and box 18: c3@70.0625 = clean Wrong Answer.
   c3 rung CLOSED for real (6th and first unambiguous verdict). New mandatory rule in
   JUDGE-ENVELOPE §9: binary proof-run on proxy before every submission. Bank 90.238542.
+
+## SIMD-envelope probe series (2026-07-05, submissions 19889788/19889797/19889804+)
+- **PROBE A (19889788, compiler/CPU id, covert v=915):** judge CPU SUPPORTS AVX2 at runtime;
+  `__AVX2__` NOT defined at baseline (generic x86-64 arch flags); compiler = **GCC 11.5**.
+  Key implication: GCC 11 does NOT auto-vectorize at -O2 (that began with GCC 12) — the judge
+  binary today is fully SCALAR on an AVX2-capable CPU. Pragma door exists: `optimize("O3")` +
+  `target("avx2,fma")`. Judge compile time ~14 s (first live per-case timings from the new
+  submit tool). Identity-echo wall times: 256k-vertex case ~7 s, 1.1M case ~5.5 s (to OLE).
+- **PROBE B (19889797, pragma-region speedup on the refine SSIM compound, covert v=97):**
+  the compound (5 box-filter passes + 3 elementwise 512² products) under O3+avx2,fma runs at
+  **ratio 0.97 — no gain (3% slower).** Mechanism: the sliding box-sum is a serial recurrence
+  (loop-carried dependency, unvectorizable) and the elementwise products are memory-bandwidth
+  bound — vector width does not help either. The pragmas themselves COMPILE AND RUN fine
+  (no compile error, no illegal instruction; sentinels not triggered).
+- **PROBE C1/C2 (19889804/19889807, REAL refine-loop throughput, baseline vs GLOBAL O3+avx2,fma):**
+  identical covert reads (v=74, 592 box-filter calls in 7 s) — **ratio 1.000, zero gain on the
+  actual inverse-rendering refine loop.** Bit-identical scores confirm both binaries behaved
+  identically at the call-count granularity (1.3%).
