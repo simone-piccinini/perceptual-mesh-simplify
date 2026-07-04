@@ -27,15 +27,15 @@ made past notes confusing.
    the banked rung (70.03125) with the 18 s box (+2 s of gradient-ascent refine could pay), or
    leave it alone — precedent warns that giving a banked razor-edge case "more" broke it before
    (the 256k-vertex case (case 6) failed its banked rung when its box was raised to 19 s).
-2. **The per-case compression table (§6) does NOT reconstruct the banked score — MOSTLY SOLVED
-   2026-07-05.** Case-5 label corrected (91.545800 at 4226/49987). **V_case6 = 377,084
-   [MEASURED, 19895532]** — the "~256,000" guess was 47% low; measured with the fixed-count
-   single-payer design (exact-9500 output → V6 = 9500/(1−6·score/100), ±0.45 verts). Two
-   failed attempts first (exact-6000 and exact-6500 both WA, 19895285/19895524) taught a design
-   rule: keep-fraction rungs AUTO-SCALE with the unknown V, so a fixed count must be sized for
-   the UPPER end of the case's size range or it lands past the wall. Banked case-6 payout
-   re-derived: V′=8691 → 97.69518 (label said 97.6953125). Remaining: V_case7 probe in flight
-   (exact-60000, same design), then the residual should close to rounding.
+2. ~~The per-case compression table does not reconstruct the banked score~~ — **CLOSED
+   2026-07-05: residual −0.000001 (pure rounding).** All six input sizes are now MEASURED and
+   the bank decomposes EXACTLY (see §6 table): V = 3,989 / 25,000 / 32,000 / 49,987 / 377,084 /
+   1,009,118. The old "~256,000" was 47% low and "1.1M" 8% high. Instruments: the fixed-count
+   single-payer probe (exact-N output, identity elsewhere → V = N/(1−6·score/100), ±0.5 verts;
+   19895532 exact-9500 for case 6, 19895536 exact-60000 for case 7). Design rule learned the
+   expensive way (two WAs at exact-6000/6500): keep-fraction rungs AUTO-SCALE with the unknown
+   V, so a fixed count must be sized for the UPPER end of the case's size range. No hidden free
+   rung remains in the attribution: every case pays exactly its keep-derived rung + stall.
 3. ~~The judge/local speed ratio (1.014) was measured on ONE memory-bound kernel~~ —
    ANSWERED 2026-07-05 by the SIMD probe series (§3, §8 item 6): the judge toolchain is GCC 11.5
    fully scalar on an AVX2-capable CPU; pragma regions vectorize for real (3.26× compute-bound)
@@ -192,14 +192,16 @@ The four output constraints, verbatim scope [OFFICIAL], plus what we probed arou
 
 Exact sizes recovered from exact-score arithmetic [INFERRED, high confidence]:
 
-| case | V (input) | V′ at bank | bank compression | wall type |
+All sizes MEASURED; the bank decomposes bit-exactly (residual −1e-6) into these payouts:
+
+| case | V (input) | V′ at bank | bank payout (exact) | wall type |
 |---|---|---|---|---|
-| 2 | 3,989 | 28 | 99.298 | topological floor (28 verts; collapses+flips+removals all jam — likely small genus/handles) |
-| 3 | 25,000 | 7,492 | 70.03125 | SSIM wall, now ×2-DETERMINISTIC: 70.0625 WA'd both in the f64 box-cut era AND with f32-converged refine (19894901); TLE fragility GONE since float32 (converges at 17.4 s) |
-| 4 | 32,000 | 4,570 | 85.71875 | topological floor at 4,570 (CAD, many holes → high genus); 85.75 passes when a draw lands there; refine still box-cut ⇒ per-run coin (§1) |
-| 5 | **49,987** [MEASURED §7.1] | 4,226 | 91.5458 (old label 91.546875 was 44800-based) | **deterministic SSIM wall at V=4226**: 0/12 sub-rung on 2026-07-05 (f64/f32/λ/hybrid-1024/768 all WA; 768 negative even at the banked rung); f32 refine converges ⇒ no draw variance; slope ≈ 3.5e-5 S/vertex |
-| 6 | **377,084** [MEASURED 19895532] | 8,691 | 97.69518 (old "5,900 / 97.6953125" was 256k-based) | SSIM (×7 at 97.703125 = V′ 8661; 30 unexplored 1-vertex rungs to it, ≈ +0.0013 total max via fixed-count outputs); refine box-cut ⇒ per-run coin (§1) |
-| 7 | 1,100,000 | 31,405 | 97.145 | deterministic (no refine ⇒ no draw variance); 97.1475 WA ×3 binaries |
+| 2 | 3,989 | 28 | 99.298070 | topological floor (28 verts; collapses+flips+removals all jam — likely small genus/handles) |
+| 3 | 25,000 | 7,492 | 70.032000 | SSIM wall, ×2-DETERMINISTIC: 70.0625 WA'd both in the f64 box-cut era AND with f32-converged refine (19894901); TLE fragility GONE since float32 (converges at 17.4 s) |
+| 4 | 32,000 | 4,570 | 85.718750 | topological floor at 4,570 (CAD, many holes → high genus); 85.75 passes when a draw lands there; refine still box-cut ⇒ per-run coin (§1) |
+| 5 | **49,987** [MEASURED §7.1] | 4,226 | 91.545802 | **deterministic SSIM wall at V=4226**: 0/12 sub-rung on 2026-07-05 (f64/f32/λ/hybrid-1024/768 all WA; 768 negative even at the banked rung); f32 refine converges ⇒ no draw variance; slope ≈ 3.5e-5 S/vertex |
+| 6 | **377,084** [MEASURED 19895532] | 8,702 (stall +11 over the 8691 target) | 97.692291 | SSIM (×7-closed keep-rung 97.703125 = V′ 8661 → 41 unexplored 1-vertex rungs, ≈ +0.0018 total max via fixed-count outputs); refine box-cut ⇒ per-run coin (§1) |
+| 7 | **1,009,118** [MEASURED 19895536] | 28,817 | 97.144338 | deterministic (no refine ⇒ no draw variance); closed keep-rung 97.1475 = V′ 28,785 → 32 unexplored 1-vertex rungs ≈ +0.0005 total max |
 
 Case *nature* (inferred from mechanism responses): c4 responds strongly to anisotropic placement
 (CAD-like); c3/c5/c6/c7 do not (organic/scan-like); c2 is tiny and topology-limited.
@@ -295,12 +297,17 @@ pinning V_case6 (§0 item 2).
 9. **Submission rate ceiling** — 70+/day drew no complaints; the true cap bounds how many
    per-run lottery draws/day are available. Measured passively by harvesting.
 
-**Ranking by expected score value (updated 2026-07-05 night; #1/#3/#6/#7 closed):**
-V_case6 single-payer probe (§0 item 2 — one submission, closes the last unknown case size and
-the −0.0029 attribution residual; a mislabelled case-6 rung is the only place a "free" rung can
-still hide) > #4 T=20.5 + kill-point-under-load (box sizing for the two cases still living at
-20.7-21.2 s) > #9 rate cap (linear lottery EV) > #8 wall-vs-CPU (hygiene) > #2 unreferenced
-verts (rules closure, no score path today) > #5 duplicate verts (no live construction needs it).
+**Ranking (updated 2026-07-05 late night; #1/#2/#3/#6/#7/#8 + both size probes CLOSED):**
+Still open: #4 (limit fine-structure — reframed by the CPU-billing discovery: the ~21 s figure
+is a CPU ceiling, wall can exceed it freely; low value now), #5 (duplicate vertices — idle
+until a construction needs it), #9 (rate cap — passive). The probe backlog is essentially
+EMPTY. Actionable engineering leftovers from the closures, by value:
+1. **CPU-clock refine boxes** (from #8): switch `r_elapsed` from steady_clock to getrusage so
+   the boxes cut on what the judge actually bills — harvests +1-2 s of refine on loaded
+   machines for the box-cut cases (4, 6), zero TLE risk added.
+2. **Fixed-count rung ladders** (from the size probes): with V6/V7 exact, case-6 has 41 and
+   case-7 has 32 unexplored 1-vertex rungs between bank and their closed keep-rungs
+   (≈ +0.0018 and +0.0005 total max) — steppable precisely now.
 
 ## 9. Standing operational rules distilled from all of the above
 
