@@ -416,3 +416,14 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   (identical score to 6 decimals) — real draws need logic/keep changes.
 - **STATE: bank 90.238542. Every family measured. Per-case: 99.298 | 70.03125 | 85.71875 |
   91.546875 | 97.6953125 | 97.145. Deadline 07-18.**
+- **2026-07-04 (research day): PDF re-read word-by-word + official clarifications + web sweep.**
+  Three judge facts established: (1) Hausdorff is VERTEX-TO-VERTEX (official clarification;
+  our oracle's point-to-surface is STRICTER than the real judge — the surface itself is
+  unconstrained); (2) output connectedness is NOT required — **PROBED ON THE JUDGE: c2 +
+  disconnected tetrahedron = Accepted 7/7 (90.222274, v96)** — multi-component outputs are
+  legal; (3) no rejudging, test cases final. Web: edition-1 (imc25) was a different problem
+  (signal equalization), writeups private; no public contest code; SSIM-optimal-approximation
+  literature (Brunet/Vrscay/Wang: SSIM-opt = scaled L2) dominated by our direct optimizer;
+  billboard clouds (Décoret 2003) rely on textures we don't have — geometric relief variant
+  now legal but multi-view-sharing math unfavorable. Docs reorganized: docs/PROBLEM-AND-JUDGE.md
+  + docs/THEORY.md + docs/research/links.txt replace 14 stale MDs.

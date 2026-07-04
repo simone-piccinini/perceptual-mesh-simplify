@@ -1,0 +1,23 @@
+FONTI ESTERNE — una riga per fonte, con che cosa ci serve. (2026-07-04)
+
+== Contest ==
+https://imc2.kattis.com/contests/imc2-2/problems/simplifygeometry — il problema (PDF locale in ~/Downloads)
+https://imc25.kattis.com/ — edizione 1 (2025): problema DIVERSO (signal equalization); writeup dei top-40 inviati via email a Huawei, NON pubblici. Niente di riusabile trovato.
+https://www.huawei.com/minisite/imc-challenge/en/ — overview ufficiale edizioni
+
+== Paper fondanti (metodi nel solver) ==
+docs/research/garland-heckbert-1997-qem.pdf — QEM edge collapse (base della decimazione)
+Cohen-Steiner, Alliez, Desbrun, "Variational Shape Approximation", SIGGRAPH 2004 — metrica L2,1 dei normali (base di VSA-lite). Nota: la retriangolazione di VSA non garantisce manifold (CGAL issue #2368) — per questo usiamo solo l'ordinamento.
+Wang, Bovik, Sheikh, Simoncelli, "Image Quality Assessment: From Error Visibility to Structural Similarity", IEEE TIP 2004 — SSIM, decomposizione l·c·s
+Nicolet, Jacobson, Jakob, "Large Steps in Inverse Rendering of Geometry", SIGGRAPH Asia 2021 (bnicolet.com/publications/Nicolet2021Large.pdf) — preconditioning Laplaciano del gradiente. TESTATO: peggiora sul nostro metrica (liscia le mosse ad alta frequenza che SSIM-struttura paga).
+Hasselgren et al., "Appearance-Driven Automatic 3D Model Simplification", CVPRW 2021 (arxiv.org/abs/2104.03989) — la nostra pipeline Pivot-A+refine ne è la versione a 6 camere fisse.
+
+== Nicchie esplorate e chiuse ==
+Brunet, Vrscay, Wang — "Structural Similarity-Based Approximation of Signals and Images Using Orthogonal Bases" (Springer) — risultato: coefficienti SSIM-ottimali = riscalatura dei coefficienti L2. Dominato dal nostro ottimizzatore diretto sulla SSIM vera.
+Décoret, Durand, Sillion, Dorsey — "Billboard Clouds for Extreme Model Simplification", SIGGRAPH 2003 (dl.acm.org/doi/10.1145/882262.882326) — semplificazione estrema a pannelli; si regge su texture+trasparenza che NOI NON ABBIAMO (i nostri colori = normali geometriche). Variante geometrica (pannelli-rilievo per vista) subordinata al probe "output disconnesso" sul giudice.
+InstaLOD / Simplygon imposter docs — pratica industriale degli imposter (stessa subordinazione)
+
+== Ricerche fatte senza esito utile ==
+GitHub: "simplifygeometry", "imc2 kattis" — nessun codice pubblico del contest
+Codeforces: "IMC challenge Huawei" — solo annunci; i challenge ICPC/Huawei su CF sono altra cosa
+"SSIM-optimal piecewise constant" — vedi Brunet/Vrscay/Wang sopra

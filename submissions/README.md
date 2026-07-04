@@ -10,6 +10,9 @@ record and for easy rollback.
 
 ## Convention
 
+**OBBLIGATORIO in ogni RESULT.md: (1) il punteggio % totale, (2) quali casi sono passati
+(stringa CASES o elenco). Poi tutto il resto, senza esagerare.**
+
 ```
 submissions/
   vN-short-name/

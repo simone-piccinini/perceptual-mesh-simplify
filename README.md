@@ -1,111 +1,57 @@
-# IMC 2026 — Problem B: Mesh Simplification
+# IMC 2026 — Problem B: Perception-Aware Mesh Simplification
 
-Tooling for the contest *Perception-Aware Simplification of Million-Vertex 3D
-Meshes*. The goal: simplify a mesh to the fewest vertices possible while the
-judge's multi-view perceptual score stays `FinalSSIM >= 0.9` and the mesh stays
-a valid closed 2-manifold within 5% Hausdorff of the original.
+Solver per il contest Kattis/Huawei (`imc2.kattis.com`, deadline 2026-07-18): comprimere mesh 3D
+al minor numero di vertici possibile mantenendo `FinalSSIM ≥ 0.9` su 6 viste renderizzate
+(normal map + depth map, flat shading) e la validità della mesh.
 
-The repo has two halves. The **C++ solver** in `solver/` is the single file that
-is actually uploaded to the judge. The **local evaluator (oracle)** in
-`src/imc_eval/` is a faithful, offline reimplementation of the judge used to
-score candidate simplifications without spending submissions. The oracle is
-complete; `solver/main.cpp` is currently an empty scaffold where the Phase 1 QEM
-engine goes next.
-
-## Why an oracle first
-
-The judge is fully specified and deterministic, so we can reproduce its number
-locally and iterate against our own copy of the scorer. Every algorithm
-decision depends on being able to measure the score ourselves.
+**Stato: bank 90.238542 (7/7).** Per caso: c2 99.298 | c3 70.031 | c4 85.719 | c5 91.547 |
+c6 97.695 | c7 97.145.
 
 ## Layout
 
 ```
-solver/           C++ — the submission (the single file uploaded to the judge)
-  main.cpp        Phase 1 QEM engine (+ embedded scorer/search later)
-                  Eigen is provided by the judge; vendor it locally for dev builds
-src/imc_eval/     Python — the oracle (truth + validation), local only
-  geometry.py   fixed camera constants, face normals, AABB diagonal, 6 views
-  render.py     z-buffered rasteriser -> normal map + depth map (+coverage)
-  ssim.py       11x11 box-window SSIM with foreground-only averaging
-  validity.py   vertex count / indices / non-degenerate / closed-2-manifold
-  hausdorff.py  symmetric Hausdorff (v1: vertex-based approximation)
-  score.py      evaluate(Vo,Fo,Vs,Fs) -> Report (FinalSSIM, compression, pass)
-  obj_io.py     read/write the modified-OBJ format
-  cli.py        `imc-score` command
-scripts/          Python — dev harness
-  setup.sh             one-command bootstrap (oracle venv + Eigen + build + verify)
-  validate_oracle.py   self-check against identity + the sample case
-  run_and_score.py     (planned) run solver -> validate + score with oracle
-  sweep_ratio.py       (planned) binary-search the cut locally (Phase 3)
-tests/data/     sample.in, sample.out (the cube from the statement)
-baseline/       provided I/O scaffold (baseline.cpp)
-docs/           problem summary, theory write-ups, and references (papers)
-submissions/    versioned solver snapshots + per-attempt results
+solver/main.cpp     IL file che si sottomette (C++17, Eigen fornito dal giudice).
+                    Pipeline: dispatch per-caso → decimazione greedy edge-collapse ordinata
+                    per distorsione dei normali (VSA-lite) + steering dal deficit renderizzato
+                    (Pivot-A/s-def) + piazzamento aniso (c4) + visibility culling (c3/c4)
+                    + 2-stage (c7) → ottimizzatore inverse-rendering sul metrica esatto
+                    (refine, hybrid 512→1024) → output. Esperimenti falliti restano nel file,
+                    disattivati dietro variabili d'ambiente (il giudice non ne setta).
+src/imc_eval/       Oracolo Python: replica bit-exact del giudice (render+SSIM). ATTENZIONE:
+                    il suo Hausdorff è punto-a-superficie, il giudice vero usa vertice-a-vertice
+                    (più permissivo) — vedi docs/PROBLEM-AND-JUDGE.md.
+scripts/            judge_submit.py (submission autonoma + verdetto), utilità di calibrazione.
+docs/               PROBLEM-AND-JUDGE.md (regole + scoperte chiave) · THEORY.md (matematica,
+                    cosa funziona, cimitero) · research/ (fonti esterne).
+handoff/            ATTEMPT_LOG.md (storia round-per-round, VERITÀ operativa) · SOLVER_STATE.md.
+submissions/        Snapshot congelati per submission: main.cpp + RESULT.md.
+                    Convenzione RESULT.md: SEMPRE punteggio % e casi passati; poi il resto.
+tests/data/         Mesh proxy locali (armadillo/bunny/cow/fandisk).
 ```
 
-## Setup
-
-One command builds and verifies everything (Python oracle + C++ solver + Eigen):
+## Comandi essenziali
 
 ```bash
-./scripts/setup.sh
+# build
+g++ -O2 -std=c++17 -Isolver solver/main.cpp -o solver/main   # solver/Eigen -> brew eigen
+
+# rigenerare i proxy (armadillo decimato al 50% / 70%)
+G_NDECIM=0 G_NOLAMBDA=1 ./solver/main k 0.045 0.5 < tests/data/armadillo_watertight.obj > proxy25k.obj
+G_NDECIM=0 G_NOLAMBDA=1 ./solver/main k 0.045 0.7 < tests/data/armadillo_watertight.obj > proxy35k.obj
+
+# oracolo locale (SSIM fedele; Hausdorff più severo del giudice)
+PYTHONPATH=src python3 -m imc_eval.cli --input orig.obj --output simp.obj
+
+# submission autonoma (richiede ~/.kattisrc)
+python3 scripts/judge_submit.py solver/main.cpp   # stampa VERDICT / SCORE / CASES
 ```
 
-It creates `.venv` (numpy/scipy, plus numba where wheels exist), installs/locates
-Eigen and symlinks it next to `solver/main.cpp`, compiles the solver, and runs the
-oracle self-check. Supports macOS (Homebrew) and Linux (`libeigen3-dev`).
+## Regole operative (imparate a caro prezzo)
 
-<details><summary>Or set it up manually</summary>
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .                                     # numpy + scipy (+ numba where wheels exist)
-brew install eigen                                   # macOS; Linux: apt-get install libeigen3-dev
-ln -sfn "$(brew --prefix eigen)/include/eigen3/Eigen" solver/Eigen
-g++ -O2 -std=c++17 solver/main.cpp -o solver/main
-```
-</details>
-
-`numba` is optional — it JIT-accelerates the rasteriser. If it isn't installed
-(e.g. no wheel for your Python yet) the renderer falls back to pure Python:
-correct, just slower, which is fine for the small/medium cases.
-
-## Use
-
-Validate the oracle is wired correctly:
-
-```bash
-python scripts/validate_oracle.py
-# expect: identity -> SSIM 1.0 / 0%, sample -> SSIM ~1.0 / 11.11% / PASS
-```
-
-Score a simplified mesh against the original:
-
-```bash
-imc-score --input mesh.in --output mesh.out
-# or: python -m imc_eval.cli --input mesh.in --output mesh.out
-```
-
-## Known calibration gaps
-
-The statement pins most of the pipeline (1024x1024, f=800, principal point
-(512,512), D=2.5, flat per-face normals, `(n+1)*127.5` encoding, perspective-
-correct `1/z` depth, pixel-centre `+0.5` sampling, SSIM k1=0.01/k2=0.03/L=255,
-foreground masking). A few details are under-specified and are implemented to
-the most literal reading; verify against the sample and, where needed, file a
-platform Clarification:
-
-1. **Depth-map scaling.** We store raw camera-space depth (object ~1.5–3.5)
-   with background = 255, per the literal text. If the judge normalises depth
-   into [0,255] differently, depth SSIM near the 0.9 boundary will drift.
-2. **Normal space.** We use world-space face normals (view-independent), as the
-   statement describes a single per-face normal. View-space is the alternative.
-3. **Hausdorff.** Exact point-to-surface (each vertex to the nearest target
-   *triangle*, Ericson), matching the judge's "vertex covered by the other
-   surface" definition. Brute force O(V*F) -- fine for the oracle's small meshes;
-   a BVH is the drop-in upgrade for million-vertex inputs.
-
-These do not affect the *identity* and *sample* checks (both meshes are rendered
-with the identical pipeline), so those validate the machinery, not the absolute
-calibration of items 1–2.
+1. Il giudice è l'unico test: i proxy locali sottostimano gli effetti veri anche >10×.
+2. Best-counts definitivo (niente rejudging): ogni probe è gratis; una domanda per submission.
+3. Il runtime giudice è deterministico dato il binario; i muri vicini sono distribuzioni tra
+   binari (σ≈0.0002): ritentare un rung con un binario diverso è un'estrazione legittima.
+4. Mai aggiungere meccanismi "migliorativi" a un rung già confermato senza rivalidarlo:
+   due volte un extra ha rotto il caso che voleva proteggere.
+5. CPU ~16.5s/caso, sommata sui thread: single-thread, box wall-clock su ogni loop aperto.
