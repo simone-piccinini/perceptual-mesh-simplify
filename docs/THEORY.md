@@ -95,6 +95,11 @@ Slope tipico vicino al muro: ~0.0013 SSIM per 0.5% di compressione (c3). I rung 
 
 ## 6b. ✗ Strade chiuse DAL GIUDICE il 2026-07-04 (con il perché)
 
+- ✗ **Vertex-removal endgame contro i floor** — costruito e giudicato (19888881): localmente
+  sfonda ogni inceppamento geometrico (bunny→3 verts, il minimo assoluto; trefoil→13 = bound
+  del suo genus 1), ma sul giudice c2/c4 non cede NULLA → i loro floor sono GENUS VERO
+  (c2 ≈ 2–4 manici, c4 ≈ centinaia di fori CAD). Ultima porta per quei casi: chiudere i fori
+  (surgery) — ma i fori c4 sono 3–7px visibili nelle foto = costo SSIM, giorni di lavoro.
 - ✗ **Flip-to-unlock del floor topologico** — 3 submission (gate rilassato, flip valence≥7,
   valence-somma≥12): output c2/c4 SEMPRE identico. Il floor non è geometrico ma di GENUS
   (vedi PROBLEM-AND-JUDGE §5b) — i flip non cambiano la topologia. Codice resta (innocuo,

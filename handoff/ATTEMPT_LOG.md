@@ -459,3 +459,10 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   decimation self-stalled at 7492 verts (= banked 70.03125) instead of reaching 7484; unlock
   found nothing. Prior draws reached 7484 and failed SSIM. c3 rung dead for two reasons; kept
   at 70.03125. Live config = bank config (c2 0.0065 and c4 0.1425 are floor-equivalent keeps).
+- **Vertex-removal endgame (2026-07-04, 19888881):** removal+retriangulation pass built (no link
+  condition needed; local: drives bunny to the absolute 3-vert minimum, trefoil stops at 13 =
+  its genus bound; manifold preserved). JUDGE: score bit-identical AGAIN — c2/c4 floors resist
+  collapse+flip+removal => TRUE high genus (c2 ~2-4 handles -> floor 28; c4 CAD with ~hundreds
+  of holes -> floor 4570; calibration: trefoil g=1 -> 13). Only handle-closing surgery could
+  pass them, and c4's holes are 3-7px VISIBLE in the renders (SSIM cost, days of work, no local
+  testbed). Code stays active (harmless: fires only when jammed above target).
