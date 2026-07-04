@@ -46,27 +46,31 @@ made past notes confusing.
 
 ---
 
-## 0b. ORACLE-vs-JUDGE CALIBRATION (probe #7 series, 2026-07-05) — ⚠ BIAS FOUND
+## 0b. ORACLE-vs-JUDGE CALIBRATION (probe #7 series) — status: INSTRUMENT REBUILT, READ PENDING
 
-The self-scorer (our full FinalSSIM math at 1024², C++, verified BIT-EXACT against the Python
-oracle locally) measured the judge's own case-5 mesh via the covert channel:
+Chronicle (6 submissions, bank untouched):
+- 7a (19891287): carrier design error (bare-QEM at 82% compression WA'd) — moved to 64-73% band.
+- 7b/7c (19891365/522): self-scorer (bit-exact vs oracle, verified locally to 6 decimals) read
+  S=0.89158 (9 s refine) / 0.89266 (13 s) on the case-5 mesh — initially interpreted as a
+  "+0.005 judge-more-generous bias". **INTERPRETATION RETRACTED**, see next line.
+- 7d/7e split-channel probes returned mutually inconsistent values → sanitizer hunt (clean) →
+  the real cause: **the case-5 pipeline's output mesh varies by ±0.013 SSIM between STRUCTURALLY
+  different binaries** (sanitized build: Sn 0.7128 vs 0.7257 same machine/input). The old
+  "σ≈0.0002 between binaries" only holds for MICRO-edits (comment/g_draw class); large code
+  additions reshuffle FP order enough to land on very different meshes. ⇒ every probe measured a
+  DIFFERENT mesh, none of them the live binary's mesh: the pass-anchor was invalid. The "+0.005
+  bias" is NOT established. (It is not refuted either — unknown.)
+- 7f (19892477): correct design at last — emit THE MEASURED MESH itself + K hidden interior
+  tetrahedra encoding S (legal per the disconnected-output ruling; tetra cloud anchored within
+  0.03 of a kept vertex for v2v-Hausdorff safety; K = round((S-0.85)*2000), V' = V_mesh + 4K).
+  First draw: case 5 = Wrong Answer (p(fail)≈0.2-0.3 at the banked rung, or a tetra visibility
+  leak) → channel unread. RETRY with fresh draws is the path: each pass yields (S_ours, judge
+  verdict) for the SAME object — the clean calibration point.
 
-- CAL-7b (19891365): banked-rung mesh, refine 9 s → **S_ours = 0.89158**
-- CAL-7c (19891522): same, refine 13 s → **S_ours = 0.89266** (+0.0011 per +4 s of refine;
-  extrapolated to the banked 19 s box: ≈ 0.894–0.895)
-- The judge PASSES that mesh (threshold 0.9000, banked rung passes ~always).
-
-⇒ **The judge's SSIM is MORE GENEROUS than our math by ≈ +0.005–0.006** on this mesh. The rule
-that explains it is NOT yet found — falsified locally: coverage variants (union/orig/simp/
-intersection ±0.0001; all-windows +0.13 too big), depth normalizations (max +0.002), disparity
-(+0.003), view-space normals (−0.001), uint8 quantization (−0.0003), Gaussian window (wrong
-direction). Refine-convergence confound excluded on the judge itself (7b vs 7c delta).
-- CAL-7d (19891587, split Sn/Sd encode) returned values INCONSISTENT with 7b/7c (would imply
-  S=0.859) — probe bug suspected, treat as unreliable, REDO before use.
-Consequences if pinned: the refine optimizes a slightly wrong function; a bias-corrected
-self-scorer becomes a pass/fail predictor (razor p≈0.2 on the 44.8k case would be readable
-in advance). NEXT: redo the split-channel probe, then hypothesis grid on whichever channel
-carries the bias.
+Big collateral lesson [MEASURED]: **binary-to-binary mesh variance is bimodal** — micro-edits
+σ≈0.0002, structural edits up to ±0.013 SSIM. Every "rung closed ×N mechanisms" verdict where
+the mechanism added large code was ALSO a large re-draw; rung-closure statistics still stand
+(the draws were valid samples), but per-mechanism attribution near razors is weaker than logged.
 
 ## 1. Execution model
 

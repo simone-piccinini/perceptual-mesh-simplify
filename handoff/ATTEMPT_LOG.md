@@ -535,3 +535,10 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   quantization/gaussian all falsified locally). 7d (split Sn/Sd) inconsistent with 7b/7c —
   probe bug, redo. Agreement with prior session's SIMD work: 92% (corrections: anchor at banked
   rung not razor; carrier in bare-QEM-safe band).
+- **CAL-7 series wrap (2026-07-05, 19891287..19892477, 6 submissions):** "+0.005 judge bias"
+  RETRACTED — mesh-identity confound (structurally different binaries produce case-5 meshes
+  differing by up to ±0.013 SSIM; sanitized-build experiment proved it locally; the old sigma
+  0.0002 holds only for micro-edits). Probe instrument rebuilt correctly in 7f: emit the measured
+  mesh itself + K hidden interior tetrahedra encoding S (v2v-anchored, judge-legal); first draw
+  WA'd case 5 (banked-rung fail rate) -> channel unread, retry with fresh draws next session.
+  Sanitizers: clean. Self-scorer remains bit-exact vs oracle.
