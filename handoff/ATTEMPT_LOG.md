@@ -437,3 +437,11 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   the CURRENT outputs: c3 = 0, c5 = 0 (culling + natural decimation already eliminate them all).
   The v96 disconnected-output legality stands but this exploitation is worthless; per-view relief
   components remain legal-but-EV-negative (flat-test math). Bank stands 90.238542.
+- **Judge-everything round (2026-07-04, user directive: never close on local reads):** 5 submissions.
+  R-a c3 70.0625+mask WA | R-b c5 91.5625+mask WA | R-c c4 85.75+mask WA -> masking-prior now
+  JUDGE-closed on all 3 applicable cases (not just local). R-d c3 70.0625+tcand WA -> constructive
+  tilt judge-closed. R-e c2@keep0.007 = 7/7 with score IDENTICAL to bank (90.238542): same output
+  as keep 0.00725 -> the greedy decimation stops at its PHYSICAL floor (28 verts, no legal collapses
+  left) regardless of target; c2 is topology-limited, not SSIM-limited. Rung tallies now:
+  c3 70.0625 x5 | c4 85.75 x5 | c5 91.5625 x8 | c6 97.703125 x6 | c7 97.1475 x3 (deterministic).
+  Bank stands 90.238542.

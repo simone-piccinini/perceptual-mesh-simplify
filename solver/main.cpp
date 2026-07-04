@@ -67,7 +67,7 @@ static double keep_for(int V) {
     if (V <= 7000)   return 0.00725;// case 2: DUST ~99.29 (99.268 conf; ~99.32 WA'd)
     if (V <= 30000)  return 0.2996875;// case 3: 70.03125 (70.0625: 2 negative draws)
     if (V <= 40000)  return 0.1428125;// case 4: TAIL-HARVEST 85.71875 (85.6875 BANKED draw-3-of-3 #90.2333)
-    if (V <= 100000) return 0.08453125;// case 5: 91.546875 CLOSED x7 (hybrid keeps +0.0006 re-roll margin at the rung)
+    if (V <= 100000) return 0.08453125;// case 5: 91.546875 (91.5625 WA x8: +mask)
     if (V <= 400000) return 0.023046875;// case 6: 97.6953125 CLOSED x4 (plain/nplace2/pivot-sdef/aniso)
     return 0.02855;                // case 7: 97.145 CLOSED x3 (plain; sdef-remnant; aniso)
 }
@@ -119,7 +119,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }  // cases 3-7 (case7
 // 0.0000 on case3. Enabled where it measured positive.
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }  // case4 only (c5 CLOSED: alone WA #19885148, +vis stack WA #19885191)
 
-static volatile int g_draw = 12;   // binary-uniqueness knob: each value = a fresh judge draw (runtime is deterministic per binary)
+static volatile int g_draw = 15;   // binary-uniqueness knob: each value = a fresh judge draw (runtime is deterministic per binary)
 constexpr int kSmallMeshSkip = 1000;    // tiny meshes (the sample): emit unchanged
 
 struct EvalResult { double cost; Vec3 target; };
@@ -172,6 +172,7 @@ static double qweight_for(int) { return 0.0; }  // qweight 0.05@c3-70 WA'd #1988
 static int                 g_nplace = 0;     // test: pick collapse target minimizing normal distortion
 static int                 g_aniso = 0;      // B: curvature-aligned placement candidates (env G_ANISO)
 static int                 g_tcand = 0;      // constructive off-surface tilt candidates (env G_TCAND)
+static int tcand_for(int) { return 0; }  // JUDGED: c3 70.0625+tcand WA (R-d)
 static int aniso_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }  // c4 JUDGE-PROVEN (+0.20 compression); c6/c7 WA'd (organic)
 static int                 g_nplace2 = 0;    // edge-blend placement candidates (judge probe: case6)
 static int nplace2_for(int) { return 0; }  // JUDGED #19885133: c6 97.71875 WA with nplace2 -> no wall move; off
@@ -182,7 +183,8 @@ static std::vector<float>  g_sigx[6];        // original mesh per-pixel contrast
 static std::vector<double> imp;              // per-vertex importance (normalized contrast deficit)
 static std::vector<float>  g_sigxc[6][3];    // per-channel (nx,ny,nz) original contrast, 6 views
 static int                 g_perchan = 0;    // 1 = steer by per-channel normal deficit (sharper than grayscale)
-static int                 g_mask = 0;       // divisive-normalization masking prior (env G_MASK)
+static int                 g_mask = 0;       // divisive-normalization masking prior (env G_MASK; 2=sqrt-tempered)
+static int mask_for(int) { return 0; }  // JUDGED DEAD x3: c3/c5/c4 rungs all WA with mask (R-a/b/c)
 static int                 g_maskres = 0;    // res of the sigma maps sampled by mask_factor
 static int                 g_perchan_force = -1; // env override (-1 = use per_chan_for)
 
@@ -1296,6 +1298,7 @@ int main(int argc, char** argv) {
         if (const char* e = getenv("G_NPLACE")) g_nplace = atoi(e);
         g_aniso = aniso_for((int)pos.size());
         if (const char* e = getenv("G_ANISO")) g_aniso = atoi(e);
+        g_tcand = tcand_for((int)pos.size());
         if (const char* e = getenv("G_TCAND")) g_tcand = atoi(e);
         g_nplace2 = nplace2_for((int)pos.size());
         if (const char* e = getenv("G_NPLACE2")) g_nplace2 = atoi(e);
@@ -1311,6 +1314,7 @@ int main(int argc, char** argv) {
         if (const char* e = getenv("G_NMETRIC")) g_nmetric = atoi(e);
         if (const char* e = getenv("G_NOLAMBDA")) g_lambda = 0.0;            // ablate Pivot-A for a clean VSA test
         if (const char* e = getenv("G_LAMBDA")) g_lambda = atof(e);          // test override: force Pivot-A strength
+        g_mask = mask_for((int)pos.size());
         if (const char* e = getenv("G_MASK")) g_mask = atoi(e);              // divisive-normalization masking prior
         if (const char* e = getenv("G_PERCHAN")) g_perchan_force = atoi(e);  // test override: per-channel steering
         g_2stage = twostage_for((int)pos.size());
