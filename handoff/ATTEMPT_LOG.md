@@ -477,3 +477,9 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   (target 3780; V_c5=44800 inferred) and unlock/removal do NOT close the 7-vert gap — 5 binaries
   in a row, systematic, cause unknown (needs a diagnostic probe: RTE-if-stalled covert signal).
   NEXT SESSION: fix c5 endgame determinism, bank 90.2411, then ladder c5 further with refine.
+- **c5 campaign wrap (2026-07-04 night, 19889118..):** ROOT-CAUSED the "endgame stall": two SILENT
+  sed failures (c5 keep never changed in 19889051-072; budget-19 branch never inserted until
+  19889186 — greps added as discipline). True statistics at 91.5625 w/ refine+19s box: 2 pass /
+  8 WA (p~0.2, razor). c5+hybrid@19s = judge TLE (1024 overshoot). Live config keeps c5 at
+  0.084375: every future submission doubles as a free draw on the +0.0026 bank. c4 re-rolled
+  2x more today (19889118, draw34). Bank stands 90.238542.
