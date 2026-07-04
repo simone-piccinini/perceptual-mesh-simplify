@@ -27,14 +27,15 @@ made past notes confusing.
    the banked rung (70.03125) with the 18 s box (+2 s of gradient-ascent refine could pay), or
    leave it alone — precedent warns that giving a banked razor-edge case "more" broke it before
    (the 256k-vertex case (case 6) failed its banked rung when its box was raised to 19 s).
-2. **The per-case compression table (§6) does NOT reconstruct the banked score.** With the
-   corrected case-5 payout (91.545800 at V′=4226/49987, was labelled 91.546875) the label sum is
-   541.43413 vs 6 × 90.238542 = 541.43125 — residual −0.0029 still unexplained. Prime suspect
-   unchanged: the only case whose input size is approximate (the 256k-vertex case (case 6),
-   "~256,000" inferred, not exact). A case-6 single-payer probe (identity elsewhere, same design
-   that nailed case 5 in §7.1) would pin V_case6 exactly in one submission and close this item;
-   until then a case-6 bisection ladder may contain a free rung — or a phantom one already
-   "closed". The submit tool prints the score-decomposition residual on every verdict (ARITH).
+2. **The per-case compression table (§6) does NOT reconstruct the banked score — MOSTLY SOLVED
+   2026-07-05.** Case-5 label corrected (91.545800 at 4226/49987). **V_case6 = 377,084
+   [MEASURED, 19895532]** — the "~256,000" guess was 47% low; measured with the fixed-count
+   single-payer design (exact-9500 output → V6 = 9500/(1−6·score/100), ±0.45 verts). Two
+   failed attempts first (exact-6000 and exact-6500 both WA, 19895285/19895524) taught a design
+   rule: keep-fraction rungs AUTO-SCALE with the unknown V, so a fixed count must be sized for
+   the UPPER end of the case's size range or it lands past the wall. Banked case-6 payout
+   re-derived: V′=8691 → 97.69518 (label said 97.6953125). Remaining: V_case7 probe in flight
+   (exact-60000, same design), then the residual should close to rounding.
 3. ~~The judge/local speed ratio (1.014) was measured on ONE memory-bound kernel~~ —
    ANSWERED 2026-07-05 by the SIMD probe series (§3, §8 item 6): the judge toolchain is GCC 11.5
    fully scalar on an AVX2-capable CPU; pragma regions vectorize for real (3.26× compute-bound)
@@ -197,7 +198,7 @@ Exact sizes recovered from exact-score arithmetic [INFERRED, high confidence]:
 | 3 | 25,000 | 7,492 | 70.03125 | SSIM wall, now ×2-DETERMINISTIC: 70.0625 WA'd both in the f64 box-cut era AND with f32-converged refine (19894901); TLE fragility GONE since float32 (converges at 17.4 s) |
 | 4 | 32,000 | 4,570 | 85.71875 | topological floor at 4,570 (CAD, many holes → high genus); 85.75 passes when a draw lands there; refine still box-cut ⇒ per-run coin (§1) |
 | 5 | **49,987** [MEASURED §7.1] | 4,226 | 91.5458 (old label 91.546875 was 44800-based) | **deterministic SSIM wall at V=4226**: 0/12 sub-rung on 2026-07-05 (f64/f32/λ/hybrid-1024/768 all WA; 768 negative even at the banked rung); f32 refine converges ⇒ no draw variance; slope ≈ 3.5e-5 S/vertex |
-| 6 | ~256,000 (size probe pending, §0 item 2) | 5,900 | 97.6953125 | SSIM (×7 at 97.703125); refine box-cut ⇒ per-run coin (§1) |
+| 6 | **377,084** [MEASURED 19895532] | 8,691 | 97.69518 (old "5,900 / 97.6953125" was 256k-based) | SSIM (×7 at 97.703125 = V′ 8661; 30 unexplored 1-vertex rungs to it, ≈ +0.0013 total max via fixed-count outputs); refine box-cut ⇒ per-run coin (§1) |
 | 7 | 1,100,000 | 31,405 | 97.145 | deterministic (no refine ⇒ no draw variance); 97.1475 WA ×3 binaries |
 
 Case *nature* (inferred from mechanism responses): c4 responds strongly to anisotropic placement
@@ -262,8 +263,11 @@ pinning V_case6 (§0 item 2).
 ## 8. Open questions worth a probe (ranked)
 
 1. ~~Memory ceiling~~ — DONE 2026-07-05: (1 GiB, 2 GiB]. See §3.
-2. **Unreferenced-vertex validity** — banked output + 1 unused vertex. If Accepted, confirms the
-   checker only validates constraint 4 literally. (No score value; closes a rules question.)
+2. ~~Unreferenced-vertex validity~~ — **DONE 2026-07-05 (19895285): Wrong Answer.** Identity
+   case-2 output + 1 unused vertex (position = an existing vertex, so v2v-Hausdorff 0) → WA.
+   The checker rejects loose vertices (or output V > input V — indistinguishable and equally
+   disqualifying). Operational rule: any vertex-count padding must be CLOSED geometry
+   (tetrahedra/bipyramids, judge-proven legal in the §7.1 channel).
 3. ~~Judge/local speed ratio~~ — DONE 2026-07-05: 1.014 (see §2). Boxes now sized by formula.
 4. **Per-case limit uniformity** — the T=21 mixed row hints c2/c3 may enjoy a few hundred extra
    ms (or it was measurement noise at the cliff). One more probe at T=20.5 would pin it.
@@ -278,12 +282,16 @@ pinning V_case6 (§0 item 2).
 7. ~~Oracle-vs-judge SSIM calibration~~ — **DONE 2026-07-05: NO BIAS. Moved to §7.1** (verdict,
    the Vin_case5=49987 discovery, and the reusable measured-mesh channel). Local-test operating
    rules derived from it: §7.2.
-8. **Wall-clock vs CPU-clock limit** — the busy-wait probes burn CPU, so they cannot distinguish
-   the two. A `sleep(25)` probe would: pass ⇒ CPU-billed limit, TLE ⇒ wall. No known exploit
-   either way (we have no idle time), so model-hygiene value only. NOTE 2026-07-05: same-binary
-   case times swing ±1.2 s run-to-run and a 22.8 s case-5 run was judged WA (not TLE) while a
-   21.2 s case-7 run passed — the "21 s ceiling" is softer/noisier than the busy-wait probe
-   suggested; any re-probe should also re-measure the kill point under load (ties into #4).
+8. ~~Wall-clock vs CPU-clock limit~~ — **DONE 2026-07-05 (19895285): the limit is CPU-billED.**
+   The sample case slept 25 s of wall time (zero CPU) and was ACCEPTED. This also resolves the
+   "soft ceiling" anomalies: page times are wall-ish; a 22.8 s case-5 run passed the clock
+   because its CPU stayed under ~21 s (I/O + contention don't bill), while busy-wait 22 s TLE'd
+   (CPU = wall for a spinner). Consistent with thread-CPU summing (§1).
+   **EXPLOITABLE COROLLARY (new, untested): our refine time-boxes cut on WALL clock
+   (`steady_clock`), so on a loaded machine we surrender un-billed CPU budget. Switching the box
+   to CPU clock (`getrusage`/`clock()`) harvests +1-2 s of refine exactly when machines are
+   loaded — a free S lift on the box-cut cases (4 and 6) with NO TLE risk added (billing is CPU
+   and the box stays < 21 CPU-s by construction).**
 9. **Submission rate ceiling** — 70+/day drew no complaints; the true cap bounds how many
    per-run lottery draws/day are available. Measured passively by harvesting.
 

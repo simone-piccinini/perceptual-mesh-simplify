@@ -71,8 +71,8 @@ BANKED = {2: 99.298, 3: 70.03125, 4: 85.71875, 5: 91.546875, 6: 97.6953125, 7: 9
 # Case 5 = 49987 [MEASURED 2026-07-05]: unique integer solve over the 5 single-payer CAL probes
 # (19891365/522/587, 19892266, 19892977). The old 44800 was wrong; 1 c5 vertex = 0.0020005% of
 # the total /6. BANKED[5] label above still needs re-derivation against the true Vin.
-V_IN = {2: 3989, 3: 25000, 4: 32000, 5: 49987, 6: 256000, 7: 1100000}
-V_IN_APPROX = {6}
+V_IN = {2: 3989, 3: 25000, 4: 32000, 5: 49987, 6: 377084, 7: 1100000}
+V_IN_APPROX = {7}  # case6 = 377084 MEASURED 19895532 (exact-9500 single-payer); case7 probe pending
 TLE_CEILING = 21.0  # measured wall-clock limit per case (JUDGE-ENVELOPE.md §2)
 # ----------------------------------------------------------------------------------------------
 
