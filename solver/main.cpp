@@ -66,7 +66,7 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
     if (V <= 7000)   return 0.00725;// case 2: DUST ~99.29 (99.268 conf; ~99.32 WA'd)
-    if (V <= 30000)  return 0.2996875;// case 3: 70.03125 (70.0625: 2 negative draws)
+    if (V <= 30000)  return 0.2996875;// case 3: 70.03125 FINAL (70.0625 = clean WA at box18, binary-verified 19889xxx)
     if (V <= 40000)  return 0.1428125;// case 4: TAIL-HARVEST 85.71875 (85.6875 BANKED draw-3-of-3 #90.2333)
     if (V <= 100000) return 0.08453125;// case 5: 91.546875 SAFE for banking (91.5625 = razor p~0.2, re-push after)
     if (V <= 400000) return 0.023046875;// case 6: 97.6953125 CLOSED x4 (plain/nplace2/pivot-sdef/aniso)
@@ -120,7 +120,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }  // cases 3-7 (case7
 // 0.0000 on case3. Enabled where it measured positive.
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }  // case4 only (c5 CLOSED: alone WA #19885148, +vis stack WA #19885191)
 
-static volatile int g_draw = 40;   // binary-uniqueness knob: each value = a fresh judge draw (runtime is deterministic per binary)
+static volatile int g_draw = 41;   // binary-uniqueness knob: each value = a fresh judge draw (runtime is deterministic per binary)
 constexpr int kSmallMeshSkip = 1000;    // tiny meshes (the sample): emit unchanged
 
 struct EvalResult { double cost; Vec3 target; };

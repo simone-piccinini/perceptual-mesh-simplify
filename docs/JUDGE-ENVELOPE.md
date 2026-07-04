@@ -153,5 +153,8 @@ Case *nature* (inferred from mechanism responses): c4 responds strongly to aniso
    that case: three separate incidents (c5 hybrid-insurance, c6 19s box, c4 16s box) broke a
    passing case by giving it "more".
 4. Patches to `solver/main.cpp` are applied with assert-guarded replaces and grep-verified before
-   any build: two silent sed failures cost eight submissions on 2026-07-04.
+   any build: two silent sed failures cost eight submissions on 2026-07-04, and two FILE
+   REGRESSIONS (edits landing on stale lines) cost four more on 2026-07-05.
+   **Mandatory since 2026-07-05: before every submission, run the BINARY on the relevant proxy
+   and check the output vertex count matches the intended keep** (the "prova del nove").
 5. Every judge-limit probe result lands in THIS file the same day.

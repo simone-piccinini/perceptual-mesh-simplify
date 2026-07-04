@@ -494,3 +494,8 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   the 8-vert gap — despite removal locally driving bunny to 3 verts. What looked like "c3 70.0625
   passing at box 18" was the stall passing at 70.03125. Next tool: covert-channel diagnostic
   encoding (alive-target) and unlock/removal return values from the real c3 run. Bank 90.238542.
+- **c3 mystery resolved (2026-07-05):** the "systematic endgame stall" was MY file regressing to
+  the old keep (edits on stale lines) — 7492 was simply the correct count for keep 0.2996875.
+  With the keep binary-verified (proxy -> 7482) and box 18: c3@70.0625 = clean Wrong Answer.
+  c3 rung CLOSED for real (6th and first unambiguous verdict). New mandatory rule in
+  JUDGE-ENVELOPE §9: binary proof-run on proxy before every submission. Bank 90.238542.
