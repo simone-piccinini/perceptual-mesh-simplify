@@ -427,3 +427,13 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   billboard clouds (Décoret 2003) rely on textures we don't have — geometric relief variant
   now legal but multi-view-sharing math unfavorable. Docs reorganized: docs/PROBLEM-AND-JUDGE.md
   + docs/THEORY.md + docs/research/links.txt replace 14 stale MDs.
+- **Masking-prior (SSIM divisive normalization, Wang TIP) CLOSED (2026-07-04, local x2 strengths):**
+  weight = 1/(2sigma^2+C2) sampled from original renders, full and sqrt-tempered: c3 -0.0008/-0.0007,
+  c5 -0.0035/-0.0007. Mechanism: masking literature applies to ADDITIVE distortion (quantization
+  noise); ours is STRUCTURAL (simplification) — smooth regions approach zero error naturally with
+  few faces, and the greedy already demolishes them first. Protecting them starves detail. Code
+  stays env-gated (G_MASK=1 full, 2 tempered).
+- **Hidden-region sealing CLOSED BEFORE BUILDING (2026-07-04):** measured never-seen vertices in
+  the CURRENT outputs: c3 = 0, c5 = 0 (culling + natural decimation already eliminate them all).
+  The v96 disconnected-output legality stands but this exploitation is worthless; per-view relief
+  components remain legal-but-EV-negative (flat-test math). Bank stands 90.238542.

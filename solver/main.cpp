@@ -182,6 +182,8 @@ static std::vector<float>  g_sigx[6];        // original mesh per-pixel contrast
 static std::vector<double> imp;              // per-vertex importance (normalized contrast deficit)
 static std::vector<float>  g_sigxc[6][3];    // per-channel (nx,ny,nz) original contrast, 6 views
 static int                 g_perchan = 0;    // 1 = steer by per-channel normal deficit (sharper than grayscale)
+static int                 g_mask = 0;       // divisive-normalization masking prior (env G_MASK)
+static int                 g_maskres = 0;    // res of the sigma maps sampled by mask_factor
 static int                 g_perchan_force = -1; // env override (-1 = use per_chan_for)
 
 // smallest sphere enclosing both (c1,r1) and (c2,r2).
@@ -691,7 +693,7 @@ static void lum_map(const std::vector<int>& fid, std::vector<float>& out) {
     for(size_t k=0;k<(size_t)W*W;++k){ int f=fid[k]; if(f>=0) out[k]=(float)face_lum(f); }
 }
 static int g_vstride = 1;   // render every k-th view for steering (c7 CPU: 6 orig renders too dear)
-static void pivotA_init_original() { for (int v = 0; v < 6; v += g_vstride) { std::vector<int> fid; render_faceid(v, fid); contrast_map(fid, g_sigx[v]);
+static void pivotA_init_original() { g_maskres = g_res; for (int v = 0; v < 6; v += g_vstride) { std::vector<int> fid; render_faceid(v, fid); contrast_map(fid, g_sigx[v]);
     if (g_sdef) { lum_map(fid, g_lumx[v]); if (g_perchan) for (int c=0;c<3;++c) chan_map(fid,c,g_valx[v][c]); }
     if (g_perchan) for (int c=0;c<3;++c){ std::vector<float> cv; chan_map(fid,c,cv); contrast_vals(cv,g_sigxc[v][c]); } } }
 // render the current mesh, accumulate per-vertex SSIM contrast deficit (1 - c), normalize to [0,1].
@@ -827,6 +829,28 @@ static inline double proj_factor(const Vec3& n, const Vec3& cen) {
     }
     return w;
 }
+// SSIM divisive-normalization masking prior (Wang, TIP: SSIM-optimal distortion = error / (2sigma^2+C2)).
+// Weight each new face's normal distortion by the ORIGINAL render's local inverse-variance at its
+// projection: smooth regions pay more per unit error, rough regions mask it. Static prior, sampled
+// from g_sigx (filled by pivotA_init_original at res g_maskres on lambda-enabled cases).
+static inline double mask_factor(const Vec3& cen, const Vec3& n) {
+    if (!g_maskres) return 1.0;
+    const int W = g_maskres; const double F = 800.0*(W/1024.0), Cc = W/2.0;
+    double w = 0.0; int cnt = 0;
+    for (int v = 0; v < 6; ++v) {
+        Vec3 eye, right, up, fwd; view_basis(v, eye, right, up, fwd);
+        Vec3 r = cen - eye; const double cvis = n.dot(eye.normalized());
+        if (cvis <= 0.0) continue;
+        const double d = r.dot(fwd); if (d <= 0.1) continue;
+        int px = (int)(F*r.dot(right)/d + Cc), py = (int)(F*r.dot(up)/d + Cc);
+        if (px < 0 || py < 0 || px >= W || py >= W) continue;
+        const double sg = g_sigx[v][(size_t)py*W + px];
+        w += 1.0/(2.0*sg*sg + 0.0009); ++cnt;      // C2 at [0,1] luminance scale
+    }
+    if (!cnt) return 1.0;
+    const double m = w/(cnt*1111.11);              // full-strength ratio (flat ~1, rough ~1/13)
+    return (g_mask == 2) ? std::sqrt(m) : m;       // mask=2: tempered (sqrt) prior
+}
 static double incident_ndist(int i, int j, const Vec3& xbar) {
     double nd = 0.0;
     auto acc = [&](int moved, int other){
@@ -841,6 +865,7 @@ static double incident_ndist(int i, int j, const Vec3& xbar) {
             if (lo<=0.0||ln<=0.0) continue;
             double aw = 0.5*ln;   // world area of the new face
             if (g_projw) aw *= proj_factor(cn/ln, (Pn[0]+Pn[1]+Pn[2])/3.0);
+            if (g_mask)  aw *= mask_factor((Pn[0]+Pn[1]+Pn[2])/3.0, cn/ln);
             double cs = (co/lo).dot(cn/ln), oneminus = 1.0-cs;
             if (g_nmetric==1) nd += oneminus;
             else if (g_nmetric==2) nd += aw*oneminus*oneminus;
@@ -1286,6 +1311,7 @@ int main(int argc, char** argv) {
         if (const char* e = getenv("G_NMETRIC")) g_nmetric = atoi(e);
         if (const char* e = getenv("G_NOLAMBDA")) g_lambda = 0.0;            // ablate Pivot-A for a clean VSA test
         if (const char* e = getenv("G_LAMBDA")) g_lambda = atof(e);          // test override: force Pivot-A strength
+        if (const char* e = getenv("G_MASK")) g_mask = atoi(e);              // divisive-normalization masking prior
         if (const char* e = getenv("G_PERCHAN")) g_perchan_force = atoi(e);  // test override: per-channel steering
         g_2stage = twostage_for((int)pos.size());
         if (const char* e = getenv("G_2STAGE")) g_2stage = atof(e);          // 2-stage decimation factor
