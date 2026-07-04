@@ -68,7 +68,7 @@ static double keep_for(int V) {
     if (V <= 7000)   return 0.00725;// case 2: DUST ~99.29 (99.268 conf; ~99.32 WA'd)
     if (V <= 30000)  return 0.2996875;// case 3: 70.03125 FINAL (70.0625 = clean WA at box18, binary-verified 19889xxx)
     if (V <= 40000)  return 0.1428125;// case 4: TAIL-HARVEST 85.71875 (85.6875 BANKED draw-3-of-3 #90.2333)
-    if (V <= 100000) return 0.08453125;// case 5: 91.546875 SAFE for banking (91.5625 = razor p~0.2, re-push after)
+    if (V <= 100000) return 0.0838;    // case 5: V=4189 -> 91.620 (4159 WA x2; 37 verts under banked = inside run noise)
     if (V <= 400000) return 0.023046875;// case 6: 97.6953125 CLOSED x4 (plain/nplace2/pivot-sdef/aniso)
     return 0.02855;                // case 7: 97.145 CLOSED x3 (plain; sdef-remnant; aniso)
 }

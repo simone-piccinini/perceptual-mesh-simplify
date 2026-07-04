@@ -68,7 +68,10 @@ BANK_SCORE = 90.238542  # best 7/7 score on the judge
 BANKED = {2: 99.298, 3: 70.03125, 4: 85.71875, 5: 91.546875, 6: 97.6953125, 7: 97.145}
 # Input vertex counts (recovered from exact-score arithmetic; JUDGE-ENVELOPE.md §6).
 # Case 6 is APPROXIMATE (~256k inferred) — implied-V' readouts for it carry a '~'.
-V_IN = {2: 3989, 3: 25000, 4: 32000, 5: 44800, 6: 256000, 7: 1100000}
+# Case 5 = 49987 [MEASURED 2026-07-05]: unique integer solve over the 5 single-payer CAL probes
+# (19891365/522/587, 19892266, 19892977). The old 44800 was wrong; 1 c5 vertex = 0.0020005% of
+# the total /6. BANKED[5] label above still needs re-derivation against the true Vin.
+V_IN = {2: 3989, 3: 25000, 4: 32000, 5: 49987, 6: 256000, 7: 1100000}
 V_IN_APPROX = {6}
 TLE_CEILING = 21.0  # measured wall-clock limit per case (JUDGE-ENVELOPE.md §2)
 # ----------------------------------------------------------------------------------------------

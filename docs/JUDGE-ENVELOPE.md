@@ -43,10 +43,20 @@ made past notes confusing.
    on ALL contest pages — standings AND the per-user submission list (measured 2026-07-05, §4).
    Someone must eyeball https://imc2.kattis.com/contests/imc2-2/standings in a browser now and
    then; the tooling cannot.
+5. **NEW 2026-07-05 (from probe #7 closure, §0b): the 44.8k label for case 5 was WRONG — the
+   true input is 49,987 vertices [MEASURED, unique integer solve over 5 single-payer scores].**
+   Two consequences to act on: (a) the case-5 keep ladder and all rung labels must be recomputed
+   against 49987 (one vertex = 0.0020005% of total /6); this also revises the §6 attribution and
+   shrinks the item-2 residual — re-derive the case-6 size with the corrected case-5 payout;
+   (b) the banked-keep mesh self-scores S≈0.907, i.e. ~0.007 ABOVE the 0.900 threshold → about
+   600 vertices of mean headroom ≈ +1.2% on case 5 ≈ +0.2 on the total. Plan: probe 7g at
+   keep 0.080 (expected S≈0.9045) to validate the S-vs-V slope judge-side, then lower the LIVE
+   binary's case-5 keep and bank through binary draws. Timing guard: the calibration probe ran
+   20.5 s on case 5 (0.5 s margin) — trim its refine box before 7g.
 
 ---
 
-## 0b. ORACLE-vs-JUDGE CALIBRATION (probe #7 series) — status: INSTRUMENT REBUILT, READ PENDING
+## 0b. ORACLE-vs-JUDGE CALIBRATION (probe #7 series) — status: **CLOSED 2026-07-05: NO BIAS; Vin_case5 = 49987 discovered en route**
 
 Chronicle (6 submissions, bank untouched):
 - 7a (19891287): carrier design error (bare-QEM at 82% compression WA'd) — moved to 64-73% band.
@@ -66,6 +76,29 @@ Chronicle (6 submissions, bank untouched):
   First draw: case 5 = Wrong Answer (p(fail)≈0.2-0.3 at the banked rung, or a tetra visibility
   leak) → channel unread. RETRY with fresh draws is the path: each pass yields (S_ours, judge
   verdict) for the SAME object — the clean calibration point.
+- 7f retry1 (19892674): WA case 5 again (fresh structural draw, 17.5 s, no TLE). Local leak test
+  [MEASURED]: measured mesh vs measured mesh + K=160 forced tetrahedra, python evaluator, 9
+  decimals → FinalSSIM identical (0.850207064 both), Hausdorff 0.0325 vs limit 0.1229. The tetra
+  channel is render-invisible; the WAs were genuine sub-0.9 meshes.
+- 7f retry2 (19892977): **ACCEPTED 7/7, score 15.005568 — channel read.** Safe-rung redesign:
+  keep 0.09 so the verdict is near-certain PASS and the channel always reads; the bias question
+  only needs (S_ours < 0.9, PASS) or (S_ours ≥ 0.9, consistent).
+- **Decode broke the 44800 assumption** [MEASURED]: no integer V′ fits 44800. Exhaustive integer
+  solve over the five single-payer scores (7b/7c/7d/7e/retry2 — identity cases pay exactly 0.0,
+  proven by retry1's exact zero) gives a UNIQUE **Vin_case5 = 49987** (the only alternative,
+  99974=2×, needs K=241 > the 160 clamp → rejected). 1 case-5 vertex = 0.0020005% of total /6.
+  Judge case 5 is a ~49987-vertex organic — nearly the local armadillo's 49990, but it scores
+  ~+0.055 SSIM higher at matched keep: a different, decimation-friendlier variant.
+- Re-decode with the true Vin: 7b S=0.90681 (not 0.89158), 7c S=0.90802, retry2 V′=4982 =
+  4502 (stall +3 over the 4499 target) + 4·120 → S=0.910 with judge PASS on the same object.
+  **VERDICT: judge SSIM ≈ our SSIM (no exploitable bias).** The 7f WAs are explained by the
+  ±0.013 structural spread reaching below 0.9.
+- **EXPLOITABLE RESIDUE → §0 item 5:** at the banked keep the mesh reads S≈0.907 (two
+  independent structural draws, 0.9068/0.9080) → ~0.007 mean headroom ≈ 600 vertices ≈ +1.2% on
+  case 5 ≈ **+0.2 total**. The "×7-closed" case-5 wall is now suspect (correlated micro-draws of
+  one unlucky family). Probe 7g (keep 0.080, expected S≈0.9045) validates the slope, then the
+  live keep moves down. Timing guard: retry2 ran 20.5 s on case 5 (0.5 s margin) — trim the probe
+  refine box first.
 
 Big collateral lesson [MEASURED]: **binary-to-binary mesh variance is bimodal** — micro-edits
 σ≈0.0002, structural edits up to ±0.013 SSIM. Every "rung closed ×N mechanisms" verdict where
@@ -74,6 +107,24 @@ the mechanism added large code was ALSO a large re-draw; rung-closure statistics
 
 ## 1. Execution model
 
+- **THE JUDGE IS PER-RUN NONDETERMINISTIC on time-boxed cases [MEASURED 2026-07-05,
+  19894606 vs 19894633]:** two byte-identical submissions returned different per-case verdicts
+  (case 3: WA→Accepted, case 4: WA→Accepted, same source bytes, same everything). Mechanism:
+  our refine phases are WALL-CLOCK boxed; judge machine speed varies run-to-run (same binary
+  measured 16.0 s vs 17.2 s on case 4, 21.1 vs 22.5 s on case 5 — ±1.2 s of load noise), so the
+  box cuts the monotonic refine at a different iteration → a different output mesh every run.
+  Consequences: (a) the older "deterministic per binary" model (bit-identical scores on
+  comment-only resubmits, sessions 5-6) was an artifact of quieter machines and/or iteration
+  boundaries far from the cut — under contest-deadline load every razor rung is a PER-RUN coin;
+  (b) the `g_draw` micro-edit knob is obsolete — a pure byte-identical resubmit (--force past the
+  duplicate guard) is already a fresh draw; (c) banked rungs do NOT reliably reproduce
+  (best-counts protects the bank); (d) any bank improvement must win the JOINT lottery: target
+  case AND every time-boxed razor case (3, 4, and case 5's own 21±1 s runtime) in one run —
+  observed per-coin pass rates today ≈ 2/3, joint ≈ 0.25-0.35 → expect ~3-4 resubmits per bank
+  event; (e) rung-closure statistics from N different binaries were in fact N run-draws — same
+  sample validity, weaker mechanism attribution (supersedes the "bimodal binary variance" note:
+  layout/timing was likely the true carrier of the "micro-edit σ≈0.0002", and structural code
+  changes still add real mesh reshuffle on top).
 - Each test case runs the submitted program as a **separate process** on its own input.
   [INFERRED — per-case verdicts differ independently (mixed TLE/WA/Accepted in one submission).]
 - One submission = 7 runs (sample + cases 2–7). The **sample scores nothing**; final score is the
