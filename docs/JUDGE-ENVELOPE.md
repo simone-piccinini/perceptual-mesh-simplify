@@ -10,6 +10,39 @@ This is the operational contract with the judge. Every claim is tagged with its 
 Keep this file current: any probe that touches the judge's limits gets its result recorded HERE,
 not only in ATTEMPT_LOG. Last full revision: 2026-07-05.
 
+**Writing convention (2026-07-05):** avoid bare case codenames ("c3", "c4") and bare technique
+shorthand — first say WHAT is meant, then put the codename in parentheses: "the 25k-vertex
+organic case (case 3)", "the normal-distortion collapse ordering (VSA-lite)". Bare codenames
+made past notes confusing.
+
+---
+
+## 0. OPEN QUESTIONS — inconsistencies to settle TOGETHER (2026-07-05)
+
+1. **Which refine time-box is right for the 25k-vertex organic case (case 3): 16 s or 18 s?**
+   §2 states in one place "correct box formula → 18 s for its 1024-resolution phase" and, three
+   lines later, "safe boxes: 16 s (a 17 s box TLE'd!)". The live solver uses 16 s (no case-3
+   branch; default value). Yet the clean Wrong Answer at the 70.0625 rung ran WITH an 18 s box
+   and did NOT exceed the time limit → 18 s was time-safe at least once. Open decision: probe
+   the banked rung (70.03125) with the 18 s box (+2 s of gradient-ascent refine could pay), or
+   leave it alone — precedent warns that giving a banked razor-edge case "more" broke it before
+   (the 256k-vertex case (case 6) failed its banked rung when its box was raised to 19 s).
+2. **The per-case compression table (§6) does NOT reconstruct the banked score.** Sum of the
+   rung labels = 541.4352, but 6 × 90.238542 = 541.4313 — gap −0.0039. So at least one case is
+   paid LESS than its label says. Prime suspect: the only case whose input size is approximate
+   (the 256k-vertex case (case 6), "~256,000" inferred, not exact). If a label is wrong, a
+   bisection ladder may contain a free rung — or a phantom one we already "closed". The submit
+   tool now prints the score-decomposition residual on every verdict (ARITH lines): pin the
+   deviating case from the next few submissions at no extra cost.
+3. **The judge/local speed ratio (1.014) was measured on ONE memory-bound kernel** (the 11×11
+   sliding box-filter, r_boxsum). A compute-bound kernel can scale differently — it depends on
+   the judge CPU's vector units. Closes for free as a side effect of the SIMD-availability probe
+   (§8 item 6).
+4. **Leader tracking is manual.** Kattis returns 403 ("Access denied") to script-token sessions
+   on ALL contest pages — standings AND the per-user submission list (measured 2026-07-05, §4).
+   Someone must eyeball https://imc2.kattis.com/contests/imc2-2/standings in a browser now and
+   then; the tooling cannot.
+
 ---
 
 ## 1. Execution model

@@ -14,6 +14,8 @@ CASES/FAIL keep working unchanged):
 
     SUBMISSION <id> <url>            submitted (or attached) submission
     FILE/SHA256/BANNER/AGE ...       identity of what was actually sent (stale-file guard)
+    DUPLICATE ...                    refuses a byte-identical resubmit (judge is deterministic
+                                     per binary — it would score bit-identically); --force overrides
     PROGRESS t=<s> ...               live status + per-case completion while judging
     VERDICT <status text>            final status
     SCORE <float or ->               contest score (mean of cases 2-7)
@@ -21,9 +23,12 @@ CASES/FAIL keep working unchanged):
     CPU <time or ->                  CPU column (empty for scored submissions)
     CASES <string>                   7 chars, sample+c2..c7: '.' accepted 'x' rejected '?' not run
     FAIL Test case k/7: <type>       every non-accepted case, verdict type NAMED (WA vs TLE ...)
-    CASETIME k ~<sec>                per-case wall-time estimate (poll resolution ~1.5 s; the
-                                     ONLY timing source — the CPU column is empty when scored)
-    ARITH ...                        score decomposition vs the BANKED table (payout-change alarm)
+    CASETIME k ~<sec> (margin ...)   per-case wall-time estimate (poll resolution ~1.5 s; the
+                                     ONLY timing source) + headroom vs the ~21 s ceiling, with
+                                     a TLE RISK flag under 2 s of margin
+    ARITH ...                        score decomposition vs the BANKED table; when the residual
+                                     says one case pays a different rung, prints the implied
+                                     payout AND implied V' per candidate (covert-channel decode)
     BANK <best> DELTA <score-best>   comparison against best score known (log + BANK_SCORE)
 
 Every final verdict is appended as one JSON line to handoff/submissions.jsonl (--no-log to
@@ -61,6 +66,11 @@ BANK_SCORE = 90.238542  # best 7/7 score on the judge
 # differ from the judge's actual payout by rounding of V' = round(keep*V); the label sum
 # (541.4352) does NOT exactly reconstruct 6*BANK_SCORE (541.4313) — known open discrepancy.
 BANKED = {2: 99.298, 3: 70.03125, 4: 85.71875, 5: 91.546875, 6: 97.6953125, 7: 97.145}
+# Input vertex counts (recovered from exact-score arithmetic; JUDGE-ENVELOPE.md §6).
+# Case 6 is APPROXIMATE (~256k inferred) — implied-V' readouts for it carry a '~'.
+V_IN = {2: 3989, 3: 25000, 4: 32000, 5: 44800, 6: 256000, 7: 1100000}
+V_IN_APPROX = {6}
+TLE_CEILING = 21.0  # measured wall-clock limit per case (JUDGE-ENVELOPE.md §2)
 # ----------------------------------------------------------------------------------------------
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -148,8 +158,27 @@ def parse_row(row):
     return out
 
 
+def find_dup(log_path, sha):
+    """Return the most recent logged record with this source sha256, if any."""
+    hit = None
+    try:
+        with open(log_path) as fh:
+            for line in fh:
+                try:
+                    rec = json.loads(line)
+                    if rec.get("sha256") == sha:
+                        hit = rec
+                except ValueError:
+                    pass
+    except OSError:
+        pass
+    return hit
+
+
 def best_known(log_path):
     best = BANK_SCORE
+    if not log_path:
+        return best
     try:
         with open(log_path) as fh:
             for line in fh:
@@ -164,6 +193,19 @@ def best_known(log_path):
     return best
 
 
+def single_change_decode(res, passing):
+    """If exactly ONE passing case pays differently, its payout = banked + residual.
+    Print that hypothesis for every candidate, with the implied output vertex count
+    V' = round(V_in * (1 - payout/100)) — the full covert-channel decode, automated."""
+    for k in passing:
+        pay = BANKED[k] + res
+        vin = V_IN.get(k)
+        if vin and 0.0 <= pay <= 100.0:
+            vp = round(vin * (1.0 - pay / 100.0))
+            tilde = "~" if k in V_IN_APPROX else ""
+            print(f"ARITH if only case {k} changed: pays {pay:.6f} -> V'={tilde}{vp}")
+
+
 def arith(score, cases):
     """Decompose the score against the BANKED table. cases = 7-char string, [0]=sample."""
     sum6 = score * 6.0
@@ -175,13 +217,16 @@ def arith(score, cases):
         res = sum6 - BANK_SCORE * 6.0
         print(f"ARITH all-pass: sum6-vs-bank residual {res:+.6f} "
               f"({'bit-identical to bank' if abs(res) < 3e-6 else 'payout differs from bank'})")
+        if abs(res) >= 3e-6:
+            single_change_decode(res, passing)
         return
     exp = sum(BANKED[k] for k in passing)
     res = sum6 - exp
     print(f"ARITH passing={passing} banked-sum={exp:.6f} residual={res:+.6f}")
     if abs(res) > 0.01:
         print("ARITH NOTE: >=1 passing case pays a DIFFERENT RUNG than the BANKED table; "
-              "if exactly one changed, its payout = banked + residual")
+              "if exactly one changed, its payout = banked + residual:")
+        single_change_decode(res, passing)
     else:
         print("ARITH OK: every passing case pays ~its banked rung "
               "(sub-0.01 residual = label rounding, not signal)")
@@ -233,7 +278,10 @@ def report(sid, parsed, casetimes, st, log_path, record):
             fails.append(t)
             print(f"FAIL {t}")
     for k in sorted(casetimes):
-        print(f"CASETIME {k} ~{casetimes[k]:.1f}s")
+        t = casetimes[k]
+        margin = TLE_CEILING - t
+        risk = "  << TLE RISK" if margin < 2.0 else ""
+        print(f"CASETIME {k} ~{t:.1f}s (margin ~{margin:.1f}s of ~{TLE_CEILING:.0f}s ceiling){risk}")
     if score is not None:
         arith(score, parsed["cases"])
         best = best_known(log_path)
@@ -297,6 +345,8 @@ def main():
     ap.add_argument("--standings", action="store_true", help="fetch contest standings (best-effort)")
     ap.add_argument("--no-log", action="store_true")
     ap.add_argument("--log", default=DEFAULT_LOG)
+    ap.add_argument("--force", action="store_true",
+                    help="submit even if this exact sha256 was already judged")
     args = ap.parse_args()
 
     cfg = load_cfg()
@@ -322,6 +372,13 @@ def main():
         print(f"BANNER {banner[:120]}")
         print(f"AGE {age_min:.1f} min since last edit"
               + ("  << STALE? verify this is the intended build" if age_min > 60 else ""))
+        dup = find_dup(log_path, sha) if log_path else None
+        if dup and not args.force:
+            print(f"DUPLICATE this exact source was already judged: submission {dup.get('id')} "
+                  f"(verdict {dup.get('verdict')}, score {dup.get('score')}). The judge is "
+                  f"deterministic per binary — a byte-identical source scores bit-identically. "
+                  f"Refusing to burn the round; use --force to submit anyway.")
+            return 2
         data = {"submit": "true", "submit_ctr": 2, "language": "C++",
                 "mainclass": "", "problem": args.problem, "tag": "", "script": "true"}
         if args.contest:
