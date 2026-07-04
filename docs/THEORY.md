@@ -93,7 +93,24 @@ Slope tipico vicino al muro: ~0.0013 SSIM per 0.5% di compressione (c3). I rung 
   (i collassi precoci sono a basso errore sotto qualsiasi ordinamento).
 - **Tail-harvest**: vedi PROBLEM-AND-JUDGE.md §4 (determinismo per binario, estrazioni).
 
-## 7. Cimitero (mai rifare senza un meccanismo DIVERSO)
+## 6b. ✗ Strade chiuse DAL GIUDICE il 2026-07-04 (con il perché)
+
+- ✗ **Masking-prior (divisive normalization)** — giudicato WA su c3/c4/c5 ai rung (3 submission).
+  Perché non funziona: il masking vale per distorsioni ADDITIVE (rumore di quantizzazione);
+  la nostra è STRUTTURALE — nelle zone lisce l'errore va a zero da solo con poche facce, e il
+  greedy le demolisce già per prime. Proteggerle affama il dettaglio.
+- ✗ **Tilt costruttivo (candidati fuori-superficie in nplace)** — giudicato WA su c3. Perché:
+  i proxy economici del costo (vicinato o nref) non sanno scegliere i tilt giusti per
+  l'immagine; solo il metrica renderizzato vero li sceglierebbe, ma a decimation-time costa
+  troppo. (Il tubo Hausdorff v2v resta legale e inutilizzato.)
+- ✗ **Sigillatura zone nascoste** — misurato PRIMA di costruire: 0 vertici mai-visti negli
+  output attuali (culling+decimazione li eliminano già). Valore zero.
+- ✗ **Pannelli-rilievo per vista (imposter geometrici)** — legali (output disconnesso accettato,
+  v96) ma il flat-test dice che la specializzazione per-vista perde 0.12 SSIM contro la
+  continuità della superficie, e i pannelli costano ~2.4× in vertici (niente condivisione
+  multi-vista). EV negativo.
+
+## 7. ✗ Cimitero (mai rifare senza un meccanismo DIVERSO)
 
 Steering: varianti raggio/potenza/view-max/qweight del s-def (5 config giudicate). Partizioni:
 Lloyd ×6. Connettività: splits (un inserimento = un un-collapse; il migliore è l'ultimo

@@ -105,6 +105,10 @@ def main():
             print(f"SCORE {score[0] if score else '-'}")
             print(f"CPU {cpu[0].strip() if cpu else '-'}")
             print(f"CASES {cases}")
+            names = [t for t in re.findall(r'title="([^"]*)"', row) if "Test case" in t]
+            for t in names:
+                if "Accepted" not in t:
+                    print(f"FAIL {t}")
             if sid == COMPILE_ERR:
                 print(st.get("feedback_html", "")[:500])
             return 0 if sid == ACCEPTED else 1

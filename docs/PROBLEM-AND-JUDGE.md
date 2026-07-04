@@ -62,9 +62,20 @@ submission viene SOLO dal riordino delle operazioni floating-point quando il cod
 davvero (σ≈0.0002–0.0003 SSIM vicino ai muri, costo medio zero). Vicino a un muro, ogni
 binario nuovo è un'estrazione: i muri sono distribuzioni, non fatti binari.
 
-### 5. Il giudice NOMINA i casi falliti e distingue WA da TLE
-Verificato su decine di verdetti (stringa CASES di scripts/judge_submit.py). Ogni submission
-multi-caso è pienamente attribuibile.
+### 5. Il giudice NOMINA i casi falliti e distingue WA da TLE — ⚠ e NOI non li distinguevamo
+Fino al 2026-07-04 il nostro script mostrava solo pass/fail: **submission 19888628 rivelò che
+c4@85.75 moriva di Time Limit Exceeded, NON di Wrong Answer** — un "muro SSIM" che era in
+realtà un muro di TEMPO (rotto tagliando il box del refine 16→14s: 85.75 poi passato).
+MORALE: ogni 'x' va classificato (WA = qualità; TLE = tempo; i rimedi sono opposti).
+`scripts/judge_submit.py` ora stampa il verdetto per-caso (righe FAIL); `scripts/judge_audit.py`
+riclassifica le submission passate.
+
+### 5b. Alcuni "muri" sono FLOOR FISICI della decimazione, non muri SSIM
+c2: keep 0.007 e 0.00725 producono lo STESSO output (28 vertici) — i collassi legali si
+esauriscono. c4: keep 0.1425 produce ancora 4570 vertici (85.71875) — stesso fenomeno, i gate
+di sicurezza (link condition, flip, area) bloccano gli ultimi collassi. Tre tipi di muro:
+SSIM (c5, c6 — WA veri), TEMPO (c4@85.75 col box 16s), TOPOLOGICO (c2, c4 sotto 85.75).
+Rimedi diversi: qualità / velocità / rilassare i gate.
 
 ### 6. Budget CPU: ~16.5s per caso, fatturato SOMMANDO i thread
 Multithreading = suicidio (lezione v60/v63). Il box wall-clock a 16s del refine è provato al limite.

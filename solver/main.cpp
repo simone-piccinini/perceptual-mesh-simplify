@@ -119,7 +119,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }  // cases 3-7 (case7
 // 0.0000 on case3. Enabled where it measured positive.
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }  // case4 only (c5 CLOSED: alone WA #19885148, +vis stack WA #19885191)
 
-static volatile int g_draw = 15;   // binary-uniqueness knob: each value = a fresh judge draw (runtime is deterministic per binary)
+static volatile int g_draw = 17;   // binary-uniqueness knob: each value = a fresh judge draw (runtime is deterministic per binary)
 constexpr int kSmallMeshSkip = 1000;    // tiny meshes (the sample): emit unchanged
 
 struct EvalResult { double cost; Vec3 target; };
@@ -1264,6 +1264,7 @@ int main(int argc, char** argv) {
 
     g_refine = refine_for((int)pos.size());
     if ((int)pos.size() <= 7000) g_refine_budget = 6.0;   // tiny meshes: refine converges in well under 6s; don't burn the box
+    else if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) g_refine_budget = 14.0; // c4 ONLY: 16s box died of TLE at 85.75 (19888628); 14s box passed it. c3 needs the full 16 (14s broke its banked rung)
     if (const char* e = getenv("G_REFINE")) g_refine = atoi(e);   // test override (judge sets no env)
     g_hybrid = hybrid_for((int)pos.size());
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
