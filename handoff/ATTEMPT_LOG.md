@@ -455,3 +455,7 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   are uncollapsible by manifold-safe operations; only topology surgery (legal but SSIM-risky
   for visible holes) could pass them. scripts/judge_audit.py + FAIL lines in judge_submit.py
   added for per-case verdict types. Bank stands 90.238542.
+- 19888840: c3 re-probe @70.0625 w/ verdict typing -> 7/7 at EXACTLY the bank score: this draw's
+  decimation self-stalled at 7492 verts (= banked 70.03125) instead of reaching 7484; unlock
+  found nothing. Prior draws reached 7484 and failed SSIM. c3 rung dead for two reasons; kept
+  at 70.03125. Live config = bank config (c2 0.0065 and c4 0.1425 are floor-equivalent keeps).
