@@ -59,8 +59,10 @@ not only in ATTEMPT_LOG. Last full revision: 2026-07-05.
   compile and run on the judge. [OFFICIAL + MEASURED (Sparse used in accepted submissions).]
 - No other libraries; single source file; no network; no GPU. [UNTESTED but Kattis-standard;
   nothing in the PDF offers any of these.]
-- Memory limit: **UNKNOWN**. Kattis default is often 1024 MB. Our peak today (case-3 hybrid,
-  1024² double maps ≈ 150 MB + scratch) passes comfortably. Probe candidate — see §8.
+- **Memory limit: between 1 GiB and 2 GiB per case.** Allocate-and-touch probes: 2 GiB → MLE on
+  all 7 (the judge names "Memory Limit Exceeded" — typed verdicts here too); 1 GiB + the input
+  buffer (40 MB on c7) → all pass. [MEASURED 2026-07-05.] Our current peak (~300 MB) has ≥3×
+  headroom; full-resolution precomputation plans fit.
 - Machine count: scores are bit-reproducible per binary, so either one machine or a homogeneous,
   perfectly deterministic pool. [INFERRED]
 
@@ -130,8 +132,7 @@ Case *nature* (inferred from mechanism responses): c4 responds strongly to aniso
 
 ## 8. Open questions worth a probe (ranked)
 
-1. **Memory ceiling** — identity echo + allocate-and-touch N GB. Bisect like the time probe.
-   Unlocks: bigger precomputed structures (e.g., full-res original maps for all views).
+1. ~~Memory ceiling~~ — DONE 2026-07-05: (1 GiB, 2 GiB]. See §3.
 2. **Unreferenced-vertex validity** — banked output + 1 unused vertex. If Accepted, confirms the
    checker only validates constraint 4 literally. (No score value; closes a rules question.)
 3. **Judge/local speed ratio for memory-bound code** — covert-channel timing: run K iterations of
