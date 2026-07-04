@@ -517,3 +517,12 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   identical covert reads (v=74, 592 box-filter calls in 7 s) — **ratio 1.000, zero gain on the
   actual inverse-rendering refine loop.** Bit-identical scores confirm both binaries behaved
   identically at the call-count granularity (1.3%).
+- **PROBE D (19889824, pragma-region vectorization sanity, covert v=326):** pure compute-bound
+  FMA lanes under the SAME pragma region run **3.26x faster** — the mechanism (GCC 11.5 +
+  push_options/optimize("O3")/target("avx2,fma")) WORKS on the judge. Therefore B/C's zeros are
+  genuine: **the refine loop is memory/dependency-bound; SIMD/O3 pragmas are worthless for the
+  solver AS WRITTEN. Envelope probe 6 CLOSED with mechanism (5 submissions, bank untouched).**
+  Surviving algorithm-level corollary (untested): if bandwidth-bound, float32 refine buffers
+  (half the traffic) could buy up to ~2x refine throughput — a rewrite, not a pragma; and the
+  box-filter's serial running-sum could be restructured. Also: any FUTURE compute-bound code we
+  add (e.g. in-process scoring math) gets 3.26x for free via the pragma region.

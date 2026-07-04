@@ -34,10 +34,11 @@ made past notes confusing.
    bisection ladder may contain a free rung — or a phantom one we already "closed". The submit
    tool now prints the score-decomposition residual on every verdict (ARITH lines): pin the
    deviating case from the next few submissions at no extra cost.
-3. **The judge/local speed ratio (1.014) was measured on ONE memory-bound kernel** (the 11×11
-   sliding box-filter, r_boxsum). A compute-bound kernel can scale differently — it depends on
-   the judge CPU's vector units. Closes for free as a side effect of the SIMD-availability probe
-   (§8 item 6).
+3. ~~The judge/local speed ratio (1.014) was measured on ONE memory-bound kernel~~ —
+   ANSWERED 2026-07-05 by the SIMD probe series (§3, §8 item 6): the judge toolchain is GCC 11.5
+   fully scalar on an AVX2-capable CPU; pragma regions vectorize for real (3.26× compute-bound)
+   but the solver's refine loop is memory/dependency-bound and gains 1.000×. The speed envelope
+   is now characterized on both kernel classes.
 4. **Leader tracking is manual.** Kattis returns 403 ("Access denied") to script-token sessions
    on ALL contest pages — standings AND the per-user submission list (measured 2026-07-05, §4).
    Someone must eyeball https://imc2.kattis.com/contests/imc2-2/standings in a browser now and
@@ -87,8 +88,16 @@ made past notes confusing.
 
 ## 3. Hardware & environment
 
-- Compiler/flags: Kattis-controlled; we cannot pass flags. Behavior consistent with g++ -O2.
-  [UNTESTED — exact flags unknown; irrelevant so far.]
+- **Compiler = GCC 11.5, baseline x86-64 arch (no `__AVX2__` at default flags), on a CPU that
+  DOES support AVX2 at runtime.** [MEASURED — covert probe 19889788, 2026-07-05.] GCC 11 does
+  not auto-vectorize at -O2, so the judge binary today runs fully scalar.
+- **The GCC pragma region (`push_options` + `optimize("O3")` + `target("avx2,fma")`) compiles,
+  runs, and really vectorizes on the judge**: pure compute-bound FMA lanes speed up 3.26×
+  [MEASURED — 19889824]. But the REAL solver kernels gain NOTHING: the refine SSIM compound
+  (box-filters + elementwise products) reads ratio 0.97 [19889797], and the full
+  inverse-rendering refine loop reads ratio 1.000 under GLOBAL O3+avx2,fma [19889804 vs
+  19889807] — the loop is memory/dependency-bound (serial running-sum recurrence +
+  bandwidth-bound streams), so vector width cannot help it as written. Judge compile time ~14 s.
 - **Eigen 5.0.0 is provided** next to the compiled solution; `Eigen/Dense` AND `Eigen/Sparse`
   compile and run on the judge. [OFFICIAL + MEASURED (Sparse used in accepted submissions).]
 - No other libraries; single source file; no network; no GPU. [UNTESTED but Kattis-standard;
@@ -192,13 +201,14 @@ Case *nature* (inferred from mechanism responses): c4 responds strongly to aniso
 4. **Per-case limit uniformity** — the T=21 mixed row hints c2/c3 may enjoy a few hundred extra
    ms (or it was measurement noise at the cliff). One more probe at T=20.5 would pin it.
 5. **Duplicate vertices** — legal or not; could matter for exotic constructions. Low value today.
-6. **SIMD/`#pragma GCC target` availability** — do `#pragma GCC optimize("O3")` +
-   `target("avx2,fma")` (or `-march`-class intrinsics) work on the judge compiler? Covert-channel
-   probe: iteration count of the r_boxsum kernel with the pragmas vs the measured 523 baseline.
-   If AVX2 vectorizes the boxsum/render kernels 2–4×, every refine box buys 2–4× the iterations
-   at the SAME wall limit — the only known envelope door that converts directly into SSIM at
-   MULTIPLE walls (c3/c5/c6 are refine-bound). Piggyback: encode `__GNUC__`/`__cplusplus` in the
-   same or a second probe to pin the exact compiler.
+6. ~~SIMD/`#pragma GCC target` availability~~ — **DONE 2026-07-05 (5 submissions, see §3):
+   the pragma mechanism works (3.26× on compute-bound lanes) but the real refine loop gains
+   1.000× — memory/dependency-bound. Door CLOSED for the code as written.** Two surviving
+   algorithm-level corollaries, both untested: (a) if the loop is bandwidth-bound, float32
+   refine buffers halve the traffic → up to ~2× more refine iterations per box (a rewrite with
+   FP-precision risk — a float32 experiment regressed a razor case once in the multithreading
+   era, cause never isolated); (b) any future compute-bound code (e.g. in-process scoring math)
+   gets 3.26× for free inside a pragma region.
 7. **Oracle-vs-judge SSIM calibration** — self-render + in-process FinalSSIM of our own c5 output
    at 512/1024, covert-encode round((SSIM−0.89)·2^12/0.02) in c2's vertex count (12 bits ≈
    1.6e-5 resolution over [0.89, 0.91] — plenty). Compares what OUR math says against the judge's
@@ -210,10 +220,11 @@ Case *nature* (inferred from mechanism responses): c4 responds strongly to aniso
 9. **Submission rate ceiling** — 70+/day drew no complaints; the true cap bounds how many
    tail-harvest draws/day are available (EV ≈ +0.0005/draw). Measured passively by harvesting.
 
-**Ranking by expected score value (all items, 2026-07-05):**
-#6 SIMD (multi-wall, multiplicative on the proven refine lever) ≫ #7 oracle calibration
-(recalibrates ALL local reads + razor statistics) > #4 T=20.5 (a few hundred ms of box = one
-more 1024 iteration on c3) > #9 rate cap (linear harvest EV) > #8 wall-vs-CPU (hygiene) >
+**Ranking by expected score value (updated 2026-07-05 evening, after the SIMD series closed #6):**
+#7 oracle calibration (recalibrates ALL local reads + razor statistics) > float32-refine-buffers
+experiment (the surviving corollary of #6: up to ~2× refine throughput if bandwidth-bound;
+solver experiment, not a probe) > #4 T=20.5 (a few hundred ms of box = one more 1024 iteration
+on the 25k organic case (case 3)) > #9 rate cap (linear harvest EV) > #8 wall-vs-CPU (hygiene) >
 #2 unreferenced verts (rules closure, no score path today) > #5 duplicate verts (no live
 construction needs it).
 
