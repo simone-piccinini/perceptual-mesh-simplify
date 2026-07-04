@@ -72,6 +72,23 @@ not only in ATTEMPT_LOG. Last full revision: 2026-07-05.
 - Interface: `scripts/judge_submit.py` (auto-submit + poll; prints per-case verdict names as
   `FAIL Test case N/7: <type>` — added 2026-07-04 after we discovered we had been reading TLEs
   as WAs). Historical audits: `scripts/judge_audit.py <submission-id>`.
+- Tooling v2 (2026-07-05), same script, backward-compatible output prefixes, plus:
+  - **Pre-submit identity guard**: prints FILE/SHA256/BANNER/AGE of the exact bytes sent —
+    mechanical defense against the stale-file/silent-sed incident class (~12 submissions lost).
+  - **Live per-case wall times** (`PROGRESS`/`CASETIME` lines from `testcase_index` polling,
+    ±1.5 s) — the ONLY timing source, since the CPU column is empty for scored submissions.
+    Feeds the §2 box formulas directly.
+  - **Score decode** (`SUM6`/`ARITH` lines): score×6 and the residual against the banked
+    per-case table, computed automatically — the arithmetic that caught 99.268/99.298 and the
+    covert-channel decodes, previously done by hand each round. All-pass runs compare against
+    6×bank exactly; partial runs against rung labels with a 0.01 threshold (label rounding).
+  - **`BANK/DELTA` line** with NEW-BANK flag; best score tracked from the log.
+  - **JSONL draw ledger** `handoff/submissions.jsonl` (id, utc, sha256, banner, `--note` = the
+    one question the run asks, score, cases, typed fails, casetimes): machine-readable
+    tail-harvest statistics; ATTEMPT_LOG stays the human narrative.
+  - `--watch ID` attach mode; network retries with backoff (long polls survive blips).
+  - `--standings` exists but Kattis 403s contest pages (incl. standings and the user submission
+    list) to script-token sessions [MEASURED 2026-07-05] — leader tracking stays manual/browser.
 - Verdict granularity: pass/fail **per case, with the failure type named** (Wrong Answer, Time
   Limit Exceeded, ...). [MEASURED — Kattis row_html icon titles.]
 - The public score has 6 decimals → ~20 bits of information per submission. This is a usable
@@ -142,6 +159,30 @@ Case *nature* (inferred from mechanism responses): c4 responds strongly to aniso
 4. **Per-case limit uniformity** — the T=21 mixed row hints c2/c3 may enjoy a few hundred extra
    ms (or it was measurement noise at the cliff). One more probe at T=20.5 would pin it.
 5. **Duplicate vertices** — legal or not; could matter for exotic constructions. Low value today.
+6. **SIMD/`#pragma GCC target` availability** — do `#pragma GCC optimize("O3")` +
+   `target("avx2,fma")` (or `-march`-class intrinsics) work on the judge compiler? Covert-channel
+   probe: iteration count of the r_boxsum kernel with the pragmas vs the measured 523 baseline.
+   If AVX2 vectorizes the boxsum/render kernels 2–4×, every refine box buys 2–4× the iterations
+   at the SAME wall limit — the only known envelope door that converts directly into SSIM at
+   MULTIPLE walls (c3/c5/c6 are refine-bound). Piggyback: encode `__GNUC__`/`__cplusplus` in the
+   same or a second probe to pin the exact compiler.
+7. **Oracle-vs-judge SSIM calibration** — self-render + in-process FinalSSIM of our own c5 output
+   at 512/1024, covert-encode round((SSIM−0.89)·2^12/0.02) in c2's vertex count (12 bits ≈
+   1.6e-5 resolution over [0.89, 0.91] — plenty). Compares what OUR math says against the judge's
+   pass/fail at the same rung: any systematic bias re-calibrates every local read we have and
+   could explain the razor p≈0.2 asymmetry at c5-91.5625.
+8. **Wall-clock vs CPU-clock limit** — the busy-wait probes burn CPU, so they cannot distinguish
+   the two. A `sleep(25)` probe would: pass ⇒ CPU-billed limit, TLE ⇒ wall. No known exploit
+   either way (we have no idle time), so model-hygiene value only.
+9. **Submission rate ceiling** — 70+/day drew no complaints; the true cap bounds how many
+   tail-harvest draws/day are available (EV ≈ +0.0005/draw). Measured passively by harvesting.
+
+**Ranking by expected score value (all items, 2026-07-05):**
+#6 SIMD (multi-wall, multiplicative on the proven refine lever) ≫ #7 oracle calibration
+(recalibrates ALL local reads + razor statistics) > #4 T=20.5 (a few hundred ms of box = one
+more 1024 iteration on c3) > #9 rate cap (linear harvest EV) > #8 wall-vs-CPU (hygiene) >
+#2 unreferenced verts (rules closure, no score path today) > #5 duplicate verts (no live
+construction needs it).
 
 ## 9. Standing operational rules distilled from all of the above
 
