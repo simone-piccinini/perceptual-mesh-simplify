@@ -466,3 +466,14 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   of holes -> floor 4570; calibration: trefoil g=1 -> 13). Only handle-closing surgery could
   pass them, and c4's holes are 3-7px VISIBLE in the renders (SSIM cost, days of work, no local
   testbed). Code stays active (harmless: fires only when jammed above target).
+- **JUDGE TIME LIMIT MEASURED (2026-07-04, identity+busy-wait probes 19888908..):** T=18 all-pass,
+  T=20 all-pass, T=21 MIXED (c2/c3 pass, rest TLE), T=22/24 all-TLE => REAL LIMIT ~21s wall.
+  We ran 16s boxes for weeks. BUT: judge-side box overshoot >> local (17s AND 19s boxes TLE'd
+  real c3 despite the 21s limit — 1024-iteration overshoot is 3-4s there); c6 broke at its banked
+  rung with a 19s box (3rd "improvement kills banked case"); c4's 16s-box TLE remains unexplained.
+- **C5 WALL BROKEN (twice) BUT NOT YET BANKED:** refine enabled on c5 for the first time
+  (refine_for + 19s box): 91.5625 PASSED in 19889000 and 19889034 (7/7-blocked by c3-TLE/c4-reroll
+  those runs). In consolidation runs 19889051..27 c5's decimation endgame stalls at 3787 verts
+  (target 3780; V_c5=44800 inferred) and unlock/removal do NOT close the 7-vert gap — 5 binaries
+  in a row, systematic, cause unknown (needs a diagnostic probe: RTE-if-stalled covert signal).
+  NEXT SESSION: fix c5 endgame determinism, bank 90.2411, then ladder c5 further with refine.
