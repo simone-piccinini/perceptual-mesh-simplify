@@ -95,6 +95,11 @@ Slope tipico vicino al muro: ~0.0013 SSIM per 0.5% di compressione (c3). I rung 
 
 ## 6b. ✗ Strade chiuse DAL GIUDICE il 2026-07-04 (con il perché)
 
+- ✗ **Flip-to-unlock del floor topologico** — 3 submission (gate rilassato, flip valence≥7,
+  valence-somma≥12): output c2/c4 SEMPRE identico. Il floor non è geometrico ma di GENUS
+  (vedi PROBLEM-AND-JUDGE §5b) — i flip non cambiano la topologia. Codice resta (innocuo,
+  scatta solo se alive>target).
+
 - ✗ **Masking-prior (divisive normalization)** — giudicato WA su c3/c4/c5 ai rung (3 submission).
   Perché non funziona: il masking vale per distorsioni ADDITIVE (rumore di quantizzazione);
   la nostra è STRUTTURALE — nelle zone lisce l'errore va a zero da solo con poche facce, e il

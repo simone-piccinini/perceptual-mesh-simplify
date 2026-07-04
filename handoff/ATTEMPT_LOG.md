@@ -445,3 +445,13 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   left) regardless of target; c2 is topology-limited, not SSIM-limited. Rung tallies now:
   c3 70.0625 x5 | c4 85.75 x5 | c5 91.5625 x8 | c6 97.703125 x6 | c7 97.1475 x3 (deterministic).
   Bank stands 90.238542.
+- **TLE-vs-WA + floor-type discovery (2026-07-04, submissions 19888628..19888810):**
+  (1) 19888628 c4@85.75 = TLE not WA -> cut c4 refine box 16->14s -> 85.75 PASSED (time wall
+  broken). But score stayed 90.238542: c4 output is STILL 4570 verts at keep 0.1425 ->
+  TOPOLOGICAL floor. c3's banked rung BROKE at 14s box (needs full 16; per-case budgets now).
+  (2) Floor-break attempts all judged inert: relaxed flip-gate (fliptau -0.5), flip-unlock
+  valence>=7, valence-sum>=12 -> score bit-identical x3. Local trefoil-tube reproduces NO floor.
+  Conclusion: c2 (V=3989, floor 28) and c4 (floor 4570) floors are GENUS-bound — handle loops
+  are uncollapsible by manifold-safe operations; only topology surgery (legal but SSIM-risky
+  for visible holes) could pass them. scripts/judge_audit.py + FAIL lines in judge_submit.py
+  added for per-case verdict types. Bank stands 90.238542.

@@ -76,6 +76,14 @@ esauriscono. c4: keep 0.1425 produce ancora 4570 vertici (85.71875) — stesso f
 di sicurezza (link condition, flip, area) bloccano gli ultimi collassi. Tre tipi di muro:
 SSIM (c5, c6 — WA veri), TEMPO (c4@85.75 col box 16s), TOPOLOGICO (c2, c4 sotto 85.75).
 Rimedi diversi: qualità / velocità / rilassare i gate.
+AGGIORNAMENTO (stesso giorno, dopo 4 probe): i floor di c2/c4 NON si rompono né rilassando il
+flip-gate né con edge-flip topologici (2 soglie), e non si riproducono su tubi annodati locali.
+Spiegazione coerente coi numeri (c2: V=3989 ricavato dallo score esatto, floor=28 con target
+25–27; c4: floor=4570): **è il GENUS** — ogni manico/foro intrappola un anello di vertici che
+l'edge-collapse manifold-safe non può eliminare. c4 CAD con pattern di fori → genus alto.
+Superarlo richiederebbe chirurgia di manici (topology surgery): LEGALE (il giudice chiede
+manifold chiuso, non genus invariato) ma i fori visibili nelle foto non si possono chiudere
+senza pagare SSIM. Cantiere grosso, non aperto.
 
 ### 6. Budget CPU: ~16.5s per caso, fatturato SOMMANDO i thread
 Multithreading = suicidio (lezione v60/v63). Il box wall-clock a 16s del refine è provato al limite.
