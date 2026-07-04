@@ -588,6 +588,26 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
 - **Case-5 hybrid-1024 (f32, box 18, 19894828): WA case 5, time fine (19.0 s)** — the old TLE
   is cured but the 1024 polish does not clear the rung. Local A/B agreed (hybrid −0.0008 at
   t1=12, worse at 13.5/15). Hybrid-for-case5 CLOSED ×2 (local + judge); c3 keeps it.
+- **NEW BASE CONFIRMED (19894847): 90.238542, 7/7, residual +0.000000** — float32 refine, banked
+  keeps, case-5 box 17 s. Case 3 converges at 17.4 s (TLE razor gone); case 5 runs 19.1 s.
+  Snapshot: submissions/v100-float32-base-902385.
+- **Case-5 768-native refine (+0.00067 local): JUDGE-NEGATIVE, closed.** 768@V=4189 WA ×2
+  (19894867/877), 768@V=4200 WA (19894890), then 768@BANKED V=4226 WA (19894901) while
+  512@banked passed the same day (19894847) → 768 costs ~−0.001 on the judge's case-5 variant;
+  the local proxy gain did not transfer (different mesh, different S response).
+- **Case-3 push 70.0625 with f32-converged refine (19894901): WA at 17.3 s** — refine converged,
+  so this is a DETERMINISTIC re-verdict, not a box-cut coin: case-3 wall at 70.03125 stands ×2
+  (f64 box-cut era AND f32 converged era). CLOSED.
+- **Case-5 rung-space CLOSED (12+ sub-4226 WAs on 2026-07-05):** V=3999 (probe 11s, live f64),
+  4099 (f64, f32, λ12.02), 4159 (×2), 4189 (f64, f32, 768×2), 4200 (768) — all Wrong Answer;
+  V=4226 passes (base-confirm). With f32 the case-5 refine CONVERGES inside its box → its S is
+  deterministic per family → these were real sub-0.9 readings, not per-run noise. The case-5
+  wall sits exactly at V=4226 (comp 91.546) for this pipeline family. Further case-5 gains need
+  a better OPTIMIZER family, and hybrid/768/λ/Adam/hop are all now judged dead.
+- **Session-7 net (2026-07-05): bank unchanged 90.238542; platform hardened (f32 base, c3 TLE
+  razor eliminated, c5 −2 s, −70 MiB); envelope rewritten (Vin_c5=49987, per-run nondeterminism,
+  judge-math ≈ ours); walls made rigorous: c3 70.03125 ×2-deterministic, c5 V=4226 deterministic,
+  c5 hybrid/768/keep/λ all closed with judge evidence. The 91% gap remains out-of-family.**
 - **LIVE ladder, keep 0.080 (19894592): WA case 5** (21.1 s, run completed → genuine SSIM fail).
   The other five cases paid EXACTLY their banked rungs (ARITH residual −0.0049 = label rounding).
 - **LIVE ladder, keep 0.082 (19894606): WA cases 3+4+5 (!!)** — cases 3 and 4 were "bit-identical"

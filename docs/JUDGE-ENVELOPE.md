@@ -45,14 +45,15 @@ made past notes confusing.
    then; the tooling cannot.
 5. **NEW 2026-07-05 (from probe #7 closure, §0b): the 44.8k label for case 5 was WRONG — the
    true input is 49,987 vertices [MEASURED, unique integer solve over 5 single-payer scores].**
-   Two consequences to act on: (a) the case-5 keep ladder and all rung labels must be recomputed
-   against 49987 (one vertex = 0.0020005% of total /6); this also revises the §6 attribution and
-   shrinks the item-2 residual — re-derive the case-6 size with the corrected case-5 payout;
-   (b) the banked-keep mesh self-scores S≈0.907, i.e. ~0.007 ABOVE the 0.900 threshold → about
-   600 vertices of mean headroom ≈ +1.2% on case 5 ≈ +0.2 on the total. Plan: probe 7g at
-   keep 0.080 (expected S≈0.9045) to validate the S-vs-V slope judge-side, then lower the LIVE
-   binary's case-5 keep and bank through binary draws. Timing guard: the calibration probe ran
-   20.5 s on case 5 (0.5 s margin) — trim its refine box before 7g.
+   One vertex = 0.0020005% of total /6; the §6 attribution and the item-2 residual need
+   re-derivation against the corrected case-5 payout.
+   RESOLVED same day, the hard way: the "S≈0.907 headroom" read from the structural probes did
+   NOT belong to the live family — the live keep ladder below the banked V=4226 went 0/12
+   (f64, f32, λ-draw, hybrid-1024, 768-native all WA; 768 even WA'd the BANKED rung while 512
+   passed it the same day). With float32 the case-5 refine CONVERGES inside its box, so those
+   readings are deterministic: **the case-5 wall is exactly V=4226 for this pipeline family**;
+   sub-rung gains require a better refine optimum, not draws. (True judge-side slope near the
+   razor ≈ 3.5e-5 S per vertex — 3× the first linear estimate.)
 
 ---
 
