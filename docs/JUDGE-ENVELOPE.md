@@ -27,13 +27,14 @@ made past notes confusing.
    the banked rung (70.03125) with the 18 s box (+2 s of gradient-ascent refine could pay), or
    leave it alone — precedent warns that giving a banked razor-edge case "more" broke it before
    (the 256k-vertex case (case 6) failed its banked rung when its box was raised to 19 s).
-2. **The per-case compression table (§6) does NOT reconstruct the banked score.** Sum of the
-   rung labels = 541.4352, but 6 × 90.238542 = 541.4313 — gap −0.0039. So at least one case is
-   paid LESS than its label says. Prime suspect: the only case whose input size is approximate
-   (the 256k-vertex case (case 6), "~256,000" inferred, not exact). If a label is wrong, a
-   bisection ladder may contain a free rung — or a phantom one we already "closed". The submit
-   tool now prints the score-decomposition residual on every verdict (ARITH lines): pin the
-   deviating case from the next few submissions at no extra cost.
+2. **The per-case compression table (§6) does NOT reconstruct the banked score.** With the
+   corrected case-5 payout (91.545800 at V′=4226/49987, was labelled 91.546875) the label sum is
+   541.43413 vs 6 × 90.238542 = 541.43125 — residual −0.0029 still unexplained. Prime suspect
+   unchanged: the only case whose input size is approximate (the 256k-vertex case (case 6),
+   "~256,000" inferred, not exact). A case-6 single-payer probe (identity elsewhere, same design
+   that nailed case 5 in §7.1) would pin V_case6 exactly in one submission and close this item;
+   until then a case-6 bisection ladder may contain a free rung — or a phantom one already
+   "closed". The submit tool prints the score-decomposition residual on every verdict (ARITH).
 3. ~~The judge/local speed ratio (1.014) was measured on ONE memory-bound kernel~~ —
    ANSWERED 2026-07-05 by the SIMD probe series (§3, §8 item 6): the judge toolchain is GCC 11.5
    fully scalar on an AVX2-capable CPU; pragma regions vectorize for real (3.26× compute-bound)
@@ -43,68 +44,13 @@ made past notes confusing.
    on ALL contest pages — standings AND the per-user submission list (measured 2026-07-05, §4).
    Someone must eyeball https://imc2.kattis.com/contests/imc2-2/standings in a browser now and
    then; the tooling cannot.
-5. **NEW 2026-07-05 (from probe #7 closure, §0b): the 44.8k label for case 5 was WRONG — the
-   true input is 49,987 vertices [MEASURED, unique integer solve over 5 single-payer scores].**
-   One vertex = 0.0020005% of total /6; the §6 attribution and the item-2 residual need
-   re-derivation against the corrected case-5 payout.
-   RESOLVED same day, the hard way: the "S≈0.907 headroom" read from the structural probes did
-   NOT belong to the live family — the live keep ladder below the banked V=4226 went 0/12
-   (f64, f32, λ-draw, hybrid-1024, 768-native all WA; 768 even WA'd the BANKED rung while 512
-   passed it the same day). With float32 the case-5 refine CONVERGES inside its box, so those
-   readings are deterministic: **the case-5 wall is exactly V=4226 for this pipeline family**;
-   sub-rung gains require a better refine optimum, not draws. (True judge-side slope near the
-   razor ≈ 3.5e-5 S per vertex — 3× the first linear estimate.)
+5. ~~Case-5 true size / "S≈0.907 headroom"~~ — CLOSED 2026-07-05, both halves. **Vin_case5 =
+   49,987** (not 44,800) [MEASURED]; full derivation + verdict in §7.1. The headroom was probe-
+   family luck: the live ladder below the banked V=4226 went 0/12, so **case 5 is a deterministic
+   wall at V=4226** for this pipeline family (details §6 table + §7.1; judge-side slope near the
+   razor ≈ 3.5e-5 S per vertex).
 
 ---
-
-## 0b. ORACLE-vs-JUDGE CALIBRATION (probe #7 series) — status: **CLOSED 2026-07-05: NO BIAS; Vin_case5 = 49987 discovered en route**
-
-Chronicle (6 submissions, bank untouched):
-- 7a (19891287): carrier design error (bare-QEM at 82% compression WA'd) — moved to 64-73% band.
-- 7b/7c (19891365/522): self-scorer (bit-exact vs oracle, verified locally to 6 decimals) read
-  S=0.89158 (9 s refine) / 0.89266 (13 s) on the case-5 mesh — initially interpreted as a
-  "+0.005 judge-more-generous bias". **INTERPRETATION RETRACTED**, see next line.
-- 7d/7e split-channel probes returned mutually inconsistent values → sanitizer hunt (clean) →
-  the real cause: **the case-5 pipeline's output mesh varies by ±0.013 SSIM between STRUCTURALLY
-  different binaries** (sanitized build: Sn 0.7128 vs 0.7257 same machine/input). The old
-  "σ≈0.0002 between binaries" only holds for MICRO-edits (comment/g_draw class); large code
-  additions reshuffle FP order enough to land on very different meshes. ⇒ every probe measured a
-  DIFFERENT mesh, none of them the live binary's mesh: the pass-anchor was invalid. The "+0.005
-  bias" is NOT established. (It is not refuted either — unknown.)
-- 7f (19892477): correct design at last — emit THE MEASURED MESH itself + K hidden interior
-  tetrahedra encoding S (legal per the disconnected-output ruling; tetra cloud anchored within
-  0.03 of a kept vertex for v2v-Hausdorff safety; K = round((S-0.85)*2000), V' = V_mesh + 4K).
-  First draw: case 5 = Wrong Answer (p(fail)≈0.2-0.3 at the banked rung, or a tetra visibility
-  leak) → channel unread. RETRY with fresh draws is the path: each pass yields (S_ours, judge
-  verdict) for the SAME object — the clean calibration point.
-- 7f retry1 (19892674): WA case 5 again (fresh structural draw, 17.5 s, no TLE). Local leak test
-  [MEASURED]: measured mesh vs measured mesh + K=160 forced tetrahedra, python evaluator, 9
-  decimals → FinalSSIM identical (0.850207064 both), Hausdorff 0.0325 vs limit 0.1229. The tetra
-  channel is render-invisible; the WAs were genuine sub-0.9 meshes.
-- 7f retry2 (19892977): **ACCEPTED 7/7, score 15.005568 — channel read.** Safe-rung redesign:
-  keep 0.09 so the verdict is near-certain PASS and the channel always reads; the bias question
-  only needs (S_ours < 0.9, PASS) or (S_ours ≥ 0.9, consistent).
-- **Decode broke the 44800 assumption** [MEASURED]: no integer V′ fits 44800. Exhaustive integer
-  solve over the five single-payer scores (7b/7c/7d/7e/retry2 — identity cases pay exactly 0.0,
-  proven by retry1's exact zero) gives a UNIQUE **Vin_case5 = 49987** (the only alternative,
-  99974=2×, needs K=241 > the 160 clamp → rejected). 1 case-5 vertex = 0.0020005% of total /6.
-  Judge case 5 is a ~49987-vertex organic — nearly the local armadillo's 49990, but it scores
-  ~+0.055 SSIM higher at matched keep: a different, decimation-friendlier variant.
-- Re-decode with the true Vin: 7b S=0.90681 (not 0.89158), 7c S=0.90802, retry2 V′=4982 =
-  4502 (stall +3 over the 4499 target) + 4·120 → S=0.910 with judge PASS on the same object.
-  **VERDICT: judge SSIM ≈ our SSIM (no exploitable bias).** The 7f WAs are explained by the
-  ±0.013 structural spread reaching below 0.9.
-- **EXPLOITABLE RESIDUE → §0 item 5:** at the banked keep the mesh reads S≈0.907 (two
-  independent structural draws, 0.9068/0.9080) → ~0.007 mean headroom ≈ 600 vertices ≈ +1.2% on
-  case 5 ≈ **+0.2 total**. The "×7-closed" case-5 wall is now suspect (correlated micro-draws of
-  one unlucky family). Probe 7g (keep 0.080, expected S≈0.9045) validates the slope, then the
-  live keep moves down. Timing guard: retry2 ran 20.5 s on case 5 (0.5 s margin) — trim the probe
-  refine box first.
-
-Big collateral lesson [MEASURED]: **binary-to-binary mesh variance is bimodal** — micro-edits
-σ≈0.0002, structural edits up to ±0.013 SSIM. Every "rung closed ×N mechanisms" verdict where
-the mechanism added large code was ALSO a large re-draw; rung-closure statistics still stand
-(the draws were valid samples), but per-mechanism attribution near razors is weaker than logged.
 
 ## 1. Execution model
 
@@ -248,10 +194,10 @@ Exact sizes recovered from exact-score arithmetic [INFERRED, high confidence]:
 | case | V (input) | V′ at bank | bank compression | wall type |
 |---|---|---|---|---|
 | 2 | 3,989 | 28 | 99.298 | topological floor (28 verts; collapses+flips+removals all jam — likely small genus/handles) |
-| 3 | 25,000 | 7,492 | 70.03125 | SSIM (×5 at next rung) + judge-side TLE fragility of longer boxes |
-| 4 | 32,000 | 4,570 | 85.71875 | topological floor at 4,570 (CAD, many holes → high genus); 85.75 passes when a draw lands there; SSIM fine at least to 85.75 |
-| 5 | 44,800 | 3,787 | 91.546875 | SSIM razor at 91.5625: p(pass) ≈ 0.2 per binary draw WITH refine+19s (2 passes / 8 WAs) |
-| 6 | ~256,000 | 5,900 | 97.6953125 | SSIM (×7 at 97.703125) |
+| 3 | 25,000 | 7,492 | 70.03125 | SSIM wall, now ×2-DETERMINISTIC: 70.0625 WA'd both in the f64 box-cut era AND with f32-converged refine (19894901); TLE fragility GONE since float32 (converges at 17.4 s) |
+| 4 | 32,000 | 4,570 | 85.71875 | topological floor at 4,570 (CAD, many holes → high genus); 85.75 passes when a draw lands there; refine still box-cut ⇒ per-run coin (§1) |
+| 5 | **49,987** [MEASURED §7.1] | 4,226 | 91.5458 (old label 91.546875 was 44800-based) | **deterministic SSIM wall at V=4226**: 0/12 sub-rung on 2026-07-05 (f64/f32/λ/hybrid-1024/768 all WA; 768 negative even at the banked rung); f32 refine converges ⇒ no draw variance; slope ≈ 3.5e-5 S/vertex |
+| 6 | ~256,000 (size probe pending, §0 item 2) | 5,900 | 97.6953125 | SSIM (×7 at 97.703125); refine box-cut ⇒ per-run coin (§1) |
 | 7 | 1,100,000 | 31,405 | 97.145 | deterministic (no refine ⇒ no draw variance); 97.1475 WA ×3 binaries |
 
 Case *nature* (inferred from mechanism responses): c4 responds strongly to anisotropic placement
@@ -270,6 +216,49 @@ Case *nature* (inferred from mechanism responses): c4 responds strongly to aniso
   the normal map's **structure** component (σxy correlation), not luminance or contrast; ~90% of
   the deficit lies in interior windows. Full math and dead-end registry: `docs/THEORY.md`.
 
+### 7.1 Oracle-vs-judge calibration (probe #7 series) — CLOSED 2026-07-05: NO BIAS
+
+**Verdict [MEASURED, 19891287..19892977, 8 submissions, bank untouched]: the judge's FinalSSIM
+≈ our FinalSSIM.** Same-object proof: the solver self-scored its case-5 mesh in-process
+(bit-exact scorer) and emitted THAT mesh + K hidden interior tetrahedra encoding S (V′ = V_mesh
++ 4K; tetra cloud v2v-Hausdorff-anchored, proven render-invisible to 9 decimals locally) — the
+judge PASSED the very mesh that read S_ours = 0.910. Earlier "+0.005 judge-more-generous bias"
+(7b/7c) was RETRACTED twice over: first a mesh-identity confound (structurally different
+binaries emit case-5 meshes ±0.013 SSIM apart), then a decode error (the 44,800 case-5 size was
+wrong — see next line). No exploitable metric gap exists; recalibrating the refine objective is
+a dead end.
+
+Collateral discovery: **Vin_case5 = 49,987** — unique integer solution over five single-payer
+probe scores (identity outputs pay exactly 0.0, proven by a WA probe scoring exactly 0.0; the
+double, 99,974, is excluded by the K ≤ 160 encode clamp). One case-5 vertex = 0.0020005% of
+total /6. The judge's case 5 is armadillo-LIKE (49,987 vs our proxy's 49,990) but scores ~+0.055
+SSIM higher at matched keep: a different, decimation-friendlier variant — the proxy's absolute
+pessimism is a property of the INPUT mesh, not of the metric.
+
+Instrument, reusable (the "measured-mesh channel"): run the real pipeline, self-score S, emit
+the measured mesh + K tetrahedra, decode K from V′ in the score. Reads a judge-side S NUMBER in
+one submission — but only when the case PASSES, so run it at a safe rung. This is the tool for
+pinning V_case6 (§0 item 2).
+
+### 7.2 What local tests are worth now (post-calibration operating rules)
+
+- **The metric code is trusted; the proxy meshes are not.** Local evaluator + in-process scorer
+  are judge-exact on the same input. But judge inputs ≠ our proxies: absolute local FinalSSIM
+  still predicts NOTHING about pass/fail except on the case-3 proxy (historically faithful
+  ±0.002). Case-5 proxy reads ~0.05 pessimistic FOREVER; don't re-litigate it.
+- **Local relative A/B is a screen, not a verdict.** Same-day proof both ways: float32 refine
+  (+0.0003 local at a cut-binding box) transferred; 768-native refine (+0.00067 local) was
+  judge-NEGATIVE (~−0.001, WA'd even the banked rung). Rule: a local win ≥ +0.0005 on the right
+  proxy buys ONE judge draw; never close a mechanism, and never push a razor rung, on local
+  evidence alone.
+- **Local tests ARE definitive for:** validity (manifold/indices/Hausdorff), output vertex
+  counts (the mandatory pre-submission "prova del nove"), wall-time ballpark (×1.014 judge
+  ratio), and the convergence-vs-box-cut diagnosis — if the refine converges locally inside its
+  box, its judge-side S is ~deterministic (case 3 and 5 post-float32); if the box cuts it, the
+  judge verdict is a per-run coin (§1).
+- **When a judge-side S number (not pass/fail) is needed:** use the measured-mesh channel
+  (§7.1), one submission per reading.
+
 ## 8. Open questions worth a probe (ranked)
 
 1. ~~Memory ceiling~~ — DONE 2026-07-05: (1 GiB, 2 GiB]. See §3.
@@ -281,37 +270,40 @@ Case *nature* (inferred from mechanism responses): c4 responds strongly to aniso
 5. **Duplicate vertices** — legal or not; could matter for exotic constructions. Low value today.
 6. ~~SIMD/`#pragma GCC target` availability~~ — **DONE 2026-07-05 (5 submissions, see §3):
    the pragma mechanism works (3.26× on compute-bound lanes) but the real refine loop gains
-   1.000× — memory/dependency-bound. Door CLOSED for the code as written.** Two surviving
-   algorithm-level corollaries, both untested: (a) if the loop is bandwidth-bound, float32
-   refine buffers halve the traffic → up to ~2× more refine iterations per box (a rewrite with
-   FP-precision risk — a float32 experiment regressed a razor case once in the multithreading
-   era, cause never isolated); (b) any future compute-bound code (e.g. in-process scoring math)
-   gets 3.26× for free inside a pragma region.
-7. **Oracle-vs-judge SSIM calibration** — self-render + in-process FinalSSIM of our own c5 output
-   at 512/1024, covert-encode round((SSIM−0.89)·2^12/0.02) in c2's vertex count (12 bits ≈
-   1.6e-5 resolution over [0.89, 0.91] — plenty). Compares what OUR math says against the judge's
-   pass/fail at the same rung: any systematic bias re-calibrates every local read we have and
-   could explain the razor p≈0.2 asymmetry at c5-91.5625.
+   1.000× — memory/dependency-bound. Door CLOSED for the code as written.** Corollary (a),
+   float32 refine buffers, is now ALSO DONE — built, measured (+0.0003 local at a cut-binding
+   box; f32@10s beats f64@16s), and judge-validated 7/7 at the bank (19894847, v100 base):
+   case-3 refine now converges inside its box (TLE razor gone). Surviving corollary (b): any
+   future compute-bound code gets 3.26× for free inside a pragma region.
+7. ~~Oracle-vs-judge SSIM calibration~~ — **DONE 2026-07-05: NO BIAS. Moved to §7.1** (verdict,
+   the Vin_case5=49987 discovery, and the reusable measured-mesh channel). Local-test operating
+   rules derived from it: §7.2.
 8. **Wall-clock vs CPU-clock limit** — the busy-wait probes burn CPU, so they cannot distinguish
    the two. A `sleep(25)` probe would: pass ⇒ CPU-billed limit, TLE ⇒ wall. No known exploit
-   either way (we have no idle time), so model-hygiene value only.
+   either way (we have no idle time), so model-hygiene value only. NOTE 2026-07-05: same-binary
+   case times swing ±1.2 s run-to-run and a 22.8 s case-5 run was judged WA (not TLE) while a
+   21.2 s case-7 run passed — the "21 s ceiling" is softer/noisier than the busy-wait probe
+   suggested; any re-probe should also re-measure the kill point under load (ties into #4).
 9. **Submission rate ceiling** — 70+/day drew no complaints; the true cap bounds how many
-   tail-harvest draws/day are available (EV ≈ +0.0005/draw). Measured passively by harvesting.
+   per-run lottery draws/day are available. Measured passively by harvesting.
 
-**Ranking by expected score value (updated 2026-07-05 evening, after the SIMD series closed #6):**
-#7 oracle calibration (recalibrates ALL local reads + razor statistics) > float32-refine-buffers
-experiment (the surviving corollary of #6: up to ~2× refine throughput if bandwidth-bound;
-solver experiment, not a probe) > #4 T=20.5 (a few hundred ms of box = one more 1024 iteration
-on the 25k organic case (case 3)) > #9 rate cap (linear harvest EV) > #8 wall-vs-CPU (hygiene) >
-#2 unreferenced verts (rules closure, no score path today) > #5 duplicate verts (no live
-construction needs it).
+**Ranking by expected score value (updated 2026-07-05 night; #1/#3/#6/#7 closed):**
+V_case6 single-payer probe (§0 item 2 — one submission, closes the last unknown case size and
+the −0.0029 attribution residual; a mislabelled case-6 rung is the only place a "free" rung can
+still hide) > #4 T=20.5 + kill-point-under-load (box sizing for the two cases still living at
+20.7-21.2 s) > #9 rate cap (linear lottery EV) > #8 wall-vs-CPU (hygiene) > #2 unreferenced
+verts (rules closure, no score path today) > #5 duplicate verts (no live construction needs it).
 
 ## 9. Standing operational rules distilled from all of the above
 
 1. One question per submission; the CASES string + FAIL lines answer it. Any 'x' must be
    classified (WA vs TLE) before drawing conclusions — they demand opposite remedies.
-2. Never resubmit a byte-identical source expecting a different outcome (determinism); never
-   expect the same outcome after ANY code change near a wall (draws).
+2. (rewritten 2026-07-05, per-run nondeterminism §1) Know WHICH regime a case is in before
+   spending a submission: box-CUT refine (cases 4 and 6) ⇒ per-run coin, byte-identical
+   resubmits (`--force`) ARE legitimate re-rolls; CONVERGED refine (cases 3 and 5 under float32)
+   or no refine (cases 2 and 7) ⇒ ~deterministic, a resubmit re-answers the same question —
+   change the mesh (keep/param) or accept the wall. Never expect the same outcome after ANY code
+   change near a wall (structural draws still reshuffle ±0.013).
 3. Never attach "improvements" to a case sitting at a banked razor rung without re-validating
    that case: three separate incidents (c5 hybrid-insurance, c6 19s box, c4 16s box) broke a
    passing case by giving it "more".
