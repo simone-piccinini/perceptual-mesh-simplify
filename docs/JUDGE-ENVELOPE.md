@@ -164,6 +164,10 @@ made past notes confusing.
   count of a sacrificial case and read back from the score. Used implicitly to pin exact case
   sizes (§6). Available for future diagnostics (e.g., timing a phase in vivo).
 - CPU time column in the submissions table is empty for scored submissions. [MEASURED]
+- **Submission rate limit = token bucket** [MEASURED 2026-07-06]: a burst of ~8 submissions in
+  ~40 minutes exhausted it; the refusal names the mechanism ("You are out of submission tokens.
+  Your next token will regenerate in 231 seconds") -> sustained ~1 per ~4 min, burst capacity
+  several. A refused submit costs nothing. This bounds read-ladder throughput to ~15/hour.
 
 ## 5. Validity & output rules
 
