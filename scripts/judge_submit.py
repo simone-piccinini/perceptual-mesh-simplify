@@ -61,11 +61,11 @@ STATUS = {
 }
 
 # ---- Bank constants: UPDATE WHEN THE BANK MOVES (last: 2026-07-05) ---------------------------
-BANK_SCORE = 90.238542  # best 7/7 score on the judge
+BANK_SCORE = 90.243142  # best 7/7 score on the judge (19898182: c5=4212 read->twin->bank)
 # Per-case compression LABELS at the bank (rung names). NB: labels are keep-derived and can
 # differ from the judge's actual payout by rounding of V' = round(keep*V); the label sum
 # (541.4352) does NOT exactly reconstruct 6*BANK_SCORE (541.4313) — known open discrepancy.
-BANKED = {2: 99.316740, 3: 70.027154, 4: 85.707809, 5: 91.545802, 6: 97.689905, 7: 97.143842}  # EXACT payouts (residual +0.000000), solved 2026-07-05 with ALL-MEASURED sizes
+BANKED = {2: 99.316740, 3: 70.027154, 4: 85.707809, 5: 91.573402, 6: 97.691495, 7: 97.143842}  # EXACT (c5 4212 + c6 8705 banked 2026-07-06)
 # Input vertex counts (recovered from exact-score arithmetic; JUDGE-ENVELOPE.md §6).
 # Case 6 is APPROXIMATE (~256k inferred) — implied-V' readouts for it carry a '~'.
 # Case 5 = 49987 [MEASURED 2026-07-05]: unique integer solve over the 5 single-payer CAL probes
