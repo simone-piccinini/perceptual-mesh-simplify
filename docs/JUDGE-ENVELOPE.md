@@ -23,15 +23,15 @@ made past notes confusing.
    case 3's refine now CONVERGES inside the 16 s box (finishes at ~17.4 s total, was 20.7-21.0
    box-cut). A bigger box buys zero iterations for a converged ascent; the 16-vs-18 question
    died with the box-cut regime.
-2. **Input sizes: five of six MEASURED, one probe in flight (case 3).** The fixed-count
-   single-payer instrument (exact-N output, identity elsewhere → V = N/(1−6·score/100),
-   ±0.5 verts) has now read: case 2 = 4,098 [19895596], case 4 = 35,292 [19895611],
-   case 5 = 49,987 [CAL series], case 6 = 377,084 [19895532], case 7 = 1,009,118 [19895536].
-   EVERY legacy "recovered by arithmetic" size was wrong (3,989 / 25,000 / 32,000 / ~256,000 /
-   1,100,000) — and therefore the earlier "bit-exact bank attribution" was a coincidence fit;
-   the definitive attribution re-solve runs after the case-3 probe lands. Design rule learned
-   the expensive way (exact-6000/6500 WAs on case 6): keep-fraction rungs AUTO-SCALE with the
-   unknown V — size a fixed count for the UPPER end of the case's range.
+2. ~~Input sizes / bank attribution~~ — **CLOSED 2026-07-05 night: ALL SIX sizes MEASURED**
+   with the fixed-count single-payer instrument (exact-N output, identity elsewhere →
+   V = N/(1−6·score/100), ±0.5 verts): case 2 = 4,098 [19895596], case 3 = 23,201 [19895616],
+   case 4 = 35,292 [19895611], case 5 = 49,987 [CAL series], case 6 = 377,084 [19895532],
+   case 7 = 1,009,118 [19895536]. EVERY legacy "recovered by arithmetic" size was wrong.
+   Bank attribution re-solved with the true sizes: residual +0.000000 — exact payouts in the
+   §6 table. Design rule learned the expensive way (exact-6000/6500 WAs on case 6):
+   keep-fraction rungs AUTO-SCALE with the unknown V — size a fixed count for the UPPER end
+   of the case's range.
 3. ~~The judge/local speed ratio (1.014) was measured on ONE memory-bound kernel~~ —
    ANSWERED 2026-07-05 by the SIMD probe series (§3, §8 item 6): the judge toolchain is GCC 11.5
    fully scalar on an AVX2-capable CPU; pragma regions vectorize for real (3.26× compute-bound)
@@ -199,7 +199,7 @@ stalls. Every pre-probe "recovered" size was wrong.
 |---|---|---|---|---|
 | 2 | **4,098** [19895596] | 28 | 99.316740 | **SSIM wall at 28** (27 = 99.341 WA'd). Topology probe: 1 component, genus 0 — a topological SPHERE, so the old "topological floor" label was WRONG; surgery has NOTHING to win here (1 vertex = 4.07e-3 total) |
 | 3 | **23,201** [19895616] | 6,954 | 70.027154 | SSIM wall, ×2-DETERMINISTIC (70.06-rung WA'd in both refine regimes); TLE fragility GONE since float32 (converges) |
-| 4 | **35,292** [19895611] | 5,044 | 85.707809 | greedy jam + SSIM; the old "floor at 4,570" NUMBER was an artifact of the wrong 32,000 size — true floor count unknown; genus probe in flight decides whether it is topological at all; refine box-cut ⇒ per-run coin (§1) |
+| 4 | **35,292** [19895611] | 5,044 | 85.707809 | **SSIM wall ~5,029-5,044** (the 0.1425-keep rung = 5,029 passes only on lucky draws). Topology probe [19895626]: 1 component, **genus 0** — the "topological floor" story is DEAD; the greedy jam is geometric (gate exhaustion on CAD creases), and the old "4,570 floor" was wrong-size arithmetic; refine box-cut ⇒ per-run coin (§1) |
 | 5 | **49,987** [CAL §7.1] | 4,226 | 91.545802 | **deterministic SSIM wall at V=4226**: 0/12 sub-rung 2026-07-05 (f64/f32/λ/hybrid-1024/768 all WA; 768 negative even at the banked rung); f32 refine converges ⇒ no draw variance; slope ≈ 3.5e-5 S/vertex |
 | 6 | **377,084** [19895532] | 8,711 | 97.689905 | SSIM razor; fixed-count 8670-target WA'd ×2 → wall band [8670, 8711); refine box-cut ⇒ per-run coin (§1) |
 | 7 | **1,009,118** [19895536] | 28,822 | 97.143842 | deterministic (no refine ⇒ no draw variance); keep-rung pushes WA'd ×3 just below → wall within ~35 verts of bank |
@@ -207,28 +207,24 @@ stalls. Every pre-probe "recovered" size was wrong.
 Case *nature* (inferred from mechanism responses): c4 responds strongly to anisotropic placement
 (CAD-like); c3/c5/c6/c7 do not (organic/scan-like); c2 is tiny and topology-limited.
 
-### 6.1 Wall taxonomy — JUDGE walls vs SOLVER walls (the key strategic distinction)
-
-Every wall in the table above belongs to one of two classes, and they demand opposite responses:
+### 6.1 Wall taxonomy — JUDGE walls vs SOLVER walls (final, 2026-07-05 night)
 
 - **JUDGE walls** — imposed by the metric or the rules; no algorithm crosses them:
-  SSIM ≥ 0.9 (cases 3, 5, 6 sit on measured SSIM razors), CPU ≈ 21 s (§2), memory (1,2] GiB,
-  `1 ≤ V′ ≤ V`, closed 2-manifold, v2v Hausdorff 5%. These are hard.
-- **SOLVER walls** — properties of OUR pipeline family, crossable by a different algorithm:
-  (a) the case-2 (28 verts) and case-4 (4,570 verts) "topological floors" are NOT judge
-  requirements: **the judge does not require the output genus to match the input** — only
-  closed-2-manifoldness. Our greedy manifold-PRESERVING edge collapse jams when handle/hole
-  loops run out of legal collapses; an algorithm that performs topology surgery (hole filling,
-  handle removal, or Garland-Heckbert vertex-PAIR contraction, which aggregates across gaps)
-  could legally go far below these floors, subject only to SSIM+Hausdorff.
-  (b) the case-5 V=4226 and case-3 70.032 walls are walls OF THE CONVERGED LOCAL OPTIMUM of our
-  refine family — a globally better optimizer (different basin, different mesh) faces a
-  different wall.
-  **The topological-floor prize is potentially the largest unexplored lever on the board**: if
-  case 4's floor is a genus jam, the gap between 4,570 and an SSIM-limited vertex count could
-  be worth several points on that case alone (each case-4 vertex = 100/(6·32000) = 5.2e-4 of
-  total). Before building surgery, ONE probe quantifies the prize: compute the input's genus
-  in-process (g = (2−V+E−F)/2 per component) and covert-encode it — see §8 item G.
+  SSIM ≥ 0.9, CPU ceiling [21,22) s (§2), memory (1,2] GiB, `1 ≤ V′ ≤ V`, closed 2-manifold,
+  v2v Hausdorff 5%.
+- **Topology is NOT a wall anywhere [MEASURED, genus probes 19895596 + 19895626]:** case 2 is
+  a 1-component genus-0 sphere and case 4 (the CAD) is ALSO 1-component genus-0 — its holes
+  are blind/geometric, not handles. The judge would allow genus changes, but there is no genus
+  to remove: **topology surgery has zero prize on this test set — road closed for the cost of
+  two probes.** The historical "topological floors" were (a) wrong-size arithmetic (the 4,570
+  number) and (b) geometric gate exhaustion of OUR greedy (link condition + flip gate jamming
+  on CAD creases / low-valence endgames) — a SOLVER property, worth at most the few dozen
+  vertices between the jam point and the SSIM wall.
+- **The remaining SOLVER walls are all of one kind: the converged LOCAL OPTIMUM of our
+  decimate-then-refine family.** Structurally different meshes at the same vertex count spread
+  ±0.013 SSIM (measured), i.e. better optima EXIST at every banked count. A globally better
+  optimizer (joint decimation+refinement, appearance-driven co-optimization — THEORY.md §8
+  Road B) faces a different, farther wall. That is the only door left to 91+.
 
 ## 7. Metric internals (what the scorer actually computes)
 
@@ -307,16 +303,10 @@ Closed items are kept one line each; full detail lives in the section that owns 
    memory-bound (1.000×). §3. Corollary float32-buffers SHIPPED (v100); corollary (b): future
    compute-bound code gets 3.26× free inside a pragma region.
 7. ~~Oracle-vs-judge SSIM calibration~~ — DONE: no bias. §7.1; operating rules §7.2.
-G. **NEW — INPUT GENUS PROBE (the one remaining high-value unknown).** The case-2/case-4
-   topological floors are SOLVER walls (§6.1); their true depth depends on the INPUT topology,
-   which we have never measured. Design (2 submissions, zero bank risk): in-process compute
-   per-component Euler characteristic of the input (g_total = Σ (2−χ_c)/2), then decimate the
-   probed case to a safe fixed count N and pad with tetrahedra/bipyramids to EXACTLY N + g_total
-   (exact-count machinery from the size probes); identity elsewhere; decode g = V′ − N from the
-   single-payer score. One submission for case 2, one for case 4. If g_case4 is large (CAD with
-   many holes), the topology-surgery road (§6.1) has a quantified multi-point prize; if g ≈ 0,
-   the floors are collapse-order jams instead and surgery is worthless — either answer redirects
-   the whole endgame.
+G. ~~Input genus probe~~ — **DONE 2026-07-05 (19895596 case 2, 19895626 case 4): both are
+   1-component, GENUS 0.** Encode: in-process Euler characteristic, exact-count output
+   N + 40·ncomp + g (case 2) / N + 1000·ncomp + g (case 4). Verdict: topology surgery has ZERO
+   prize on this test set — the road died for two submissions instead of a build-week. §6.1.
 
 **State (2026-07-05 late night): every judge limit that affects scoring is measured — time
 (CPU ceiling, per-run noise regime), memory, toolchain/SIMD, submission mechanics, validity

@@ -142,7 +142,12 @@ Everything incremental inside the current pipeline family is judged-closed (§6b
 2026-07-05 closures in ATTEMPT_LOG: keep/λ/res/hybrid ladders on case 5, case-3 push, 768).
 The bank is 90.238542; the leader ~91.6. What remains, ranked by expected value:
 
-### Road A — Topology surgery (the only multi-point door left)
+### Road A — ✗ Topology surgery — DEAD 2026-07-05 (genus probes: BOTH candidate cases are genus-0 spheres)
+**Verdict [MEASURED 19895596 + 19895626]: case 2 AND case 4 (the CAD) are 1-component,
+genus 0. There are no handles to remove; the "topological floors" were wrong-size arithmetic
+plus geometric gate jams. Surgery has zero prize on this test set. Road closed for the cost
+of two probe submissions — the paper list below is kept only as a record of what NOT to read
+now.** Original plan follows for the archive:
 **Why:** the judge requires closed-2-manifoldness but NOT genus preservation (ENVELOPE §6.1).
 Our greedy manifold-PRESERVING collapse jams at "topological floors" on the CAD case (4,570
 verts) — if that floor is a genus jam, an algorithm allowed to close handles/holes goes far
