@@ -221,3 +221,50 @@ Venues: SIGGRAPH/TOG, Eurographics/CGF, TVCG, SGP. Query stems, each tied to a r
 - Filters: prefer methods with per-operation validity gates (we must stay closed-manifold
   every step) and CPU budgets (no GPU on the judge). Anything requiring global remeshing
   from scratch must fit ~10 s on 1M vertices to be usable on cases 6/7.
+
+## 9. Session 2026-07-05/06 additions — proxy-transfer theory + the coverage channel
+
+### 9.1 ✗ R1 (interleaved decimate↔refine) — judge-negative, and WHY it matters theoretically
+Mid-decimation refine bursts (so collapse ordering/placement/importance act on SSIM-optimized
+geometry) gain +0.0015-0.002 on BOTH proxies at equal count — and THREE live families out of
+three failed their own BANKED razors on the judge (cases 3 and 5). Combined with the earlier
+768-native inversion, this establishes a THEORY-LEVEL fact:
+
+**The armadillo-derived proxies systematically over-reward fine geometric optimization.**
+Plausible mechanism: the proxies are themselves DECIMATION PRODUCTS of armadillo (25k/35k
+proxies) or armadillo itself (case-5 proxy) — their normal fields are smoother/more coherent
+than the judges' raw scans, so position-space micro-optimization finds more recoverable
+structure locally than on the true inputs. Consequences:
+- local RELATIVE gains ≤ +0.002 from position-space optimizers DO NOT transfer (measured
+  transfer ratio ≈ 0 to negative, three mechanisms);
+- the float32/speed class of change (more iterations of the SAME trajectory) DID transfer —
+  throughput is proxy-neutral, trajectories are not;
+- every new mechanism must pass a judge family test AT ITS BANKED RUNG before any descent
+  (one submission; the per-case verdict is the read).
+
+### 9.2 The coverage/silhouette channel (SIL) — OPEN, first mechanism through the judge gate
+The analytic refine gradient is coverage-blind (pixel-to-face assignment frozen) and Sd-blind
+(accept metric was normal-SSIM only). SIL adds: (a) accept on Final = 0.5·Sn+0.5·Sd (depth
+scorer from the probe line), (b) per-view coverage-DIFFERENCE map — original foreground the
+current mesh misses votes its nearest rim vertex OUTWARD, excess coverage votes INWARD —
+(c) one line-searched global step along per-vertex signed rim directions, (d) alternation with
+the Sn-ascent which repairs interior damage.
+- UNIFORM (unsigned) rim displacement is exactly zero-sum (half the chords are inside, half
+  outside the true arcs) — consistent with the old global-scale sweep peaking at 1.0. The SIGN
+  per vertex is the whole content of the mechanism.
+- Measured: case-5 proxy +0.0019 internal (one-shot, then converged) → +0.000735 on the TRUE
+  1024 evaluator at equal count; judge: PASSES the banked case-5 razor (19897967) — but
+  descent rungs −7 and −14 vertices both WA → current judge-side gain < 7·3.5e-5 ≈ 0.0002.
+  Transfer ratio ≈ 0.3 (vs ≈ 0 for position-space mechanisms) — the first channel where local
+  and judge agree on the SIGN.
+- v3 directions (untested): vote-magnitude-scaled per-vertex steps; iterate detect→move→
+  re-detect; integration WITH the case-3 hybrid (the current pilot branch bypasses phase B);
+  finer vote radius; SIL on case 3 (2.15× per-vertex payout, faithful proxy).
+
+### 9.3 ✗ bbox-crop on the 377k case — trajectory sensitivity of box-cut razors
+The exact-math crop (R3b) is bit-identical at convergence (case 5 verified to 9 decimals) but
+1-ulp border differences reshuffle CUT trajectories. On the only case that is both box-cut and
+razor-tuned (case 6), five consecutive crop-family draws failed rungs up to SAFER than banked
+(8720 > 8711) — the crop family's mean is genuinely lower there. Healed by gating the crop to
+V ≤ 100000. Lesson: throughput changes are trajectory re-rolls on box-cut cases; their sign is
+a family draw, not a free lunch.
