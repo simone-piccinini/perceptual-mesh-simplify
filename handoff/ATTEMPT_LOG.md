@@ -651,3 +651,12 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   gated by a case-5 measured-mesh read FIRST. Bank untouched (best-counts).
   Meta-lesson reinforced: §7.2 rules held — local win bought judge draws, draws answered, no
   ladder was burned beyond the read + 4 verdicts.
+- **BANK +0.000265 → 90.238807 (19897075, 2026-07-05 late night):** case-6 fixed-count 8684
+  target landed at V′=8705 (+21 stall, single-change ARITH decode) = +6 vertices over the old
+  8711. The 8684-target roulette (19897066) also revealed the case-7 wall in (28800, 28822]
+  (28800 WA'd) — case-7 pushes dropped, ≤ +0.0004 available there.
+- **R3b bbox-crop refine VALIDATED locally:** converged case-5 output BIT-IDENTICAL
+  (0.850098418 both builds); case-3 at budget 8 reads 0.903713 — above v102 at budget 10
+  (≥2× effective iterations where the box cuts; the small plateau overshoot = 1-ulp crop-border
+  trajectory jitter, structural-class). Shipping as v103 re-rolls the refine families →
+  sequenced AFTER the c6 bank event.

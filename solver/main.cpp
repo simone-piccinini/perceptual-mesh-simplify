@@ -70,8 +70,8 @@ static double keep_for(int V) {
     if (V <= 30000)  return 0.2996875;// case 3: 70.03125 banked keep (R1 descent closed: 6931/6944/banked-with-R1 all WA'd)
     if (V <= 40000)  return 0.1428125;// case 4: TAIL-HARVEST 85.71875 (85.6875 BANKED draw-3-of-3 #90.2333)
     if (V <= 100000) return 0.08453125;// case 5: banked V=4226 = deterministic wall (f32 converges: 12 sub-rung fails were real, not noise); 768 kept as razor margin
-    if (V <= 400000) return 0.023046875;// case 6: banked rung V=8702 (fixed-8670 WA x2 19895562/571; wall band [8661,8681] tighter than hoped)
-    return 0.02855;                // case 7: 97.145 CLOSED x3 (plain; sdef-remnant; aniso)
+    if (V <= 400000) return 8684.0/(double)V; // case 6 micro-rung: V~8685 (+26 vs banked 8711 = +0.00115 tot); band [8670,8711), v102 family = fresh coin
+    return 0.02855;                // case 7: banked (28800 WA 19897066 -> wall in (28800,28822], not worth the slots)
 }
 
 // Pivot-A steering strength per case. Medium organic meshes (cases 3,4,5) gain from
@@ -275,9 +275,11 @@ static void view_basis(int v, Vec3& eye, Vec3& right, Vec3& up, Vec3& fwd) {
     static const Vec3 uv[6] = {{0,0,1},{0,0,1},{0,0,1},{0,0,1},{0,1,0},{0,1,0}};
     Vec3 a = ax[v], u = uv[v]; eye = 2.5*a; fwd = -a; right = fwd.cross(u); right /= right.norm(); up = right.cross(fwd); up /= up.norm();
 }
+static int g_rb_x0, g_rb_y0, g_rb_x1, g_rb_y1;   // R3b: touched-pixel bbox of the last render
 static void render_faceid(int v, std::vector<int>& fid) {
     const int W = g_res; const double F = 800.0*(W/1024.0), C = W/2.0;
     Vec3 eye, right, up, fwd; view_basis(v, eye, right, up, fwd);
+    g_rb_x0 = g_rb_y0 = W; g_rb_x1 = g_rb_y1 = -1;
     const int nv = (int)pos.size(); std::vector<double> u(nv), vv(nv), dp(nv);
     for (int i = 0; i < nv; ++i) { if (!alive[i]) continue; Vec3 r = pos[i]-eye; double x = r.dot(right), y = r.dot(up), d = r.dot(fwd); if (d==0) d = 1e-9; u[i] = F*x/d+C; vv[i] = F*y/d+C; dp[i] = d; }
     fid.assign((size_t)W*W, -1); std::vector<double> zb((size_t)W*W, 1e30); const int nf = (int)faces.size();
@@ -290,7 +292,8 @@ static void render_faceid(int v, std::vector<int>& fid) {
         for (int py=mny;py<=mxy;++py){double cy=py+0.5; for (int px=mnx;px<=mxx;++px){double cx=px+0.5;
             double w0=((v1-v2)*(cx-u2)+(u2-u1)*(cy-v2))*inv,w1=((v2-v0)*(cx-u2)+(u0-u2)*(cy-v2))*inv,w2=1-w0-w1;
             if (w0<-1e-9||w1<-1e-9||w2<-1e-9) continue; double den=w0/d0+w1/d1+w2/d2; if (den<=0) continue; double z=1.0/den;
-            size_t k=(size_t)py*W+px; if (z<zb[k]){zb[k]=z; fid[k]=f;} }}
+            size_t k=(size_t)py*W+px; if (z<zb[k]){zb[k]=z; fid[k]=f;
+                if(px<g_rb_x0)g_rb_x0=px; if(px>g_rb_x1)g_rb_x1=px; if(py<g_rb_y0)g_rb_y0=py; if(py>g_rb_y1)g_rb_y1=py; } }}
     }
 }
 static inline double face_lum(int f) { const int* t = faces[f].data(); Vec3 n = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]); double l = n.norm(); if (l>0) n /= l; return ((n.x()+1)+(n.y()+1)+(n.z()+1))/6.0; }
@@ -340,16 +343,35 @@ static double r_elapsed() {   // CPU seconds, not wall: the judge bills CPU (sle
     struct rusage ru; getrusage(RUSAGE_SELF, &ru);
     return ru.ru_utime.tv_sec + ru.ru_stime.tv_sec + 1e-6*(ru.ru_utime.tv_usec + ru.ru_stime.tv_usec);
 }
+// R3b: crop rectangles per view (union of original and current coverage, grown by 2R+2).
+// Outside the crop BOTH maps are the constant background, whose window sums are exactly
+// representable (127.5-multiples), so restricting all passes to the crop is math-preserving.
+static int g_cr_x0[6], g_cr_y0[6], g_cr_x1[6], g_cr_y1[6];   // original-coverage bbox per view
+static int g_cx0, g_cy0, g_cx1, g_cy1;                        // active crop while scoring a view
+static bool g_crop_on = false;
 static void r_boxsum(const std::vector<float>& a, std::vector<float>& o, int W) {  // 11x11 sliding SUM (separable); float32 storage, double running accumulators
     const int R = 5; static std::vector<float> tmp; tmp.resize((size_t)W*W); o.resize((size_t)W*W);  // R3c: no zero-init (both fully overwritten below), reused scratch
-    for (int y=0;y<W;++y){ double s=0; for(int x=0;x<=R&&x<W;++x) s+=a[(size_t)y*W+x];
+    if (!g_crop_on) {
+        for (int y=0;y<W;++y){ double s=0; for(int x=0;x<=R&&x<W;++x) s+=a[(size_t)y*W+x];
+            for(int x=0;x<W;++x){ tmp[(size_t)y*W+x]=(float)s; int add=x+R+1,rem=x-R; if(add<W)s+=a[(size_t)y*W+add]; if(rem>=0)s-=a[(size_t)y*W+rem]; } }
+        for (int x=0;x<W;++x){ double s=0; for(int y=0;y<=R&&y<W;++y) s+=tmp[(size_t)y*W+x];
+            for(int y=0;y<W;++y){ o[(size_t)y*W+x]=(float)s; int add=y+R+1,rem=y-R; if(add<W)s+=tmp[(size_t)add*W+x]; if(rem>=0)s-=tmp[(size_t)rem*W+x]; } }
+        return;
+    }
+    // cropped passes: rows [ry0,ry1] horizontally (full-row slide, cheap), columns [cx0,cx1]
+    // vertically with the initial 11-row window summed directly (double accumulator).
+    const int ry0 = std::max(0, g_cy0 - R), ry1 = std::min(W-1, g_cy1 + R);
+    for (int y=ry0;y<=ry1;++y){ double s=0; for(int x=0;x<=R&&x<W;++x) s+=a[(size_t)y*W+x];
         for(int x=0;x<W;++x){ tmp[(size_t)y*W+x]=(float)s; int add=x+R+1,rem=x-R; if(add<W)s+=a[(size_t)y*W+add]; if(rem>=0)s-=a[(size_t)y*W+rem]; } }
-    for (int x=0;x<W;++x){ double s=0; for(int y=0;y<=R&&y<W;++y) s+=tmp[(size_t)y*W+x];
-        for(int y=0;y<W;++y){ o[(size_t)y*W+x]=(float)s; int add=y+R+1,rem=y-R; if(add<W)s+=tmp[(size_t)add*W+x]; if(rem>=0)s-=tmp[(size_t)rem*W+x]; } }
+    for (int x=g_cx0;x<=g_cx1;++x){
+        double s=0; for(int y=std::max(0,g_cy0-R); y<=std::min(W-1,g_cy0+R); ++y) s+=tmp[(size_t)y*W+x];
+        for(int y=g_cy0;y<=g_cy1;++y){ o[(size_t)y*W+x]=(float)s;
+            int add=y+R+1,rem=y-R; if(add<=ry1)s+=tmp[(size_t)add*W+x]; if(rem>=ry0)s-=tmp[(size_t)rem*W+x]; } }
 }
 static void refine_init_orig() {       // render the ORIGINAL (all-alive) mesh's 6 maps at g_refine_res
     g_res = g_refine_res; const size_t WW=(size_t)g_res*g_res;
     for (int v=0;v<6;++v){ std::vector<int> fid; render_faceid(v, fid);
+        g_cr_x0[v]=g_rb_x0; g_cr_y0[v]=g_rb_y0; g_cr_x1[v]=g_rb_x1; g_cr_y1[v]=g_rb_y1;   // R3b: original coverage bbox
         g_orig_cov[v].assign(WW,0); for(int c=0;c<3;++c) g_orig_n[v][c].assign(WW,127.5f);
         for(size_t k=0;k<WW;++k){ int f=fid[k]; if(f<0) continue; g_orig_cov[v][k]=1; Vec3 n=face_nrm(f);
             for(int c=0;c<3;++c) g_orig_n[v][c][k]=(float)((n[c]+1.0)*127.5); } }
@@ -360,6 +382,14 @@ static double refine_score_grad(std::vector<Vec3>* grad) {
     double total=0; std::vector<int> fs;
     std::vector<float> mx,my,xx,yy,xy,Gmy,Gsy,Gsxy,Smy,Ssy,Ssym,Ssxy,Ssxm,Y,t,a,bx;
     for(int v=0;v<6;++v){ render_faceid(v,fs);
+        {   // R3b: crop = union(original bbox, current bbox) grown by 2R+2, clamped
+            const int Rm = 2*R_RAD + 2;
+            int x0=std::min(g_cr_x0[v], g_rb_x0), y0=std::min(g_cr_y0[v], g_rb_y0);
+            int x1=std::max(g_cr_x1[v], g_rb_x1), y1=std::max(g_cr_y1[v], g_rb_y1);
+            if (x1 < 0) { x0=0; y0=0; x1=W-1; y1=W-1; }   // nothing rendered: full frame (degenerate safety)
+            g_cx0=std::max(0,x0-Rm); g_cy0=std::max(0,y0-Rm); g_cx1=std::min(W-1,x1+Rm); g_cy1=std::min(W-1,y1+Rm);
+            g_crop_on = true;
+        }
         std::vector<char> cov((size_t)W*W); for(size_t k=0;k<(size_t)W*W;++k) cov[k]=g_orig_cov[v][k]||(fs[k]>=0);
         std::vector<Vec3> dSdn(faces.size(),Vec3::Zero());
         for(int c=0;c<3;++c){ const std::vector<float>& Xr=g_orig_n[v][c];
@@ -371,7 +401,7 @@ static double refine_score_grad(std::vector<Vec3>* grad) {
             for(size_t k=0;k<t.size();++k) t[k]=Xr[k]*Y[k];  r_boxsum(t,bx,W); xy.assign(t.size(),0); for(size_t k=0;k<t.size();++k) xy[k]=bx[k]/R_WN;
             Gmy.assign((size_t)W*W,0.0f); Gsy.assign((size_t)W*W,0.0f); Gsxy.assign((size_t)W*W,0.0f);
             double acc=0; long N=0;
-            for(int y=R_RAD;y<W-R_RAD;++y) for(int x=R_RAD;x<W-R_RAD;++x){ size_t k=(size_t)y*W+x; if(!cov[k]) continue;
+            for(int y=std::max(R_RAD,g_cy0);y<=std::min(W-R_RAD-1,g_cy1);++y) for(int x=std::max(R_RAD,g_cx0);x<=std::min(W-R_RAD-1,g_cx1);++x){ size_t k=(size_t)y*W+x; if(!cov[k]) continue;
                 double MX=mx[k],MY=my[k],SX=xx[k]-MX*MX,SY=yy[k]-MY*MY,SXY=xy[k]-MX*MY;
                 double A=2*MX*MY+R_C1,B=2*SXY+R_C2,Cc=MX*MX+MY*MY+R_C1,Dd=SX+SY+R_C2;
                 acc += (A*B)/(Cc*Dd); ++N;
@@ -395,6 +425,7 @@ static double refine_score_grad(std::vector<Vec3>* grad) {
             Vec3 g=(dn-n*(n.dot(dn)))/cl;
             (*grad)[tr[0]] += (aa-bb).cross(g); (*grad)[tr[1]] += bb.cross(g); (*grad)[tr[2]] += g.cross(aa); } }
     }
+    g_crop_on = false;
     return total;
 }
 static bool refine_valid() {   // every alive face must stay nondegenerate (judge requirement); topology unchanged by moves
