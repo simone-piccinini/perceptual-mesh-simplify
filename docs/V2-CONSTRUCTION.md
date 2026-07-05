@@ -100,6 +100,50 @@ underperform or actively regress.
 - Either way: validate LOCALLY (does normal SSIM stop regressing as V grows?) before spending
   any more engineering on performance or judge exposure.
 
+## Day 2 (2026-07-06 continued): normal-aware placement, and a new deeper finding
+
+Implemented the fix the day-1 finding called for: `pick_split_point` now searches a small
+candidate set (position-baseline closest point, the nearest real original VERTEX, and 4
+tangent-plane-offset points — all RE-PROJECTED onto the original surface so Hausdorff validity
+is never traded away) and picks whichever minimizes `induced_normal_distortion` — the
+area-weighted sum, over the 3 new sub-triangles, of `1 - cos(angle to the true local original
+normal)`. Same spirit as VSA-lite's `incident_ndist` in the decimation solver, applied to
+insertion instead of collapse.
+
+**First attempt regressed Hausdorff** (0.249 vs the 0.119 limit): raw tangent-plane offsets
+wandered off the true surface in exchange for normal alignment. Fixed by re-projecting every
+candidate onto the original surface before scoring — Hausdorff passes again (0.111), and
+FinalSSIM improved slightly at V=174 (0.5148 → 0.5395).
+
+**New finding, deeper than day 1's: mean rendered normal SSIM plateaus HARD, exactly, and
+does not move at all past roughly V=100-120** — traced with per-iteration instrumentation:
+
+```
+iter=80  V=100 meanNormalSSIM=0.1751
+iter=100 V=120 meanNormalSSIM=0.1747
+iter=500 V=520 meanNormalSSIM=0.1747   <- bit-identical to iter=120, 400 splits later
+```
+
+Ruled out: rendering resolution as the cause (re-ran at RES=512: overall SSIM reads higher, as
+expected, but the plateau still sets in at essentially the same vertex count — resolution
+shifts the VALUE, not the STALL point). The accepted split's `faceDeficit` value is bit-
+identical (2026.1297) at every 20-iteration checkpoint from iter=100 through iter=500 — a
+single region's rendered error appears to be **completely unaffected by any amount of local
+splitting nearby**. Leading hypothesis, untested: a self-occlusion or rasterization edge case
+(two different parts of the surface projecting to the same screen pixels in some view, or a
+silhouette/coverage boundary) where the CURRENT candidate search (position + normal matching
+against the nearest original point) cannot address the deficit because the true cause is
+elsewhere on the mesh, not at the split location. This needs targeted debugging (dump the
+actual screen region responsible for the stuck deficit and inspect what's really happening
+there) before more placement heuristics are worth trying — bolting on more candidate types
+without understanding this would be guessing, not engineering.
+
+**Status for day 3**: do not resume by adding more split-candidate heuristics. Resume by
+identifying the exact stuck screen pixels/view responsible for the frozen 2026.1297 deficit
+value and understanding the mechanism — likely either a genuine self-occlusion case (in which
+case the fix is architectural: splits must be attributable to the RIGHT region even under
+occlusion) or a bug in deficit attribution/accumulation across iterations.
+
 ## Known performance debt (not addressed today, correctness came first)
 
 - `closest_point_on_mesh` is brute-force O(faces) per query; used both for the Hausdorff guard

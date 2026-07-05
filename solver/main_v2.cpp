@@ -350,6 +350,73 @@ static inline Vec3 closest_point_on_original(const Vec3& q, const std::vector<Ve
     return closest_point_on_mesh(q, OP, OF, nullptr);
 }
 
+// area-weighted induced normal distortion of a candidate split: for the 3 new sub-triangles
+// (a,b,p),(b,c,p),(c,a,p), compare each one's own normal against the TRUE original surface
+// normal sampled at that sub-triangle's centroid — the same style of objective VSA-lite uses
+// for collapse placement (incident_ndist), applied here to INSERTION instead. Day-1's
+// placement (pure closest-point) ignored this entirely and was measured to regress normal
+// SSIM as V grew (docs/V2-CONSTRUCTION.md); this is the fix.
+static double induced_normal_distortion(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& p,
+                                         const std::vector<Vec3>& OP,
+                                         const std::vector<std::array<int,3>>& OF) {
+    double total = 0.0;
+    const Vec3 tri[3][3] = {{a,b,p}, {b,c,p}, {c,a,p}};
+    for (const auto& t : tri) {
+        Vec3 e1 = t[1] - t[0], e2 = t[2] - t[0], cr = e1.cross(e2);
+        double area = 0.5 * cr.norm();
+        if (area < 1e-15) { total += 1e6; continue; }   // degenerate candidate: reject hard
+        Vec3 n = cr / (2.0 * area);
+        Vec3 centroid = (t[0] + t[1] + t[2]) / 3.0;
+        int fi; closest_point_on_mesh(centroid, OP, OF, &fi);
+        Vec3 trueN = face_normal(OP, OF[fi]);
+        total += area * (1.0 - n.dot(trueN));
+    }
+    return total;
+}
+
+// pick the split point for face (a,b,c) that minimizes induced normal distortion, searching a
+// small candidate set around the position-based baseline: the closest point on the original
+// surface (position-correct baseline) PLUS the actual nearest ORIGINAL VERTEX (real, unmodified
+// surface data — carries the true local normal transition exactly, unlike an interpolated
+// closest-point-on-a-triangle) PLUS small offsets of the baseline along the local original
+// normal's tangent plane (explores nearby positions that might align sub-face normals better).
+static Vec3 pick_split_point(const Vec3& a, const Vec3& b, const Vec3& c,
+                              const std::vector<Vec3>& OP, const std::vector<std::array<int,3>>& OF,
+                              double edgeScale) {
+    Vec3 centroid = (a + b + c) / 3.0;
+    int fi; Vec3 p0 = closest_point_on_mesh(centroid, OP, OF, &fi);
+    Vec3 trueN = face_normal(OP, OF[fi]);
+
+    std::vector<Vec3> cand = {p0};
+    // nearest actual original vertex among the closest face's own 3 vertices (real data point)
+    {
+        const auto& t = OF[fi];
+        double bd = 1e300; Vec3 bv = p0;
+        for (int k = 0; k < 3; ++k) { double d = (OP[t[k]] - centroid).squaredNorm(); if (d < bd) { bd = d; bv = OP[t[k]]; } }
+        cand.push_back(bv);
+    }
+    // small tangent-plane offsets of p0, RE-PROJECTED onto the original surface (the first
+    // attempt used raw off-surface offsets and was measured to break Hausdorff — 0.249 vs the
+    // 0.119 limit — by wandering away from the surface in exchange for normal alignment).
+    // Re-projecting keeps every candidate on-surface by construction; only the TANGENTIAL
+    // position (which patch of the true surface we land on) varies between candidates.
+    {
+        Vec3 ref = std::fabs(trueN.x()) < 0.9 ? Vec3(1,0,0) : Vec3(0,1,0);
+        Vec3 t1 = trueN.cross(ref).normalized(), t2 = trueN.cross(t1).normalized();
+        for (double s : {0.3, -0.3}) {
+            cand.push_back(closest_point_on_mesh(p0 + s * edgeScale * t1, OP, OF, nullptr));
+            cand.push_back(closest_point_on_mesh(p0 + s * edgeScale * t2, OP, OF, nullptr));
+        }
+    }
+
+    Vec3 best = p0; double bestScore = 1e300;
+    for (const Vec3& p : cand) {
+        double s = induced_normal_distortion(a, b, c, p, OP, OF);
+        if (s < bestScore) { bestScore = s; best = p; }
+    }
+    return best;
+}
+
 // farthest-point sampling: greedily pick K points that are well spread over the input surface.
 // A convex hull can never have more vertices than its input set, so hulling a K-point sample
 // GUARANTEES a seed of at most K vertices — unlike hulling the full point set (measured on
@@ -399,7 +466,8 @@ int main(int argc, char** argv) {
     double kf = (keepOverride > 0) ? keepOverride : keep_for(Vin);
     int target = std::max((int)curP.size(), (int)(kf * Vin));
 
-    const int RES = 256;   // day-1 steering resolution (cheap iteration; judge-res validation separately)
+    int RES = 256;   // day-1 steering resolution (cheap iteration; judge-res validation separately)
+    if (getenv("V2_RES")) RES = atoi(getenv("V2_RES"));   // local testing only
     OrigViews O; capture_original(pos, faces, RES, O);
 
     const auto t0 = std::chrono::steady_clock::now();
@@ -423,6 +491,7 @@ int main(int argc, char** argv) {
     while ((int)curP.size() < target && elapsed() < BUDGET) {
         // score current mesh per face: accumulate rendered SSIM deficit onto contributing faces
         std::vector<double> faceDeficit(curF.size(), 0.0);
+        double dbgSumSsim = 0.0; long dbgN = 0;
         for (int v = 0; v < 6; ++v) {
             std::vector<int> fid; std::vector<double> depth;
             render(curP, curF, v, RES, fid, depth);
@@ -435,11 +504,13 @@ int main(int argc, char** argv) {
                 for (size_t k = 0; k < smap.size(); ++k) {
                     if (fid[k] < 0) continue;
                     faceDeficit[fid[k]] += std::max(0.0, 1.0 - smap[k]);
+                    dbgSumSsim += smap[k]; ++dbgN;
                 }
             }
         }
-        // Hausdorff guard: for each original sample point, find its nearest CURRENT vertex; if
-        // that distance exceeds the leash, boost every face touching the nearest current
+        if (getenv("V2_DBG") && iters % 20 == 0)
+            std::fprintf(stderr, "[v2score] iter=%d V=%zu meanNormalSSIM=%.4f t=%.2f\n", iters, curP.size(),
+                         dbgN ? dbgSumSsim / dbgN : -1.0, elapsed());
         // find the worst-violating original sample point (max distance to the CURRENT surface,
         // via true point-to-triangle distance, not just nearest vertex — a nearest-VERTEX
         // guard was measured to plateau: boosting faces touching the nearest vertex does not
@@ -473,17 +544,22 @@ int main(int argc, char** argv) {
         std::sort(ssimOrder.begin(), ssimOrder.end(),
                   [&](int a, int b) { return faceDeficit[a] > faceDeficit[b]; });
 
-        int splitFace = -1; Vec3 newPos;
+        int splitFace = -1; Vec3 newPos; int tried = 0; bool haus = false;
         if (worstGeom > LEASH && split_areas_ok(curF[worstFace], worstPt)) {
-            splitFace = worstFace; newPos = worstPt;
+            splitFace = worstFace; newPos = worstPt; haus = true;
         } else {
             for (int cand : ssimOrder) {
+                ++tried;
                 const auto& t = curF[cand];
-                Vec3 centroid = (curP[t[0]] + curP[t[1]] + curP[t[2]]) / 3.0;
-                Vec3 np = closest_point_on_original(centroid, pos, faces);
+                const Vec3 &fa = curP[t[0]], &fb = curP[t[1]], &fc = curP[t[2]];
+                double edgeScale = std::max({(fb-fa).norm(), (fc-fb).norm(), (fa-fc).norm()});
+                Vec3 np = pick_split_point(fa, fb, fc, pos, faces, edgeScale);
                 if (split_areas_ok(t, np)) { splitFace = cand; newPos = np; break; }
             }
         }
+        if (getenv("V2_DBG") && iters % 20 == 0)
+            std::fprintf(stderr, "[v2cand] iter=%d haus=%d tried=%d of %zu faces, deficit=%.4f\n",
+                         iters, (int)haus, tried, curF.size(), splitFace >= 0 ? faceDeficit[splitFace] : -1.0);
         if (splitFace < 0) {   // every candidate degenerate: mesh has converged as far as this
             std::fprintf(stderr, "[v2] no valid split candidate at V=%zu — stopping early\n", curP.size());
             break;
