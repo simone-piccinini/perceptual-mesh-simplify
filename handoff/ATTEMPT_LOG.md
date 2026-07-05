@@ -771,3 +771,11 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   **the case-3 recipe buys EXACTLY ONE ~13-vertex rung and the cliff is immediately below —
   same structural pattern as case 5's 4212 cliff.** c3 floor: (6912, 6941], 3 mechanisms
   falsified below. c3 CLOSED at 6941 (banked, payout 70.083186).
+- **RC4-EXT read @4970 polish-3.0 (19898758): case-4 WA on this draw** (17.5 s, fits). Box-cut
+  coin — one negative draw of the extended-polish family at the once-WA'd rung. Re-roll possible
+  (--force) but token-budgeted; parked behind the case-2 multistart.
+- **MS2 BUILT (case-2 multistart):** best-of-5 seeded decimations (deterministic per-edge cost
+  perturbation ±4%, hash of edge+seed) at target 27, per-seed 512 ascent, selection by
+  IN-PROCESS true FinalSSIM at 1024 on the judge's own input (dodges THEORY §9.1 by
+  construction — no proxy in the loop), winner polished 1.5 s at 1024. Proof-run on trefoil:
+  5/5 seeds reach V=27, seed spread S = 0.038 (selection live), 10.1 s total. Read in flight.
