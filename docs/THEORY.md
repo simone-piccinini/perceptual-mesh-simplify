@@ -286,3 +286,15 @@ same mesh, banks immediately. Judged results (2026-07-06): S(4212) ≈ 0.908 rea
 collapses) is repairable by a short 1024 ascent, larger is not. The instrument, not the rung,
 is the asset: it converts any pipeline experiment into ONE zero-risk judge reading, which is
 the only unbiased signal available (§9.1).
+
+### 9.5 Night-of-07-06 outcome: the 1024-polish family and the instrument's regime rule
+The recipe "banked-target − extra collapses + a FIRST 1024-resolution mini-refine" (cases 4/5
+never had one: case-5 refine was 512-only, case-4's box was too tight before the crop/f32
+speedups) moved the bank four times in one night: 90.238542 → 90.266754 (+0.0282; case 5
+4226→4212, case 6 8711→8705, case 4 5044→5034→4990). Reads before every descent; zero blind
+ladders. Floors (probe-family): case 5 at 4212 (three-leg evidence: repair time ✗, fresh
+quadrics ✗), case 4 in (4970, 4990]. Instrument regime rule: on CONVERGED-refine cases the
+pads-stripped twin reproduces the read mesh exactly; on BOX-CUT cases (4, 6) any binary change
+re-rolls the family — the twin inherits the read's family MEAN and may need per-run --force
+re-rolls (case-4 @4990: WA then bank). Case 6 cannot afford the recipe (orig 1024 render of
+754k faces ≈ 4 s > its budget).

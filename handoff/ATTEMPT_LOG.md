@@ -717,3 +717,7 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   (first roll 19898442 WA — case 4 is box-cut, so the pads-stripped twin re-rolls the family;
   the read's 0.905 is the family MEAN there, not the exact mesh). Reads: 4950 WA, 4990=0.905.
   NIGHT TOTAL: 90.238542 -> 90.266754 (+0.0282) in four bank events, all instrument-guided.
+- **c4 read-ladder closed at 4990 (19898485: 4970 WA; floor in (4970, 4990], <=20 rungs left,
+  not worth box-cut coin rolls). Case-6 recipe ruled out on budget (754k-face 1024 orig render
+  ~4 s does not fit its box). SESSION END STATE: bank 90.266754, live v108, the READ->TWIN->BANK
+  instrument documented with its convergence-regime rule.**
