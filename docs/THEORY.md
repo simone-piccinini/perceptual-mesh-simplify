@@ -257,9 +257,15 @@ the Sn-ascent which repairs interior damage.
   descent rungs −7 and −14 vertices both WA → current judge-side gain < 7·3.5e-5 ≈ 0.0002.
   Transfer ratio ≈ 0.3 (vs ≈ 0 for position-space mechanisms) — the first channel where local
   and judge agree on the SIGN.
-- v3 directions (untested): vote-magnitude-scaled per-vertex steps; iterate detect→move→
-  re-detect; integration WITH the case-3 hybrid (the current pilot branch bypasses phase B);
-  finer vote radius; SIL on case 3 (2.15× per-vertex payout, faithful proxy).
+- ✗ v3 (vote-magnitude-scaled steps, radius 14, double round, in-flow with the c3 hybrid) —
+  JUDGED 2026-07-06: local true-metric +0.00104 on case 5 (double of v2) and NEUTRAL on case 3
+  (−0.00007: hybrid phase B already owns that margin) — but the v3 family **WA'd the banked
+  case-5 razor (19898073)** that v2 passed. Refined conclusion: ONLY the soft one-shot
+  correction of the systematic chord bias transfers (~0.3×); any intensification (more rounds,
+  scaled steps, finer attribution) re-enters the proxy-specific position-space regime and
+  inverts, exactly like R1. The SIL channel stays in the base as v2 (razor margin on case 5);
+  further investment requires a judge-side S-read instrument on the SIL family, not more local
+  tuning.
 
 ### 9.3 ✗ bbox-crop on the 377k case — trajectory sensitivity of box-cut razors
 The exact-math crop (R3b) is bit-identical at convergence (case 5 verified to 9 decimals) but

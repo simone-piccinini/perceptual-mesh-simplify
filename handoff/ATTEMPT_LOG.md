@@ -684,3 +684,8 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   **v105 (19898020): 7/7 @ 90.238807, bank reproduced exactly on the SIL base.** SIL stays in
   the live build at the banked c5 keep as razor margin; the coverage channel is OPEN as a
   platform (v3 candidates: multi-round per-view deltas, SIL on case 3, finer vote radius).
+- **SIL v3 JUDGE-NEGATIVE (19898073, 2026-07-06 ~02:40):** vote-scaled steps + radius 14 +
+  double round (+0.00104 true local on c5, 2x v2) WA'd the banked case-5 razor that v2 passed;
+  c3 read neutral (−0.00007, hybrid-B owns the margin) so SIL-c3 never shipped. Channel verdict:
+  only v2's soft one-shot correction transfers; intensification inverts (R1 pattern). Base
+  stays v105 (19898020, 90.238807 bit-exact, SIL v2 on case 5 at the banked keep).
