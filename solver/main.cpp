@@ -67,7 +67,7 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
     if (V <= 7000)   return 0.00725;// case 2: DUST ~99.29 (99.268 conf; ~99.32 WA'd)
-    if (V <= 30000)  return 0.2996875;// case 3: 70.03125 FINAL x2 (70.0625 WA'd f64-boxcut AND f32-converged 19894901: deterministic wall)
+    if (V <= 30000)  return 0.2996875;// case 3: 70.03125 banked keep (R1 descent closed: 6931/6944/banked-with-R1 all WA'd)
     if (V <= 40000)  return 0.1428125;// case 4: TAIL-HARVEST 85.71875 (85.6875 BANKED draw-3-of-3 #90.2333)
     if (V <= 100000) return 0.08453125;// case 5: banked V=4226 = deterministic wall (f32 converges: 12 sub-rung fails were real, not noise); 768 kept as razor margin
     if (V <= 400000) return 0.023046875;// case 6: banked rung V=8702 (fixed-8670 WA x2 19895562/571; wall band [8661,8681] tighter than hoped)
@@ -1545,14 +1545,14 @@ int main(int argc, char** argv) {
         int passes = ((int)pos.size() > 100000) ? 3 : 8;   // case6: 3 passes fits the CPU box
         if (const char* e = getenv("G_PASSES")) passes = atoi(e);
         const int start = alive_count;
-        const bool r1_on = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) && g_refine;  // R1: case 3 only (c5 pilot pending; c4 box-cut)
+        const bool r1_on = false;  // R1 interleave JUDGE-NEGATIVE on case 3 x2 live families (19897009 dt2.0, 19897024 dt1.9 both WA'd the BANKED rung; local +0.002 did not transfer — 768-class divergence). Kept for a future case-5-read-gated retry.
         for (int pa = 0; pa < passes; ++pa) {
             pivotA_update_importance();
             seed_heap();
             const int tgt = start - (int)((long)(start - target_count) * (pa + 1) / passes);
             Decimate(tgt);
             if (r1_on && pa >= passes - 4 && pa != passes - 1)
-                mini_refine(2.0);   // R1: 3 late bursts; next stage's ordering sees optimized geometry
+                mini_refine(1.9);   // R1 family re-roll 2 (2.0-family WA'd the banked c3 rung 19897009)
         }
     } else {
         Decimate(target_count);

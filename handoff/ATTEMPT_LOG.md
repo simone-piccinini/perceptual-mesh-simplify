@@ -641,3 +641,13 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   (3 late bursts x 2.0 s inside box 16); case 5 pilot pending; case 4 deferred (box-cut).
   R3a fused accept (trajectory-bit-identical, 1 eval/iter on accepts) + R3c boxsum scratch
   reuse shipped the same evening (A/B: identical S at box 6, +iterations where cut binds).
+- **R1 INTERLEAVE ON CASE 3: JUDGE-NEGATIVE, CLOSED (2026-07-05 late night, 5 submissions).**
+  R2-read of the R1 probe family at 7424: S=0.916 (+0.001 vs the v101 read — but the probe
+  binary is its own structural family, mesh-identity caveat). LIVE descent: 6931 WA, 6944 WA,
+  then the BANKED rung 6954 WA with dt=2.0 AND with dt=1.9 (two independent live families) —
+  the live R1 families sit BELOW v101's at the razor despite +0.002 local at equal count.
+  Same divergence class as 768-native: the armadillo-derived proxy rewards what the real
+  case-3 mesh punishes. R1 gated off in live (r1_on=false, code kept); any retry must be
+  gated by a case-5 measured-mesh read FIRST. Bank untouched (best-counts).
+  Meta-lesson reinforced: §7.2 rules held — local win bought judge draws, draws answered, no
+  ladder was burned beyond the read + 4 verdicts.
