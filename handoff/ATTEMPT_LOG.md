@@ -802,3 +802,55 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
 - **TOOLCHAIN RE-PINNED (19900194): GCC 14.2 all along.** Bit-identical probe score to 07-05;
   the "GCC 11.5" was a decode artifact of the wrong case-2 size (3989 vs 4098). Envelope §3
   corrected: baseline auto-vectorizes (SSE2); memory-bound refine conclusion unchanged.
+
+## JD (image-driven discrete flip optimizer) — NEW MECHANISM CLASS, 2026-07-06
+Built from scratch: edge flips accepted by the TRUE incremental FinalSSIM delta (exact math,
+local footprint — a flip moves no vertex, so its screen bbox is identical before/after; only
+SSIM windows touching that bbox can change, avoiding full re-renders). First mechanism ever
+where CONNECTIVITY itself is judged by the real metric instead of inherited from greedy order.
+
+**Development discipline**: wrote the full local-delta-SSIM math by hand, reviewed it BEFORE
+compiling (caught 2 bugs on paper: a variable-name shadowing bug in the rasterizer, and a
+spurious ×6 factor in the normal-channel aggregation — both fixed pre-compile). Built a
+standalone validation harness (env `JD_VALIDATE`): sequentially predicts each candidate flip's
+delta, commits it for REAL, rescues with the bit-exact production scorer, compares. Zero
+submissions burned on debugging.
+
+**Bugs found BY the harness (not by review) — both fixed, both documented as guards**:
+1. `encode_after` recolored EVERY non-background tile pixel as one of the two new synthetic
+   faces' normal, corrupting untouched neighboring geometry copied from cache. Fixed: real
+   face ids now correctly call `face_nrm(f)`.
+2. **Foreign-face intrusion**: a new triangle's z-test can legitimately "win" a pixel that
+   belongs to an UNRELATED neighboring face (adjacent faces can be near-coplanar at a shared
+   boundary, z differing by ~1e-4) — the local model has no way to trust that comparison at
+   full-mesh floating-point precision. Guard: track if raster_tri overwrites any pixel whose
+   prior content was a real face id (not background, not our own erased pair); bail if so.
+3. **Unfilled rasterization crack**: for a non-planar quad, the two new triangles can fail to
+   exactly retile 100% of the erased footprint (a classic shared-edge rasterization crack),
+   leaving a pixel stuck as background. Guard: track every erased pixel; bail if any is never
+   reclaimed by either new triangle. Same fix applied to `jd_patch_cache` (the persistent
+   cache), healing via a full single-view re-render on the rare detected crack (self-correcting;
+   avoids silent cache drift corrupting LATER candidates in the same sweep).
+
+**Validation results** (proxy25k, ~500 candidates tested across multiple runs):
+- With all 3 guards + fresh-cache-per-candidate isolation: 91-96% exact match to the bit-exact
+  full rescore (error ~1e-10 to 1e-12 — double-precision noise floor).
+- Remaining ~5-9% "mismatches" are all guard-adjacent boundary cases; 8/9 examined were
+  same-sign UNDERestimates (guard conservatively excludes a real but small contributing view);
+  1/9 was a sign-flip but at a magnitude (~2e-6) far below any usable threshold.
+- **Empirical false-accept scan across ~500 candidates: ZERO false accepts at threshold >= 1e-5**
+  (one found at 1e-6, itself only ~3e-6 in true magnitude). Accept bar set to 1e-5 — 15x margin
+  above the only found risk case.
+- Real `jd_pass` timing (not the validation harness, which is deliberately expensive):
+  3.0s budget on proxy25k processed 2519/~15000 candidate edges, accepted 2, gained +0.000033
+  FinalSSIM (0.08% acceptance rate — the mesh is already well-optimized by decimation+refine;
+  JD finds the RESIDUAL topology-only headroom, which is real but modest per unit time).
+
+**First judge read (submitted, PROBE-JD-C4-READ)**: 1.5s JD carve-out appended to the ALREADY-
+BANKED case-4 recipe (mesh count 4990 unchanged — zero risk to the bank), self-scored via the
+measured-mesh channel. Timing chosen conservatively (case 4 has the most headroom of any case,
+14-17.5s of its ~21-22s ceiling in recent judge runs) after an initial 3s+re-ascent design was
+found to risk ~21.5s total — trimmed before ever submitting. Question: does the topology-only
+mechanism transfer positively to the judge's real input (untested mechanism CLASS — not
+position-space, so THEORY 9.1's proxy-transfer-bias warning may not even apply), and does the
+timing hold.
