@@ -713,3 +713,7 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   S(5030) ≈ 0.9055 (19898354: banked−14 + case-4's FIRST 1024 polish, box 14→10.5) → twin
   banked first try (c4 V'=5034, payout 85.736141). Third bank event of the night, all through
   the instrument. Deep read @4950 in flight. Live = v107.
+- **NEW BANK 90.266754 (+0.018890, 19898463, ~07:00): c4 @4990 banked on the second twin roll**
+  (first roll 19898442 WA — case 4 is box-cut, so the pads-stripped twin re-rolls the family;
+  the read's 0.905 is the family MEAN there, not the exact mesh). Reads: 4950 WA, 4990=0.905.
+  NIGHT TOTAL: 90.238542 -> 90.266754 (+0.0282) in four bank events, all instrument-guided.
