@@ -752,3 +752,8 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   (2026-07-05) measured __GNUC__ = 11.5 at runtime. Either the toolchain changed mid-contest
   (GCC 12+ auto-vectorizes at -O2 → the "fully scalar baseline" fact would be stale) or
   compile/run environments differ. Re-pin with a probe-A rerun (1 submission) queued.
+- **RC3D CE x3 (19898649/661/670, all "g++-14: cc1plus killed"):** three consecutive compiler
+  kills on the anneal read while near-identical files (RC3B/RC3C, same size, same headers)
+  compiled fine within the hour. Content diff is trivial (a budget else-if + a 10-line loop) —
+  no plausible OOM trigger. CONTROL in flight: byte-identical RC3C resubmit; CE => compile-farm
+  load era (wait it out), compile => content (bisect the three RC3D edits).
