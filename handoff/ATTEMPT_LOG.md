@@ -673,3 +673,7 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   (all sizes, CPU billing, per-run regimes, genus map), R2 instrument operational, R3a/b/c
   shipped (c3 -3.5s, c5 -8.5s, c4/c6 more boxed iterations), R1 built-tested-closed, c7 wall
   boxed to (28800, 28822].
+- **SIL PASSES THE JUDGE GATE (19897967, 2026-07-06): case 5 with the coverage-difference
+  silhouette optimizer PASSED its banked razor** — the first new mechanism to survive the
+  post-R1 family-gate discipline. (Case-6 WA in the same run = the known post-R3b coin.)
+  Descent ladder opened: c5 fixed 4212 + c6 safe-recalibration 8720 in flight.
