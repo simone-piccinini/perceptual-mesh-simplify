@@ -593,6 +593,29 @@ static void render_orig_hires(int res) {
     std::swap(pos, o_pos); std::swap(faces, o_faces);
     alive.swap(sa); face_alive.swap(sf);
 }
+// ===== R1 (judged pilot 2026-07-05): bounded mid-decimation refine burst (fused, CPU deadline).
+// Interleaving decimation and refinement lets collapse ordering/placement/importance act on
+// SSIM-optimized geometry — the one mechanism the graveyard never contained. Local A/B on the
+// faithful case-3 proxy at EQUAL total budget and EQUAL count: base 0.902617 -> 0.904608
+// (3 bursts x 2.0 s on the last non-final stages; more/longer bursts crowd the final refine).
+static void mini_refine(double dt) {
+    const int save_res = g_res; g_res = g_refine_res;
+    Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} double diag=(hi-lo).norm();
+    const std::vector<Vec3> base=pos; double cap=0.02*diag, stp=0.004*diag;
+    const double deadline = r_elapsed() + dt;
+    std::vector<Vec3> g; double cur = refine_score_grad(&g);
+    double gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm());
+    for (int it=0; it<200; ++it) {
+        if (r_elapsed() > deadline || gmax < 1e-30) break;
+        const std::vector<Vec3> save=pos;
+        for(size_t v=0; v<pos.size(); ++v){ if(!alive[v]) continue; Vec3 d=g[v]*(stp/gmax); Vec3 np=save[v]+d;
+            Vec3 off=np-base[v]; double ol=off.norm(); if(ol>cap) np=base[v]+off*(cap/ol); pos[v]=np; }
+        std::vector<Vec3> gt; double sn=refine_score_grad(&gt);
+        if (sn>cur && refine_valid()) { cur=sn; g.swap(gt); gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm()); }
+        else { pos=save; stp*=0.5; if (stp<1e-6*diag) break; }
+    }
+    g_res = save_res;
+}
 static void refine_positions() {
     g_res = g_refine_res;
     Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} double diag=(hi-lo).norm();
@@ -1522,11 +1545,14 @@ int main(int argc, char** argv) {
         int passes = ((int)pos.size() > 100000) ? 3 : 8;   // case6: 3 passes fits the CPU box
         if (const char* e = getenv("G_PASSES")) passes = atoi(e);
         const int start = alive_count;
+        const bool r1_on = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) && g_refine;  // R1: case 3 only (c5 pilot pending; c4 box-cut)
         for (int pa = 0; pa < passes; ++pa) {
             pivotA_update_importance();
             seed_heap();
             const int tgt = start - (int)((long)(start - target_count) * (pa + 1) / passes);
             Decimate(tgt);
+            if (r1_on && pa >= passes - 4 && pa != passes - 1)
+                mini_refine(2.0);   // R1: 3 late bursts; next stage's ordering sees optimized geometry
         }
     } else {
         Decimate(target_count);

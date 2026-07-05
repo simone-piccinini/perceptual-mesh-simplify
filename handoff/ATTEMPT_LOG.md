@@ -631,3 +631,13 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   case 5 (3.5e-5). External-plan budget table corrected: +0.006 SSIM on case 3 buys ~190
   vertices (+0.14 total), not 535 (+0.38). R1's realistic landing revises to +0.3-0.6 total
   unless the co-optimized family shifts the MEAN well beyond the ±0.013 structural spread.**
+- **R1 INTERLEAVE PILOT (2026-07-05 night, local, faithful case-3 proxy): THE MECHANISM WORKS.**
+  Mid-decimation refine bursts (fused loop, CPU deadline) inserted into the Pivot-A staged
+  driver so the next stage's ordering/placement/importance act on SSIM-optimized geometry.
+  At EQUAL total budget (16 s) and EQUAL count (V=7490): base 0.902617 -> 2 bursts 0.903490 ->
+  3x2.0s bursts **0.904608 (+0.00199)**; more/longer bursts (n5/n7/2.5s) crowd the final refine
+  and lose. Hausdorff unchanged. First genuinely-new mechanism since s-def: connectivity chosen
+  on refined geometry beats connectivity chosen blind. Shipped to live main.cpp for case 3 only
+  (3 late bursts x 2.0 s inside box 16); case 5 pilot pending; case 4 deferred (box-cut).
+  R3a fused accept (trajectory-bit-identical, 1 eval/iter on accepts) + R3c boxsum scratch
+  reuse shipped the same evening (A/B: identical S at box 6, +iterations where cut binds).
