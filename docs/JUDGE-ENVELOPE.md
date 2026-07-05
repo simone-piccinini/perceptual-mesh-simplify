@@ -168,6 +168,13 @@ made past notes confusing.
   count of a sacrificial case and read back from the score. Used implicitly to pin exact case
   sizes (§6). Available for future diagnostics (e.g., timing a phase in vivo).
 - CPU time column in the submissions table is empty for scored submissions. [MEASURED]
+- **Source file size limit = 128 KiB.** [MEASURED 2026-07-06]: a 137 KiB submission attempt
+  was refused before compilation with an explicit message ("File-size limit: 128 KiB. Current
+  size: 137 KiB"). The live file (~113 KiB at last count) has real headroom for new mechanisms
+  (~15 KiB), but adding a large new subsystem (e.g. JD, ~15-22 KiB uncompressed) means trimming
+  something else — dead env-gated experiment code (G_ADAM/G_SHARP/G_HOP etc.) is the correct
+  thing to cut first, verified harmless by re-running the binary and diffing output (only FP
+  reordering noise, same class as any other code-change draw).
 - **Submission rate limit = token bucket** [MEASURED 2026-07-06]: a burst of ~8 submissions in
   ~40 minutes exhausted it; the refusal names the mechanism ("You are out of submission tokens.
   Your next token will regenerate in 231 seconds") -> sustained ~1 per ~4 min, burst capacity
