@@ -781,3 +781,8 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   5/5 seeds reach V=27, seed spread S = 0.038 (selection live), 10.1 s total. Read in flight.
 - **MS2 N=5 (19898784): case-2 TLE at 22.4 s** — the REAL case 2's jam-breaker endgame costs
   ~3.6 s/seed (trefoil proxy: 1.6 s — floor class differs). Cut to N=3, resubmitted.
+- **MS2 N=3 (19898806): case-2 WA at 27** — best-of-3 seeded decimations with in-process 1024
+  true-metric selection still below 0.9. The case-2 27-wall holds against seed diversity;
+  MS2 closed x2 (TLE at N=5, WA at N=3). In-process selection VALIDATED mechanically (spread
+  visible, selection works, timing fits at N=3) — the tool survives for other uses; the c2
+  prize does not exist at 27.
