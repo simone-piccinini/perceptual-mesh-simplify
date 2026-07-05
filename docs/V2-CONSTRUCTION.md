@@ -144,6 +144,78 @@ value and understanding the mechanism — likely either a genuine self-occlusion
 case the fix is architectural: splits must be attributable to the RIGHT region even under
 occlusion) or a bug in deficit attribution/accumulation across iterations.
 
+## Day 3 (2026-07-06 continued): four more bugs, one real structural finding
+
+Built a deep diagnostic (`V2_DIAG=<iter>`, dumps the worst face's per-view visibility, screen
+footprint, current-vs-original normal comparison, and an attribution cross-check) instead of
+guessing at more placement heuristics blind. Chased the plateau through FOUR distinct causes
+in sequence — each fix exposed the next layer:
+
+1. **The true worst-deficit face was silently skipped every iteration.** `pick_split_point`
+   always returned "the best of its candidates" even when every one failed the caller's OWN
+   area-validity check afterward — so the single highest-value target (traced: face 92,
+   deficit 5591, visible across 3 views up to 1690px) got rejected downstream every single
+   time, while a far lower-value face (deficit 2026) was accepted instead, for hundreds of
+   splits. Fixed: `pick_split_point` now filters candidates by validity INTERNALLY and returns
+   `false` (not a bad point) when none qualify, so the caller correctly moves to the next
+   candidate face.
+2. **A "safety fallback" candidate was a geometric no-op.** Added a plain-centroid fallback so
+   growth would never stall on a face with zero valid surface-aware candidates — but a
+   triangle is always exactly planar, so splitting it at its OWN centroid produces 3
+   sub-triangles perfectly COPLANAR with the parent: identical normal, bit-identical render.
+   This candidate always passed the area check (looked harmless) while being unable to change
+   a single pixel — "successfully" consuming vertex budget on a placebo. Traced: face 308's
+   deficit sat frozen at exactly 1813.0061 for 100+ iterations after this fallback fired.
+   Fixed: removed the fallback; if nothing surface-aware is valid, return `false`.
+3. **A single distinctive original vertex acted as a "magnet"** for the "nearest real
+   original vertex" candidate across many different parent faces in its neighborhood (a
+   crease/corner scores very well on `induced_normal_distortion` in isolation). Traced by
+   printing the actual chosen 3D position every 20 iterations: bit-identical across dozens of
+   splits from DIFFERENT parent faces. New vertices clustered on top of each other at one spot
+   instead of covering the hundreds of pixels the real deficit spans. Fixed: reject any
+   candidate within `0.05 * edgeScale` of an already-existing current-mesh vertex.
+
+With all three fixed, the plateau is GONE — but mean rendered normal SSIM now *decreases*
+monotonically as V grows (0.2183 -> 0.1022 over 500 splits) instead of freezing. This is the
+real, structural finding for day 4:
+
+4. **Attribution mismatch (the self-occlusion hypothesis from day 1, now confirmed with a
+   concrete example).** Diagnostic at iter=40: the reported "worst face" (76) renders a screen
+   region where the ORIGINAL geometry that should actually be there is closest, in 3D, to
+   DIFFERENT current faces (63, 56) — not face 76. `cos(current_normal, true_normal) = 0.23`
+   at that pixel: a large, genuine mismatch. This is not a placement-quality problem local to
+   face 76; face 76 is occupying screen space that belongs to a DIFFERENT part of the surface.
+   No amount of clever positioning of ITS OWN split point can fix this — the true content is
+   elsewhere, self-occluded or bridged-over by the still-coarse hull-derived topology. Spending
+   vertex budget "fixing" face 76 cannot help and can actively hurt (diverting splits away from
+   the faces — 63, 56 — that would actually resolve the region), which is the direct
+   explanation for the observed regression.
+
+**Root cause behind all four**: `induced_normal_distortion` scores a candidate by comparing
+ONLY that single triangle's own resulting normal(s) against the nearest original surface
+locally — a proxy, evaluated in isolation, with no connection to whether the change actually
+reduces the TRUE measured rendered SSIM deficit in the affected screen region. Every bug above
+is a different way for that proxy to diverge from the real objective (accepting geometrically
+"valid" points that don't move any pixel; converging many parents onto one attractive point
+regardless of overall coverage; being blind to WHICH region of the mesh the screen error truly
+belongs to). This is the same class of lesson JD's development learned this session for a
+different mechanism (flips): a proxy formula is not a substitute for the real metric.
+
+**Concrete plan for day 4 — replace the proxy with the exact local delta.** JD's validated
+technique (docs/ATTEMPT_LOG.md, 2026-07-06 JD entries): for a LOCAL mesh change, compute the
+EXACT before/after rendered SSIM delta over just the affected screen footprint (a flip's
+footprint is the quad bbox; an insertion's footprint is the union of the old triangle's bbox
+across all candidate placements), validated to 1e-10 precision against a full bit-exact
+rescore. Reusing that MATH (not the JD code, which is flip-specific) for split-candidate
+scoring would directly fix the proxy-divergence root cause: a candidate only wins if it
+provably increases the TRUE rendered SSIM, which automatically rules out coplanar no-ops,
+already-covered magnet points (zero marginal gain once covered), AND wrongly-attributed
+targets (a split that doesn't touch the real error source will correctly score ~zero true
+gain, naturally deprioritizing it in favor of whichever face's split genuinely helps).
+The self-occlusion/attribution problem itself may still need a longer-run Hausdorff-priority
+phase before switching to SSIM-driven refinement (get the gross topology right first), but the
+exact-delta scoring should stop misdirecting budget regardless.
+
 ## Known performance debt (not addressed today, correctness came first)
 
 - `closest_point_on_mesh` is brute-force O(faces) per query; used both for the Hausdorff guard

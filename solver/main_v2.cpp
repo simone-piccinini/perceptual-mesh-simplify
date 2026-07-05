@@ -380,9 +380,27 @@ static double induced_normal_distortion(const Vec3& a, const Vec3& b, const Vec3
 // surface data — carries the true local normal transition exactly, unlike an interpolated
 // closest-point-on-a-triangle) PLUS small offsets of the baseline along the local original
 // normal's tangent plane (explores nearby positions that might align sub-face normals better).
-static Vec3 pick_split_point(const Vec3& a, const Vec3& b, const Vec3& c,
+// returns false if NO candidate produces a valid (non-degenerate) split — the caller must then
+// move to the next face rather than silently accept a degenerate point. Measured bug (day 3):
+// when this always returned "the best of the candidates" even if every one was degenerate, the
+// SINGLE WORST-DEFICIT face in the whole mesh could get permanently skipped every iteration
+// (its candidates all failed the caller's OWN validity check afterward), while a much-lower-
+// value face was accepted instead — freezing the render: the highest-value target never got
+// touched. Traced directly: face 92 (deficit 5591, the true worst, visible across 3 views up
+// to 1690px) was silently skipped every iteration in favor of a rank-4 candidate (deficit 2026)
+// for hundreds of splits, while mean rendered SSIM sat frozen bit-for-bit.
+// `curP`/minSep guard against a second bug found the same day: a single distinctive original
+// vertex (a crease/corner) can score best on induced_normal_distortion for MANY DIFFERENT
+// parent faces in its neighborhood, so the "nearest real original vertex" candidate keeps
+// picking the EXACT SAME 3D point from different parents — clustering new vertices on top of
+// each other at one spot while the actual deficit region (hundreds of rendered pixels) never
+// gets covered. Traced directly: `newPos` was bit-identical across dozens of iterations.
+// Rejecting any candidate too close to an EXISTING current-mesh vertex forces spatial
+// diversity — the split must land somewhere genuinely new.
+static bool pick_split_point(const Vec3& a, const Vec3& b, const Vec3& c,
                               const std::vector<Vec3>& OP, const std::vector<std::array<int,3>>& OF,
-                              double edgeScale) {
+                              const std::vector<Vec3>& curP, double edgeScale, double minArea,
+                              double minSep, Vec3& out) {
     Vec3 centroid = (a + b + c) / 3.0;
     int fi; Vec3 p0 = closest_point_on_mesh(centroid, OP, OF, &fi);
     Vec3 trueN = face_normal(OP, OF[fi]);
@@ -395,7 +413,7 @@ static Vec3 pick_split_point(const Vec3& a, const Vec3& b, const Vec3& c,
         for (int k = 0; k < 3; ++k) { double d = (OP[t[k]] - centroid).squaredNorm(); if (d < bd) { bd = d; bv = OP[t[k]]; } }
         cand.push_back(bv);
     }
-    // small tangent-plane offsets of p0, RE-PROJECTED onto the original surface (the first
+    // small tangent-plane offsets of p0, RE-PROJECTED onto the original surface (an earlier
     // attempt used raw off-surface offsets and was measured to break Hausdorff — 0.249 vs the
     // 0.119 limit — by wandering away from the surface in exchange for normal alignment).
     // Re-projecting keeps every candidate on-surface by construction; only the TANGENTIAL
@@ -408,13 +426,27 @@ static Vec3 pick_split_point(const Vec3& a, const Vec3& b, const Vec3& c,
             cand.push_back(closest_point_on_mesh(p0 + s * edgeScale * t2, OP, OF, nullptr));
         }
     }
+    // NOTE: do NOT add the plain geometric centroid as a fallback candidate. Measured bug
+    // (day 3, second occurrence): a triangle is always exactly planar, so splitting it at ITS
+    // OWN centroid produces 3 sub-triangles perfectly COPLANAR with the parent — identical
+    // normal, hence a BIT-IDENTICAL render before and after. This candidate always passes the
+    // area check (harmless-looking) but can never change a single rendered pixel; accepting it
+    // "successfully" consumes vertex budget while leaving the true visual defect untouched
+    // forever (traced: face 308's deficit sat frozen at exactly 1813.0061 for 100+ iterations
+    // after this fallback fired). If no surface-aware candidate is valid, this function must
+    // return false so the caller moves on to a DIFFERENT face, not accept a useless no-op.
 
-    Vec3 best = p0; double bestScore = 1e300;
+    double bestScore = 1e300; bool found = false;
     for (const Vec3& p : cand) {
+        double a1 = 0.5*(a-p).cross(b-p).norm(), a2 = 0.5*(b-p).cross(c-p).norm(), a3 = 0.5*(c-p).cross(a-p).norm();
+        if (a1 <= minArea || a2 <= minArea || a3 <= minArea) continue;   // reject degenerate candidates OUTRIGHT
+        bool tooClose = false;
+        for (const Vec3& ev : curP) if ((ev - p).squaredNorm() < minSep * minSep) { tooClose = true; break; }
+        if (tooClose) continue;   // reject: would cluster on top of an already-placed vertex
         double s = induced_normal_distortion(a, b, c, p, OP, OF);
-        if (s < bestScore) { bestScore = s; best = p; }
+        if (s < bestScore) { bestScore = s; out = p; found = true; }
     }
-    return best;
+    return found;
 }
 
 // farthest-point sampling: greedily pick K points that are well spread over the input surface.
@@ -511,6 +543,58 @@ int main(int argc, char** argv) {
         if (getenv("V2_DBG") && iters % 20 == 0)
             std::fprintf(stderr, "[v2score] iter=%d V=%zu meanNormalSSIM=%.4f t=%.2f\n", iters, curP.size(),
                          dbgN ? dbgSumSsim / dbgN : -1.0, elapsed());
+
+        // ===== DEEP DIAGNOSTIC (V2_DIAG): find the worst face and inspect WHY its deficit
+        // resists correction — is the true cause of the error actually located elsewhere on
+        // the mesh (self-occlusion / attribution mismatch), not fixable by splitting THIS face?
+        if (getenv("V2_DIAG") && iters == atoi(getenv("V2_DIAG"))) {
+            int wf = 0; double wv = -1;
+            for (size_t f = 0; f < faceDeficit.size(); ++f) if (faceDeficit[f] > wv) { wv = faceDeficit[f]; wf = (int)f; }
+            const auto& wt = curF[wf];
+            Vec3 wa = curP[wt[0]], wb = curP[wt[1]], wc = curP[wt[2]];
+            Vec3 wcentroid = (wa + wb + wc) / 3.0;
+            std::fprintf(stderr, "\n[DIAG] worst face=%d deficit=%.4f verts=(%d,%d,%d)\n", wf, wv, wt[0], wt[1], wt[2]);
+            std::fprintf(stderr, "[DIAG]   pos a=(%.4f,%.4f,%.4f) b=(%.4f,%.4f,%.4f) c=(%.4f,%.4f,%.4f)\n",
+                         wa.x(),wa.y(),wa.z(), wb.x(),wb.y(),wb.z(), wc.x(),wc.y(),wc.z());
+            int wfi; Vec3 wcp = closest_point_on_mesh(wcentroid, pos, faces, &wfi);
+            std::fprintf(stderr, "[DIAG]   closest ORIGINAL point to centroid: dist=%.4f, on original face %d\n",
+                         (wcp - wcentroid).norm(), wfi);
+            for (int v = 0; v < 6; ++v) {
+                std::vector<int> fid; std::vector<double> depth;
+                render(curP, curF, v, RES, fid, depth);
+                long cnt = 0; int mnx=RES,mxx=-1,mny=RES,mxy=-1;
+                for (int y = 0; y < RES; ++y) for (int x = 0; x < RES; ++x) {
+                    if (fid[(size_t)y*RES+x] == wf) { ++cnt; mnx=std::min(mnx,x); mxx=std::max(mxx,x); mny=std::min(mny,y); mxy=std::max(mxy,y); }
+                }
+                if (cnt == 0) { std::fprintf(stderr, "[DIAG]   view %d: not visible (0 pixels)\n", v); continue; }
+                // per-view deficit contribution and a sample pixel at the bbox center
+                int px = (mnx+mxx)/2, py = (mny+mxy)/2;
+                size_t pk = (size_t)py*RES+px;
+                Vec3 curN = face_normal(curP, curF[fid[pk]]);
+                // what does the ORIGINAL render show at this exact pixel?
+                std::vector<int> ofid; std::vector<double> odepth;
+                render(pos, faces, v, RES, ofid, odepth);
+                int origFaceAtPixel = ofid[pk];
+                std::fprintf(stderr, "[DIAG]   view %d: %ld px, bbox=(%d,%d)-(%d,%d), sample px=(%d,%d)\n",
+                             v, cnt, mnx,mny,mxx,mxy, px, py);
+                if (origFaceAtPixel < 0) {
+                    std::fprintf(stderr, "[DIAG]     original render: BACKGROUND at this pixel (current mesh extends past the true silhouette here)\n");
+                } else {
+                    Vec3 origN = face_normal(pos, faces[origFaceAtPixel]);
+                    double cosang = curN.dot(origN);
+                    std::fprintf(stderr, "[DIAG]     current normal=(%.3f,%.3f,%.3f) original normal=(%.3f,%.3f,%.3f) cos=%.4f original_face=%d\n",
+                                 curN.x(),curN.y(),curN.z(), origN.x(),origN.y(),origN.z(), cosang, origFaceAtPixel);
+                    // is the ORIGINAL face's own centroid actually closest (on the CURRENT mesh)
+                    // to a DIFFERENT current face than the one rendering there? That would mean
+                    // the true matching geometry is elsewhere -- an attribution/occlusion mismatch.
+                    Vec3 ot = (pos[faces[origFaceAtPixel][0]] + pos[faces[origFaceAtPixel][1]] + pos[faces[origFaceAtPixel][2]]) / 3.0;
+                    int matchFi; closest_point_on_mesh(ot, curP, curF, &matchFi);
+                    std::fprintf(stderr, "[DIAG]     original face %d's own closest CURRENT face = %d (rendering here = %d) %s\n",
+                                 origFaceAtPixel, matchFi, wf, matchFi == wf ? "[MATCH]" : "[MISMATCH -- attribution problem]");
+                }
+            }
+            std::fprintf(stderr, "[DIAG] end\n\n");
+        }
         // find the worst-violating original sample point (max distance to the CURRENT surface,
         // via true point-to-triangle distance, not just nearest vertex — a nearest-VERTEX
         // guard was measured to plateau: boosting faces touching the nearest vertex does not
@@ -553,13 +637,17 @@ int main(int argc, char** argv) {
                 const auto& t = curF[cand];
                 const Vec3 &fa = curP[t[0]], &fb = curP[t[1]], &fc = curP[t[2]];
                 double edgeScale = std::max({(fb-fa).norm(), (fc-fb).norm(), (fa-fc).norm()});
-                Vec3 np = pick_split_point(fa, fb, fc, pos, faces, edgeScale);
-                if (split_areas_ok(t, np)) { splitFace = cand; newPos = np; break; }
+                Vec3 np;
+                double minSep = 0.05 * edgeScale;
+                if (pick_split_point(fa, fb, fc, pos, faces, curP, edgeScale, MIN_AREA, minSep, np) && split_areas_ok(t, np)) {
+                    splitFace = cand; newPos = np; break;
+                }
             }
         }
         if (getenv("V2_DBG") && iters % 20 == 0)
-            std::fprintf(stderr, "[v2cand] iter=%d haus=%d tried=%d of %zu faces, deficit=%.4f\n",
-                         iters, (int)haus, tried, curF.size(), splitFace >= 0 ? faceDeficit[splitFace] : -1.0);
+            std::fprintf(stderr, "[v2cand] iter=%d haus=%d tried=%d of %zu faces, deficit=%.4f face=%d newPos=(%.5f,%.5f,%.5f)\n",
+                         iters, (int)haus, tried, curF.size(), splitFace >= 0 ? faceDeficit[splitFace] : -1.0,
+                         splitFace, newPos.x(), newPos.y(), newPos.z());
         if (splitFace < 0) {   // every candidate degenerate: mesh has converged as far as this
             std::fprintf(stderr, "[v2] no valid split candidate at V=%zu — stopping early\n", curP.size());
             break;
