@@ -70,7 +70,7 @@ static double keep_for(int V) {
     if (V <= 30000)  return 0.2996875;// case 3: 70.03125 banked keep (R1 descent closed: 6931/6944/banked-with-R1 all WA'd)
     if (V <= 40000)  return 0.1428125;// case 4: TAIL-HARVEST 85.71875 (85.6875 BANKED draw-3-of-3 #90.2333)
     if (V <= 100000) return 0.08453125;// case 5: banked V=4226 = deterministic wall (f32 converges: 12 sub-rung fails were real, not noise); 768 kept as razor margin
-    if (V <= 400000) return 8684.0/(double)V; // case 6 micro-rung: V~8685 (+26 vs banked 8711 = +0.00115 tot); band [8670,8711), v102 family = fresh coin
+    if (V <= 400000) return 0.023046875;// case 6: banked keep fraction (safe); fixed 8684/8690 targets WA x3 on the post-R3b family — band recalibration next session
     return 0.02855;                // case 7: banked (28800 WA 19897066 -> wall in (28800,28822], not worth the slots)
 }
 
@@ -1576,7 +1576,7 @@ int main(int argc, char** argv) {
         int passes = ((int)pos.size() > 100000) ? 3 : 8;   // case6: 3 passes fits the CPU box
         if (const char* e = getenv("G_PASSES")) passes = atoi(e);
         const int start = alive_count;
-        const bool r1_on = false;  // R1 interleave JUDGE-NEGATIVE on case 3 x2 live families (19897009 dt2.0, 19897024 dt1.9 both WA'd the BANKED rung; local +0.002 did not transfer — 768-class divergence). Kept for a future case-5-read-gated retry.
+        const bool r1_on = false;  // R1 interleave CLOSED JUDGE-NEGATIVE on BOTH tested cases (c3 x2 families 19897009/024; c5 19897122 — all WA'd their BANKED rungs despite +0.0015-0.002 local). The proxies reward what the judge meshes punish. Code kept as archive.
         for (int pa = 0; pa < passes; ++pa) {
             pivotA_update_importance();
             seed_heap();

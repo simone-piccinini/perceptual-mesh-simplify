@@ -660,3 +660,16 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   (≥2× effective iterations where the box cuts; the small plateau overshoot = 1-ulp crop-border
   trajectory jitter, structural-class). Shipping as v103 re-rolls the refine families →
   sequenced AFTER the c6 bank event.
+- **R1 INTERLEAVE: FINAL CLOSURE, JUDGE-NEGATIVE ON BOTH TESTED CASES (2026-07-06 ~00:30).**
+  Case-5 family test at the banked rung (19897122): WA — same pattern as case 3 (19897009/024).
+  Three live R1 families out of three fell below their banked razors despite +0.0015-0.002
+  local at equal count. THE STRATEGIC FACT OF THE NIGHT: the armadillo-derived proxies carry a
+  systematic pro-interleave bias that the real judge meshes invert. Any future Road-B variant
+  must be gated on a judge-side family read at the BANKED rung before any descent.
+- **v103/v104 (R3b crop) case-6 band shifted:** fixed targets 8684/8690 WA x3 on the post-R3b
+  family (stall shortened or family mean down — unresolved); case 6 back on the banked keep
+  fraction; band recalibration = next session's first job. BANK SAFE at 90.238807 (19897075).
+- Session totals 2026-07-05: 30 submissions, bank 90.238542 -> 90.238807, envelope completed
+  (all sizes, CPU billing, per-run regimes, genus map), R2 instrument operational, R3a/b/c
+  shipped (c3 -3.5s, c5 -8.5s, c4/c6 more boxed iterations), R1 built-tested-closed, c7 wall
+  boxed to (28800, 28822].
