@@ -757,3 +757,12 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   compiled fine within the hour. Content diff is trivial (a budget else-if + a 10-line loop) —
   no plausible OOM trigger. CONTROL in flight: byte-identical RC3C resubmit; CE => compile-farm
   load era (wait it out), compile => content (bisect the three RC3D edits).
+- **CE bisected (19898696 control vs 19898649/661/670/689):** budget else-if alone COMPILES;
+  the anneal block kills cc1plus even with volatile bounds -> loop-wrapped big callees
+  (Decimate + mini_refine in any loop shape) = GCC-14 inline/jump-thread explosion. Fix: hoist
+  into `__attribute__((noinline)) anneal_cycle(tgt, dt)` + straight-line calls (r6).
+  Collateral: the bisect run doubled as a THIRD case-3 family draw at 6800 (recipe, box 14.8):
+  WA — 6800 now dead across 3 families; looking like landscape, not family lottery.
+- **Kattis rate limit hit (2026-07-06 ~morning): token bucket, ~1 token/4 min** after an
+  ~8-submission burst. "Out of submission tokens... regenerate in 231 seconds." Envelope §4
+  updated; the old "70+/day no throttle" note superseded (that was spread over a day).
