@@ -721,3 +721,14 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   not worth box-cut coin rolls). Case-6 recipe ruled out on budget (754k-face 1024 orig render
   ~4 s does not fit its box). SESSION END STATE: bank 90.266754, live v108, the READ->TWIN->BANK
   instrument documented with its convergence-regime rule.**
+
+## Session 8 (2026-07-06 morning, Fable 5)
+- **RC3-READ (19898572): the c5/c4 recipe read on case 3 = S(6941) = 0.9135** (V'=7169 = 6941
+  mesh (stall 1) + 4*57; local proxy read 0.8989 — the +0.0146 gap says the case-3 proxy is
+  ALSO pessimistic once the recipe path is active; the old "faithful ±0.002" claim held only
+  for the pre-recipe pipeline). Mechanism: hybrid phase B is budget-starved (-2.4 s guard +
+  late start); an extra 1.2 s mini_refine at 1024 buys ~+0.013 on the true input.
+- **BANK-TWIN-C3 (19898599): NEW BANK 90.276093 (+0.009339).** c3 6954 -> 6941 (payout 70.0827).
+  Converged-refine regime -> pads-stripped twin reproduced the read mesh exactly, first roll.
+  Live = v109 (twin file). Descent ladder opened: read @6800 in flight (predicted S ~0.909 by
+  the 3.1e-5/vertex judge slope; if the linear model holds, floor ~6500 = +0.32 total).
