@@ -799,3 +799,6 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   connectivity constructor. Ironically the day's measurement: greedy connectivity BEATS naive
   VSA-full by 0.045. A true Cohen-Steiner (alternating everything, anisotropic triangulation,
   anchor optimization) remains days of work with the start line 0.045 behind.
+- **TOOLCHAIN RE-PINNED (19900194): GCC 14.2 all along.** Bit-identical probe score to 07-05;
+  the "GCC 11.5" was a decode artifact of the wrong case-2 size (3989 vs 4098). Envelope §3
+  corrected: baseline auto-vectorizes (SSE2); memory-bound refine conclusion unchanged.

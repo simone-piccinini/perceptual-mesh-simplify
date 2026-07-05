@@ -104,14 +104,14 @@ made past notes confusing.
 
 ## 3. Hardware & environment
 
-- **Compiler = GCC 11.5, baseline x86-64 arch (no `__AVX2__` at default flags), on a CPU that
-  DOES support AVX2 at runtime.** [MEASURED — covert probe 19889788, 2026-07-05.] GCC 11 does
-  not auto-vectorize at -O2, so the judge binary today runs fully scalar.
-  ⚠ CONFLICT (2026-07-06): a Compile Error page showed the driver is **g++-14** ("g++-14:
-  fatal error: Killed signal terminated program cc1plus", 19898649). Either the toolchain
-  changed mid-contest (GCC 12+ auto-vectorizes at -O2 → the scalar-baseline fact would be
-  stale) or the probe's __GNUC__ decode belongs to a different context. Re-pin with a probe-A
-  rerun before relying on either value. [MEASURED, unresolved]
+- **Compiler = GCC 14.2, baseline x86-64 generic arch (no `__AVX2__` at default flags), CPU
+  supports AVX2 at runtime.** [MEASURED — probe 19889788 re-decoded + rerun 19900194,
+  bit-identical scores across both days.] The 2026-07-05 "GCC 11.5" reading was a DECODE
+  ARTIFACT of the then-wrong case-2 size (3989 vs true 4098); with the true size both runs
+  decode to v=942 = GCC 14.2 — consistent with the g++-14 CE driver line. No mid-contest
+  toolchain change. Consequence: GCC 14 auto-vectorizes at -O2 (SSE2 128-bit at generic arch),
+  so the baseline binary is NOT fully scalar; the refine-loop memory-bound conclusion (pragma
+  ratio 1.000) stands unchanged — bandwidth is the ceiling, not vector width.
 - **COMPILE MEMORY LIMIT exists and our file sits AT it** [MEASURED 19898649..726, 5 CEs +
   2 controls]: the CE page says explicitly "Compilation memory limit exceeded" ("g++-14: fatal
   error: Killed signal terminated program cc1plus"). The v108-era source is at the cliff:
