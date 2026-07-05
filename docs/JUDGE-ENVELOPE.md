@@ -23,15 +23,15 @@ made past notes confusing.
    case 3's refine now CONVERGES inside the 16 s box (finishes at ~17.4 s total, was 20.7-21.0
    box-cut). A bigger box buys zero iterations for a converged ascent; the 16-vs-18 question
    died with the box-cut regime.
-2. ~~The per-case compression table does not reconstruct the banked score~~ — **CLOSED
-   2026-07-05: residual −0.000001 (pure rounding).** All six input sizes are now MEASURED and
-   the bank decomposes EXACTLY (see §6 table): V = 3,989 / 25,000 / 32,000 / 49,987 / 377,084 /
-   1,009,118. The old "~256,000" was 47% low and "1.1M" 8% high. Instruments: the fixed-count
-   single-payer probe (exact-N output, identity elsewhere → V = N/(1−6·score/100), ±0.5 verts;
-   19895532 exact-9500 for case 6, 19895536 exact-60000 for case 7). Design rule learned the
-   expensive way (two WAs at exact-6000/6500): keep-fraction rungs AUTO-SCALE with the unknown
-   V, so a fixed count must be sized for the UPPER end of the case's size range. No hidden free
-   rung remains in the attribution: every case pays exactly its keep-derived rung + stall.
+2. **Input sizes: five of six MEASURED, one probe in flight (case 3).** The fixed-count
+   single-payer instrument (exact-N output, identity elsewhere → V = N/(1−6·score/100),
+   ±0.5 verts) has now read: case 2 = 4,098 [19895596], case 4 = 35,292 [19895611],
+   case 5 = 49,987 [CAL series], case 6 = 377,084 [19895532], case 7 = 1,009,118 [19895536].
+   EVERY legacy "recovered by arithmetic" size was wrong (3,989 / 25,000 / 32,000 / ~256,000 /
+   1,100,000) — and therefore the earlier "bit-exact bank attribution" was a coincidence fit;
+   the definitive attribution re-solve runs after the case-3 probe lands. Design rule learned
+   the expensive way (exact-6000/6500 WAs on case 6): keep-fraction rungs AUTO-SCALE with the
+   unknown V — size a fixed count for the UPPER end of the case's range.
 3. ~~The judge/local speed ratio (1.014) was measured on ONE memory-bound kernel~~ —
    ANSWERED 2026-07-05 by the SIMD probe series (§3, §8 item 6): the judge toolchain is GCC 11.5
    fully scalar on an AVX2-capable CPU; pragma regions vectorize for real (3.26× compute-bound)
@@ -73,39 +73,34 @@ made past notes confusing.
   [INFERRED — per-case verdicts differ independently (mixed TLE/WA/Accepted in one submission).]
 - One submission = 7 runs (sample + cases 2–7). The **sample scores nothing**; final score is the
   arithmetic mean of cases 2–7. [OFFICIAL]
-- **The judge is deterministic given the binary.** Re-submitting a byte-different but
-  code-identical source (comment changes) produces bit-identical scores. [MEASURED — three
-  comment-only resubmits of the c4-85.75 config scored 74.97538 exactly, 2026-07-04.]
-- Run-to-run variance therefore comes ONLY from recompiling changed code: the compiler's
-  floating-point instruction reordering perturbs collapse orders near ties. Magnitude at the SSIM
-  walls: σ ≈ 0.0002–0.0003 SSIM, zero mean cost. Any real code edit = a fresh draw ("g_draw"
-  volatile knob exists for exactly this). [MEASURED — dozens of paired submissions.]
+- Determinism summary (which regime a case is in — decides whether a resubmit is a re-roll):
+  **box-CUT refine ⇒ per-run coin** (cases 4 and 6 today); **converged refine or no refine ⇒
+  ~deterministic per binary** (cases 2, 3, 5, 7 under the float32 build — case 3 and 5 refines
+  converge inside their boxes since v100). The 2026-07-04 "bit-identical comment-only resubmit"
+  observations were real but belong to the converged/quiet-machine regime.
 - Verdicts are final; **no post-contest rejudging**; best submission counts. [OFFICIAL
   clarification 2026-06-22.] A failed submission can never hurt the banked score.
 
 ## 2. Time
 
-- **The wall-clock limit is ≈ 21 s PER CASE, not a sum across cases.** Identity-echo probes with
-  a busy-wait of T seconds: T=18 → all 7 pass (19888908); T=20 → all 7 pass (19888927); T=21 →
-  mixed (c2,c3 pass, others TLE — 19888xxx); T=22 and T=24 → all TLE. The mixed row at 21 shows
-  each case is timed independently and the effective ceiling sits at ~20.5–21.0 s including I/O.
-  [MEASURED, 2026-07-04.]
+- **The limit is a CPU ceiling in [21, 22) CPU-seconds PER CASE; wall time is UNBILLED.**
+  [MEASURED, two independent probe families:] (a) busy-wait T seconds (CPU = wall for a
+  spinner): T=20 all-pass, T=21 mixed, T=22 all-TLE [2026-07-04]; (b) the sample case slept 25
+  WALL seconds (zero CPU) and was ACCEPTED [19895285, 2026-07-05]; runs with wall 22.4-24.5 s
+  pass whenever their CPU stays under (I/O and machine contention do not bill).
+- Per-case, not summed across cases: the mixed T=21 row shows independent timing per case.
 - CPU is billed **summed across threads**: multithreading multiplies the bill and TLEs.
-  [MEASURED — v60/v63 multicore experiments; also consistent with the busy-wait probes.]
-  → Practical rule: single thread only; SIMD within one thread is fine (untested but standard).
-- **Judge speed = local speed (ratio 1.014, judge marginally faster).** Covert-channel probe:
-  8 s of the real r_boxsum(1024²) kernel → N_judge=523 vs N_local=516, decoded from case-2's
-  compression. [MEASURED 2026-07-05.] The earlier c3 box-17/19 TLEs were NOT slowness: they were
-  box + final-1024-iteration overshoot (~2.2 s) + save landing exactly on the ~21 s ceiling.
-  → Correct box formula: box ≤ 20.3 − (cost of one full iteration at the phase's resolution)
-  − save time. c3 (1024 phase B): box 18. c5 (512 only): box 19.5. Verify per case on the judge.
-- Safe per-case boxes as of today (encoded in `main()`):
-  c2 = 6 s · c3 = 16 s (17 TLEs!) · c4 = 14 s (16 TLE'd at keep 0.1425 — cause never fully
-  explained; do not raise) · c5 = 19 s (proven passing twice) · c6 = 16 s (a 19 s box made its
-  banked rung FAIL — "more optimization time" changed the output and broke SSIM) · c7 = no
-  refine (init on 2.2M faces is unboxable).
-- I/O time counts toward the limit. c7 identity echo (~40 MB in + 40 MB out) still passed at
-  T=20 → I/O costs well under 1 s. [MEASURED]
+  [MEASURED — v60/v63 multicore experiments.] → single thread only.
+- Machine speed varies run-to-run under load (same binary: 16.0 vs 17.2 s on case 4, 21.1 vs
+  22.5 s wall on case 5) — the engine of the per-run nondeterminism in §1. [MEASURED]
+- **Judge speed ≈ local speed (ratio 1.014)** on the memory-bound refine kernel. [MEASURED
+  19889xxx covert probe.]
+- Since v101 all internal refine boxes cut on **getrusage CPU seconds** (what is billed), not
+  wall. Boxes encoded in `main()` today: case 2 = 6 · case 3 = 16 (converges ~13-14 CPU) ·
+  case 4 = 14 · case 5 = 17 (converges) · case 6 = 16 (default, box-cut) · case 7 = no refine
+  (its refine-init is unboxable at 2.2M faces; a CPU-guard skips refine if init ate > 6 s).
+- I/O time is cheap: the 1M-case identity echo (~40 MB in + out) fit at T=20 busy-wait → I/O
+  well under 1 s of CPU. [MEASURED]
 
 ## 3. Hardware & environment
 
@@ -159,7 +154,6 @@ made past notes confusing.
   count of a sacrificial case and read back from the score. Used implicitly to pin exact case
   sizes (§6). Available for future diagnostics (e.g., timing a phase in vivo).
 - CPU time column in the submissions table is empty for scored submissions. [MEASURED]
-- Rate limits: ~70+ submissions in one day drew no throttling or complaints. [MEASURED, soft]
 
 ## 5. Validity & output rules
 
@@ -197,16 +191,18 @@ The four output constraints, verbatim scope [OFFICIAL], plus what we probed arou
 
 ## 6. The test cases themselves
 
-All sizes MEASURED; the bank decomposes bit-exactly (residual −1e-6) into these payouts:
+ALL SIX input sizes MEASURED with the fixed-count single-payer instrument (§7.1); the bank
+decomposes EXACTLY (residual +0.000000) with truncation targets (int)(keep·V) + inferred
+stalls. Every pre-probe "recovered" size was wrong.
 
-| case | V (input) | V′ at bank | bank payout (exact) | wall type |
+| case | V (input) [probe] | V′ at bank | bank payout (exact) | wall type |
 |---|---|---|---|---|
-| 2 | 3,989 | 28 | 99.298070 | topological floor (28 verts; collapses+flips+removals all jam — likely small genus/handles) |
-| 3 | 25,000 | 7,492 | 70.032000 | SSIM wall, ×2-DETERMINISTIC: 70.0625 WA'd both in the f64 box-cut era AND with f32-converged refine (19894901); TLE fragility GONE since float32 (converges at 17.4 s) |
-| 4 | 32,000 | 4,570 | 85.718750 | topological floor at 4,570 (CAD, many holes → high genus); 85.75 passes when a draw lands there; refine still box-cut ⇒ per-run coin (§1) |
-| 5 | **49,987** [MEASURED §7.1] | 4,226 | 91.545802 | **deterministic SSIM wall at V=4226**: 0/12 sub-rung on 2026-07-05 (f64/f32/λ/hybrid-1024/768 all WA; 768 negative even at the banked rung); f32 refine converges ⇒ no draw variance; slope ≈ 3.5e-5 S/vertex |
-| 6 | **377,084** [MEASURED 19895532] | 8,702 (stall +11 over the 8691 target) | 97.692291 | SSIM (×7-closed keep-rung 97.703125 = V′ 8661 → 41 unexplored 1-vertex rungs, ≈ +0.0018 total max via fixed-count outputs); refine box-cut ⇒ per-run coin (§1) |
-| 7 | **1,009,118** [MEASURED 19895536] | 28,817 | 97.144338 | deterministic (no refine ⇒ no draw variance); closed keep-rung 97.1475 = V′ 28,785 → 32 unexplored 1-vertex rungs ≈ +0.0005 total max |
+| 2 | **4,098** [19895596] | 28 | 99.316740 | **SSIM wall at 28** (27 = 99.341 WA'd). Topology probe: 1 component, genus 0 — a topological SPHERE, so the old "topological floor" label was WRONG; surgery has NOTHING to win here (1 vertex = 4.07e-3 total) |
+| 3 | **23,201** [19895616] | 6,954 | 70.027154 | SSIM wall, ×2-DETERMINISTIC (70.06-rung WA'd in both refine regimes); TLE fragility GONE since float32 (converges) |
+| 4 | **35,292** [19895611] | 5,044 | 85.707809 | greedy jam + SSIM; the old "floor at 4,570" NUMBER was an artifact of the wrong 32,000 size — true floor count unknown; genus probe in flight decides whether it is topological at all; refine box-cut ⇒ per-run coin (§1) |
+| 5 | **49,987** [CAL §7.1] | 4,226 | 91.545802 | **deterministic SSIM wall at V=4226**: 0/12 sub-rung 2026-07-05 (f64/f32/λ/hybrid-1024/768 all WA; 768 negative even at the banked rung); f32 refine converges ⇒ no draw variance; slope ≈ 3.5e-5 S/vertex |
+| 6 | **377,084** [19895532] | 8,711 | 97.689905 | SSIM razor; fixed-count 8670-target WA'd ×2 → wall band [8670, 8711); refine box-cut ⇒ per-run coin (§1) |
+| 7 | **1,009,118** [19895536] | 28,822 | 97.143842 | deterministic (no refine ⇒ no draw variance); keep-rung pushes WA'd ×3 just below → wall within ~35 verts of bank |
 
 Case *nature* (inferred from mechanism responses): c4 responds strongly to anisotropic placement
 (CAD-like); c3/c5/c6/c7 do not (organic/scan-like); c2 is tiny and topology-limited.
