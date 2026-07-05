@@ -112,11 +112,15 @@ made past notes confusing.
   changed mid-contest (GCC 12+ auto-vectorizes at -O2 → the scalar-baseline fact would be
   stale) or the probe's __GNUC__ decode belongs to a different context. Re-pin with a probe-A
   rerun before relying on either value. [MEASURED, unresolved]
-- **Compile-farm limits kill pathological optimizations** [MEASURED 19898649/661/670 vs control
-  19898679]: a constant-trip-count loop wrapping BIG callees (Decimate + mini_refine, 3
-  iterations) made cc1plus get SIGKILLed 3/3 (full unroll + inline explosion), while the same
-  code straight-line compiled fine. Engineering rule: make multi-iteration loops around large
-  functions OPAQUE (volatile trip counts) in judge builds.
+- **COMPILE MEMORY LIMIT exists and our file sits AT it** [MEASURED 19898649..726, 5 CEs +
+  2 controls]: the CE page says explicitly "Compilation memory limit exceeded" ("g++-14: fatal
+  error: Killed signal terminated program cc1plus"). The v108-era source is at the cliff:
+  pure REPLACEMENT edits compile; any NET ADDITION of a few statements tips it over —
+  regardless of code shape (const-loop, volatile-loop, noinline-hoist all CE'd; a one-line
+  add compiled). Biggest known weight: the judged-dead Sobolev path (G_LAPL) instantiating
+  Eigen::SimplicialLDLT<SparseMatrix<double>> (−60 MB compile RSS locally when stripped).
+  Engineering rule: strip dead template-heavy code from probe/live builds BEFORE adding
+  features; the compile driver is g++-14 (see toolchain conflict above).
 - **The GCC pragma region (`push_options` + `optimize("O3")` + `target("avx2,fma")`) compiles,
   runs, and really vectorizes on the judge**: pure compute-bound FMA lanes speed up 3.26×
   [MEASURED — 19889824]. But the REAL solver kernels gain NOTHING: the refine SSIM compound
