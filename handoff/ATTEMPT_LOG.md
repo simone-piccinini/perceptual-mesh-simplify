@@ -854,3 +854,24 @@ found to risk ~21.5s total — trimmed before ever submitting. Question: does th
 mechanism transfer positively to the judge's real input (untested mechanism CLASS — not
 position-space, so THEORY 9.1's proxy-transfer-bias warning may not even apply), and does the
 timing hold.
+
+## JD first judge test — RESULT (2026-07-06, submission 19900568)
+**7/7 Accepted, SCORE 90.202422** (below current bank 90.276093 — best-counts protects the
+bank; this submission changes nothing about it). Case 4 (JD target) PASSED at safe timing
+(15.7s of ~21s ceiling, 5.3s margin — the trimmed 1.5s budget was the right call).
+
+**Quantitative isolation of JD's own contribution is AMBIGUOUS from this single read**: case 6
+is ALSO box-cut (per-run coin per ENVELOPE §1); adding JD to the binary is a code change that
+redraws EVERY box-cut case, not just case 4's target. The score arithmetic has two unknowns
+(case 4's true payout AND case 6's redrawn payout) and one equation (SUM6) — brute-force search
+over plausible K (JD's tetra-encode) finds several integer-consistent (K, case-6-vertex-count)
+pairs, none landing cleanly in case 6's known historical band (~8690-8720), meaning the
+decode genuinely cannot be trusted without a second read.
+
+**What IS trustworthy**: JD produced a LEGAL, judge-accepted, manifold-safe output on a REAL
+judge input for the first time — this validates the mechanism's ENGINEERING (no crashes, no
+invalid geometry, safe timing) independent of its quantitative SSIM contribution. The
+quantitative question (does JD's math genuinely help on real inputs, and by how much) needs
+either: (a) a second read holding case 6 fixed some other way, or (b) testing JD on a
+CONVERGED-regime case (3 or 5) instead, where the "no other case redraws" assumption holds
+exactly and the decode is unambiguous — RECOMMENDED next step over further case-4 reads.
