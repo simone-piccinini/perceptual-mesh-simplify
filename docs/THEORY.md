@@ -274,3 +274,15 @@ razor-tuned (case 6), five consecutive crop-family draws failed rungs up to SAFE
 (8720 > 8711) — the crop family's mean is genuinely lower there. Healed by gating the crop to
 V ≤ 100000. Lesson: throughput changes are trajectory re-rolls on box-cut cases; their sign is
 a family draw, not a free lunch.
+
+### 9.4 The READ→TWIN→BANK instrument, and the c5 endpoint
+Dual-use single binary: run the live pipeline, apply the candidate variation IN-PROCESS (extra
+collapses + 1024 mini-refine), self-score FinalSSIM at 1024, emit the measured mesh + K tetras
+(S = 0.885 + K·5e-4). If the read says ≥ 0.9005, submit the byte-identical pads-stripped twin —
+same mesh, banks immediately. Judged results (2026-07-06): S(4212) ≈ 0.908 read → twin BANKED
+90.243142 first try; 4190/4170/4130/4050 all < 0.9 even with doubled repair budget. The cliff
+(> 0.008 SSIM in ≤ 22 vertices) is structural: post-refine collapses run on STALE quadrics
+(accumulated on original geometry, evaluated at refined positions) — small damage (≈14
+collapses) is repairable by a short 1024 ascent, larger is not. The instrument, not the rung,
+is the asset: it converts any pipeline experiment into ONE zero-risk judge reading, which is
+the only unbiased signal available (§9.1).

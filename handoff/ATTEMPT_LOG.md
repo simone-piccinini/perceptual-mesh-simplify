@@ -697,3 +697,11 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   after extra collapses — distinct from the failed 768-REPLACEMENT and from proxy-blind R1).
   First TLE'd read attempt (19898129, 22.4 s) fixed by dropping the S1 half and trimming boxes.
   Deep read @4050 in flight (slope predicts ~0.902; the floor may sit near 3984 = +0.135 total).
+- **c5 read-ladder CLOSED at 4212 (2026-07-06 ~05:00):** reads/WAs at 4050/4130/4170/4190
+  (19898203/218/235/250) and 4190-with-3s-repair (19898268, 20.8 s — also at the CPU edge) all
+  below 0.9. The S cliff between 4212 (0.908) and 4190 (<0.9) in ≤22 vertices is STRUCTURAL:
+  extra collapses on the refined mesh use quadrics that are stale w.r.t. the moved positions —
+  14 collapses of damage are repairable in 1.5 s of 1024 refine, 22+ are not at any affordable
+  budget. Final bank of the night: **90.243142** (c5=4212, c6=8705). The READ→TWIN→BANK
+  instrument is the durable asset: any future pipeline reads its judge-side S for one
+  submission with zero bank risk.
