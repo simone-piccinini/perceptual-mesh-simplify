@@ -341,7 +341,7 @@ static double r_elapsed() {   // CPU seconds, not wall: the judge bills CPU (sle
     return ru.ru_utime.tv_sec + ru.ru_stime.tv_sec + 1e-6*(ru.ru_utime.tv_usec + ru.ru_stime.tv_usec);
 }
 static void r_boxsum(const std::vector<float>& a, std::vector<float>& o, int W) {  // 11x11 sliding SUM (separable); float32 storage, double running accumulators
-    const int R = 5; std::vector<float> tmp((size_t)W*W, 0.0f); o.assign((size_t)W*W, 0.0f);
+    const int R = 5; static std::vector<float> tmp; tmp.resize((size_t)W*W); o.resize((size_t)W*W);  // R3c: no zero-init (both fully overwritten below), reused scratch
     for (int y=0;y<W;++y){ double s=0; for(int x=0;x<=R&&x<W;++x) s+=a[(size_t)y*W+x];
         for(int x=0;x<W;++x){ tmp[(size_t)y*W+x]=(float)s; int add=x+R+1,rem=x-R; if(add<W)s+=a[(size_t)y*W+add]; if(rem>=0)s-=a[(size_t)y*W+rem]; } }
     for (int x=0;x<W;++x){ double s=0; for(int y=0;y<=R&&y<W;++y) s+=tmp[(size_t)y*W+x];
@@ -701,32 +701,43 @@ static void refine_positions() {
     }
     auto stock_pass = [&](double step0){
         double stp = step0;
+        // R3a fused accept: the gradient is evaluated AT THE TRIAL POINT together with its score.
+        // Accept -> that gradient IS the next iteration's gradient (1 eval/iter instead of 2).
+        // Reject -> the cached gradient is still the gradient of the unchanged current point
+        // (what stock would deterministically recompute). Trajectory bit-identical to the
+        // 2-eval loop; only iterations-per-second changes.
+        std::vector<Vec3> g; double dummy = refine_score_grad(&g); (void)dummy;
+        bool fresh = true;   // g freshly computed at the current point -> needs transform once
+        double gmax = 0;
         for(int it=0; it<1000; ++it){
-            if(r_elapsed() > g_refine_budget) break;                 // HARD wall-clock time-box -> never TLE
-            std::vector<Vec3> g; refine_score_grad(&g);
-            if (use_lapl) {
-                Eigen::MatrixXd G((int)rev.size(), 3);
-                for (size_t r=0;r<rev.size();++r) G.row((int)r) = g[rev[r]].transpose();
-                Eigen::MatrixXd X = ldlt.solve(G);
-                for (size_t r=0;r<rev.size();++r) g[rev[r]] = X.row((int)r).transpose();
+            if(r_elapsed() > g_refine_budget) break;                 // HARD CPU time-box -> never TLE
+            if (fresh) {
+                if (use_lapl) {
+                    Eigen::MatrixXd G((int)rev.size(), 3);
+                    for (size_t r=0;r<rev.size();++r) G.row((int)r) = g[rev[r]].transpose();
+                    Eigen::MatrixXd X = ldlt.solve(G);
+                    for (size_t r=0;r<rev.size();++r) g[rev[r]] = X.row((int)r).transpose();
+                }
+                if (g_tiltmode) {   // project the gradient onto current vertex normals: depth/silhouette-blind moves only
+                    std::vector<Vec3> vn(pos.size(), Vec3::Zero());
+                    for (int f = 0; f < (int)faces.size(); ++f) { if (!face_alive[f]) continue;
+                        const int* t = faces[f].data();
+                        Vec3 c = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
+                        vn[t[0]] += c; vn[t[1]] += c; vn[t[2]] += c; }
+                    for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
+                        double l = vn[v].norm(); if (l < 1e-30) { g[v].setZero(); continue; }
+                        Vec3 n = vn[v]/l; g[v] = n * n.dot(g[v]); }
+                }
+                gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm());
+                fresh = false;
             }
-            if (g_tiltmode) {   // project the gradient onto current vertex normals: depth/silhouette-blind moves only
-                std::vector<Vec3> vn(pos.size(), Vec3::Zero());
-                for (int f = 0; f < (int)faces.size(); ++f) { if (!face_alive[f]) continue;
-                    const int* t = faces[f].data();
-                    Vec3 c = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
-                    vn[t[0]] += c; vn[t[1]] += c; vn[t[2]] += c; }
-                for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
-                    double l = vn[v].norm(); if (l < 1e-30) { g[v].setZero(); continue; }
-                    Vec3 n = vn[v]/l; g[v] = n * n.dot(g[v]); }
-            }
-            double gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm()); if(gmax<1e-30) break;
+            if(gmax<1e-30) break;
             const std::vector<Vec3> save=pos;
             for(size_t v=0; v<pos.size(); ++v){ if(!alive[v]) continue; Vec3 d=g[v]*(stp/gmax); Vec3 np=save[v]+d;
                 Vec3 off=np-base[v]; double ol=off.norm(); if(ol>cap) np=base[v]+off*(cap/ol); pos[v]=np; }  // displacement cap (g_capf of diag)
-            double sn=refine_score_grad(nullptr);
-            if(sn>cur && refine_valid()){ cur=sn; }                  // monotonic: accept only if real SSIM rises AND stays valid
-            else { pos=save; stp*=0.5; if(stp<1e-6*diag) break; }
+            std::vector<Vec3> gt; double sn=refine_score_grad(&gt);  // score AND gradient at the trial point
+            if(sn>cur && refine_valid()){ cur=sn; g.swap(gt); fresh = true; }  // monotonic accept; trial gradient becomes current
+            else { pos=save; stp*=0.5; if(stp<1e-6*diag) break; }    // reject: cached g still valid at the current point
         }
     };
     {   // optional: cap the first convergence pass to leave budget for basin hops (G_T1 seconds)

@@ -623,3 +623,11 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   Case-5 status: keep 0.080 and 0.082 both < 0.9 across 3 independent runs (run noise ±~0.001
   can't bridge it) → the viable rung sits between V=4099 (fails) and V=4226 (banked). Next:
   bisect at keep 0.0832 (V=4159, 91.680, +0.026 total if it lands).
+- **PROBE-R2-C3 (19896868, 2026-07-05 night): judge-side S of the v101 case-3 family at SAFE
+  fixed count 7424 = 0.915 ±0.001** (V′=7944=7424+4·130, mod-4-unambiguous decode; measured-mesh
+  channel on the f32+CPU-box pipeline, probe box 12.5 s, case time 18.7 s). Combined with the
+  banked razor (6954 passes, 6945 WA'd deterministically): **judge-side slope on case 3 ≈
+  3.1e-5 SSIM/vertex — 3× the local-proxy slope (1.12e-5), same divergence already measured on
+  case 5 (3.5e-5). External-plan budget table corrected: +0.006 SSIM on case 3 buys ~190
+  vertices (+0.14 total), not 535 (+0.38). R1's realistic landing revises to +0.3-0.6 total
+  unless the co-optimized family shifts the MEAN well beyond the ±0.013 structural spread.**
