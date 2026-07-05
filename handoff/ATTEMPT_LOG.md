@@ -689,3 +689,11 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   c3 read neutral (−0.00007, hybrid-B owns the margin) so SIL-c3 never shipped. Channel verdict:
   only v2's soft one-shot correction transfers; intensification inverts (R1 pattern). Base
   stays v105 (19898020, 90.238807 bit-exact, SIL v2 on case 5 at the banked keep).
+- **READ→TWIN→BANK works: NEW BANK 90.243142 (+0.004335, 19898182, 2026-07-06 ~04:00).**
+  The dual-use instrument (probe 19898155: live pipeline + 14 extra collapses + 1.5 s refine at
+  1024, in-process 1024 self-score, mesh + K-tetra encode) read S(4212) ≈ 0.908 judge-side for
+  ITS OWN family; the byte-identical pads-stripped twin banked 4212 first try (payout 91.573402,
+  zero stall). Mechanically: case 5's first-ever 1024 refine pass (adds hybrid-style polish
+  after extra collapses — distinct from the failed 768-REPLACEMENT and from proxy-blind R1).
+  First TLE'd read attempt (19898129, 22.4 s) fixed by dropping the S1 half and trimming boxes.
+  Deep read @4050 in flight (slope predicts ~0.902; the floor may sit near 3984 = +0.135 total).
