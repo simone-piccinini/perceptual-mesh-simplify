@@ -786,3 +786,16 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   MS2 closed x2 (TLE at N=5, WA at N=3). In-process selection VALIDATED mechanically (spread
   visible, selection works, timing fits at N=3) — the tool survives for other uses; the c2
   prize does not exist at 27.
+- **VSAM (VSA-full construction) BUILT + CLOSED LOCALLY, zero submissions (2026-07-06):**
+  new-family constructor — Lloyd L2,1 partition of the original normal field (k=4300, anchors =
+  triple points ~7100), manifold-safe contract-to-anchors (anchor-pinned survivors, hard skip in
+  Decimate), greedy trim to 6940, standard refine. Mechanics perfect (exact counts, 11.3 s
+  local). Quality: S2 = 0.8535 vs 0.8989 (current family, same count, same proxy) = **-0.045,
+  20-30x the known proxy bias** -> local verdict valid per ENVELOPE §7.2 ("definitive for the
+  coarse"). Refine budget x3: +0.0005 (converged — the construction itself is weak, not the
+  optimization). v2 (Lloyd iters 15 + post-trim flip_pass): 0.8521, worse. Mechanism: same
+  disease as the judged-dead B2/C families — a STATIC partition of the original cannot adapt;
+  the greedy heap's global marginal-cost equalization on fresh geometry is the stronger
+  connectivity constructor. Ironically the day's measurement: greedy connectivity BEATS naive
+  VSA-full by 0.045. A true Cohen-Steiner (alternating everything, anisotropic triangulation,
+  anchor optimization) remains days of work with the start line 0.045 behind.
