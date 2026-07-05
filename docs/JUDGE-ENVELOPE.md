@@ -19,14 +19,10 @@ made past notes confusing.
 
 ## 0. OPEN QUESTIONS — inconsistencies to settle TOGETHER (2026-07-05)
 
-1. **Which refine time-box is right for the 25k-vertex organic case (case 3): 16 s or 18 s?**
-   §2 states in one place "correct box formula → 18 s for its 1024-resolution phase" and, three
-   lines later, "safe boxes: 16 s (a 17 s box TLE'd!)". The live solver uses 16 s (no case-3
-   branch; default value). Yet the clean Wrong Answer at the 70.0625 rung ran WITH an 18 s box
-   and did NOT exceed the time limit → 18 s was time-safe at least once. Open decision: probe
-   the banked rung (70.03125) with the 18 s box (+2 s of gradient-ascent refine could pay), or
-   leave it alone — precedent warns that giving a banked razor-edge case "more" broke it before
-   (the 256k-vertex case (case 6) failed its banked rung when its box was raised to 19 s).
+1. ~~Which refine time-box for case 3: 16 s or 18 s?~~ — **MOOT since float32 (2026-07-05):**
+   case 3's refine now CONVERGES inside the 16 s box (finishes at ~17.4 s total, was 20.7-21.0
+   box-cut). A bigger box buys zero iterations for a converged ascent; the 16-vs-18 question
+   died with the box-cut regime.
 2. ~~The per-case compression table does not reconstruct the banked score~~ — **CLOSED
    2026-07-05: residual −0.000001 (pure rounding).** All six input sizes are now MEASURED and
    the bank decomposes EXACTLY (see §6 table): V = 3,989 / 25,000 / 32,000 / 49,987 / 377,084 /
@@ -184,13 +180,22 @@ The four output constraints, verbatim scope [OFFICIAL], plus what we probed arou
 - Output cap 100 MiB [OFFICIAL]; violating it yields a NAMED "Output Limit Exceeded" verdict.
   Identity RAW echo of c7 (~40 MB) is fine; identity through our %.17g writer (~97+ MB) is NOT.
   [MEASURED 2026-07-05.]
-- Unreferenced vertices / duplicate vertices / zero-area-after-roundtrip: [UNTESTED] — see §8.
+- **V′ > V is illegal by constraint 1 and enforced** [MEASURED 19895285]: identity + 1 extra
+  vertex (V′ = V+1) → Wrong Answer. NOTE: this WA is fully explained by constraint 1, so it says
+  NOTHING about unreferenced vertices per se; that sub-question stays open (§8) but is idle —
+  closed-geometry padding is judge-proven and covers every current need.
+- **Coordinate precision %.7g is accepted** [MEASURED]: the 1M-vertex case passed with 7
+  significant digits (~1e-7 relative coordinate noise) — compact writers are safe.
+- **Nested / interior components are legal and render-invisible** [MEASURED 19895532/536]:
+  clouds of tiny closed tetrahedra + triangular bipyramids strictly inside the body passed on
+  two different cases with zero SSIM effect (and to 9 decimals in the local evaluator).
+- Face ORIENTATION consistency: never isolated as a check. Everything we emit is consistently
+  outward-oriented by construction and passes; whether the checker would reject a flipped face
+  is unknown and no construction needs to know. [UNTESTED, idle]
 - AI-generated code is allowed; solution must be "novel" (no copying complete solutions).
   [OFFICIAL clarification 2026-06-18.]
 
 ## 6. The test cases themselves
-
-Exact sizes recovered from exact-score arithmetic [INFERRED, high confidence]:
 
 All sizes MEASURED; the bank decomposes bit-exactly (residual −1e-6) into these payouts:
 
@@ -205,6 +210,29 @@ All sizes MEASURED; the bank decomposes bit-exactly (residual −1e-6) into thes
 
 Case *nature* (inferred from mechanism responses): c4 responds strongly to anisotropic placement
 (CAD-like); c3/c5/c6/c7 do not (organic/scan-like); c2 is tiny and topology-limited.
+
+### 6.1 Wall taxonomy — JUDGE walls vs SOLVER walls (the key strategic distinction)
+
+Every wall in the table above belongs to one of two classes, and they demand opposite responses:
+
+- **JUDGE walls** — imposed by the metric or the rules; no algorithm crosses them:
+  SSIM ≥ 0.9 (cases 3, 5, 6 sit on measured SSIM razors), CPU ≈ 21 s (§2), memory (1,2] GiB,
+  `1 ≤ V′ ≤ V`, closed 2-manifold, v2v Hausdorff 5%. These are hard.
+- **SOLVER walls** — properties of OUR pipeline family, crossable by a different algorithm:
+  (a) the case-2 (28 verts) and case-4 (4,570 verts) "topological floors" are NOT judge
+  requirements: **the judge does not require the output genus to match the input** — only
+  closed-2-manifoldness. Our greedy manifold-PRESERVING edge collapse jams when handle/hole
+  loops run out of legal collapses; an algorithm that performs topology surgery (hole filling,
+  handle removal, or Garland-Heckbert vertex-PAIR contraction, which aggregates across gaps)
+  could legally go far below these floors, subject only to SSIM+Hausdorff.
+  (b) the case-5 V=4226 and case-3 70.032 walls are walls OF THE CONVERGED LOCAL OPTIMUM of our
+  refine family — a globally better optimizer (different basin, different mesh) faces a
+  different wall.
+  **The topological-floor prize is potentially the largest unexplored lever on the board**: if
+  case 4's floor is a genus jam, the gap between 4,570 and an SSIM-limited vertex count could
+  be worth several points on that case alone (each case-4 vertex = 100/(6·32000) = 5.2e-4 of
+  total). Before building surgery, ONE probe quantifies the prize: compute the input's genus
+  in-process (g = (2−V+E−F)/2 per component) and covert-encode it — see §8 item G.
 
 ## 7. Metric internals (what the scorer actually computes)
 
@@ -265,49 +293,43 @@ pinning V_case6 (§0 item 2).
 ## 8. Open questions worth a probe (ranked)
 
 1. ~~Memory ceiling~~ — DONE 2026-07-05: (1 GiB, 2 GiB]. See §3.
-2. ~~Unreferenced-vertex validity~~ — **DONE 2026-07-05 (19895285): Wrong Answer.** Identity
-   case-2 output + 1 unused vertex (position = an existing vertex, so v2v-Hausdorff 0) → WA.
-   The checker rejects loose vertices (or output V > input V — indistinguishable and equally
-   disqualifying). Operational rule: any vertex-count padding must be CLOSED geometry
-   (tetrahedra/bipyramids, judge-proven legal in the §7.1 channel).
-3. ~~Judge/local speed ratio~~ — DONE 2026-07-05: 1.014 (see §2). Boxes now sized by formula.
-4. **Per-case limit uniformity** — the T=21 mixed row hints c2/c3 may enjoy a few hundred extra
-   ms (or it was measurement noise at the cliff). One more probe at T=20.5 would pin it.
-5. **Duplicate vertices** — legal or not; could matter for exotic constructions. Low value today.
-6. ~~SIMD/`#pragma GCC target` availability~~ — **DONE 2026-07-05 (5 submissions, see §3):
-   the pragma mechanism works (3.26× on compute-bound lanes) but the real refine loop gains
-   1.000× — memory/dependency-bound. Door CLOSED for the code as written.** Corollary (a),
-   float32 refine buffers, is now ALSO DONE — built, measured (+0.0003 local at a cut-binding
-   box; f32@10s beats f64@16s), and judge-validated 7/7 at the bank (19894847, v100 base):
-   case-3 refine now converges inside its box (TLE razor gone). Surviving corollary (b): any
-   future compute-bound code gets 3.26× for free inside a pragma region.
-7. ~~Oracle-vs-judge SSIM calibration~~ — **DONE 2026-07-05: NO BIAS. Moved to §7.1** (verdict,
-   the Vin_case5=49987 discovery, and the reusable measured-mesh channel). Local-test operating
-   rules derived from it: §7.2.
-8. ~~Wall-clock vs CPU-clock limit~~ — **DONE 2026-07-05 (19895285): the limit is CPU-billED.**
-   The sample case slept 25 s of wall time (zero CPU) and was ACCEPTED. This also resolves the
-   "soft ceiling" anomalies: page times are wall-ish; a 22.8 s case-5 run passed the clock
-   because its CPU stayed under ~21 s (I/O + contention don't bill), while busy-wait 22 s TLE'd
-   (CPU = wall for a spinner). Consistent with thread-CPU summing (§1).
-   **EXPLOITABLE COROLLARY (new, untested): our refine time-boxes cut on WALL clock
-   (`steady_clock`), so on a loaded machine we surrender un-billed CPU budget. Switching the box
-   to CPU clock (`getrusage`/`clock()`) harvests +1-2 s of refine exactly when machines are
-   loaded — a free S lift on the box-cut cases (4 and 6) with NO TLE risk added (billing is CPU
-   and the box stays < 21 CPU-s by construction).**
-9. **Submission rate ceiling** — 70+/day drew no complaints; the true cap bounds how many
-   per-run lottery draws/day are available. Measured passively by harvesting.
+Closed items are kept one line each; full detail lives in the section that owns the fact.
 
-**Ranking (updated 2026-07-05 late night; #1/#2/#3/#6/#7/#8 + both size probes CLOSED):**
-Still open: #4 (limit fine-structure — reframed by the CPU-billing discovery: the ~21 s figure
-is a CPU ceiling, wall can exceed it freely; low value now), #5 (duplicate vertices — idle
-until a construction needs it), #9 (rate cap — passive). The probe backlog is essentially
-EMPTY. Actionable engineering leftovers from the closures, by value:
-1. **CPU-clock refine boxes** (from #8): switch `r_elapsed` from steady_clock to getrusage so
-   the boxes cut on what the judge actually bills — harvests +1-2 s of refine on loaded
-   machines for the box-cut cases (4, 6), zero TLE risk added.
-2. **Fixed-count rung ladders** (from the size probes): with V6/V7 exact, case-6 has 41 and
-   case-7 has 32 unexplored 1-vertex rungs between bank and their closed keep-rungs
-   (≈ +0.0018 and +0.0005 total max) — steppable precisely now.
+1. ~~Memory ceiling~~ — DONE: (1 GiB, 2 GiB]. §3.
+2. ~~V′ > V legality~~ — DONE (19895285): WA, enforced constraint 1. §5. The unreferenced-vertex
+   SUB-question is still open but IDLE: clean isolating design exists (banked 28-vertex case-2
+   output + 1 loose vertex = 29 ≤ V — legality of loose verts alone), value = padding
+   granularity 1 instead of 4/5. Fire only if a construction ever needs single-vertex padding.
+3. ~~Judge/local speed ratio~~ — DONE: 1.014. §2.
+4. ~~Wall/CPU limit structure~~ — DONE: the limit is a **CPU ceiling in [21, 22) s** (busy-wait:
+   20 all-pass, 21 mixed, 22 all-TLE — CPU basis) and wall time is UNBILLED (sleep-25 Accepted;
+   wall 22.4-24.5 s runs pass whenever CPU stays under). §2 + §5. Engineering consequence
+   (SHIPPED in v101): refine boxes cut on getrusage CPU, not steady_clock.
+5. **Duplicate vertices (two identical coordinate triples, both referenced)** — legal or not.
+   IDLE: no live construction needs it; %.7g compaction already judge-proven.
+6. ~~SIMD/pragmas~~ — DONE: pragmas vectorize (3.26× compute-bound) but the refine loop is
+   memory-bound (1.000×). §3. Corollary float32-buffers SHIPPED (v100); corollary (b): future
+   compute-bound code gets 3.26× free inside a pragma region.
+7. ~~Oracle-vs-judge SSIM calibration~~ — DONE: no bias. §7.1; operating rules §7.2.
+G. **NEW — INPUT GENUS PROBE (the one remaining high-value unknown).** The case-2/case-4
+   topological floors are SOLVER walls (§6.1); their true depth depends on the INPUT topology,
+   which we have never measured. Design (2 submissions, zero bank risk): in-process compute
+   per-component Euler characteristic of the input (g_total = Σ (2−χ_c)/2), then decimate the
+   probed case to a safe fixed count N and pad with tetrahedra/bipyramids to EXACTLY N + g_total
+   (exact-count machinery from the size probes); identity elsewhere; decode g = V′ − N from the
+   single-payer score. One submission for case 2, one for case 4. If g_case4 is large (CAD with
+   many holes), the topology-surgery road (§6.1) has a quantified multi-point prize; if g ≈ 0,
+   the floors are collapse-order jams instead and surgery is worthless — either answer redirects
+   the whole endgame.
+
+**State (2026-07-05 late night): every judge limit that affects scoring is measured — time
+(CPU ceiling, per-run noise regime), memory, toolchain/SIMD, submission mechanics, validity
+rules, all six input sizes, exact bank attribution, metric internals, metric calibration.
+The only unknown with strategic weight left is the INPUT TOPOLOGY (item G above).**
+
+Engineering leftovers already derived from closures (not probes): fixed-count rung ladders on
+cases 6/7 (41 + 32 one-vertex rungs, ≈ +0.0023 total max; case-6 attempts at 8670 WA'd ×2 —
+wall band [8661, 8681] tighter than the keep-ladder suggested).
 
 ## 9. Standing operational rules distilled from all of the above
 
