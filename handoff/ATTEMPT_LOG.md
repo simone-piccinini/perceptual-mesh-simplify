@@ -677,3 +677,10 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   silhouette optimizer PASSED its banked razor** — the first new mechanism to survive the
   post-R1 family-gate discipline. (Case-6 WA in the same run = the known post-R3b coin.)
   Descent ladder opened: c5 fixed 4212 + c6 safe-recalibration 8720 in flight.
+- **SIL descent closed, base consolidated (2026-07-06 ~02:00):** c5 SIL rungs 4212 (19897984)
+  and 4219 (19898000) WA'd — judge-side SIL gain < 7 vertices despite +0.000735 true-metric
+  local. c6 healed by gating the crop OFF for V>100000 (its box-cut razor mean dropped under
+  crop trajectories — WA×5 diagnosed, then fixed-8684 passed again paying 8705).
+  **v105 (19898020): 7/7 @ 90.238807, bank reproduced exactly on the SIL base.** SIL stays in
+  the live build at the banked c5 keep as razor margin; the coverage channel is OPEN as a
+  platform (v3 candidates: multi-round per-view deltas, SIL on case 3, finer vote radius).
