@@ -58,13 +58,19 @@ def _masked_mean(smap, mask):
     return float(s[m].mean())
 
 
+def ssim_normal_channels(nX, nY, cov, cfg=DEFAULT_CONFIG):
+    """The three per-channel SSIMs of the RGB normal map (nx, ny, nz), NOT averaged.
+
+    Diagnostic accessor: the judge averages these into one normal-SSIM, which hides
+    which channel drags. Returns [S_nx, S_ny, S_nz]. `ssim_normal` is their mean, so
+    this changes no existing behaviour."""
+    filt = _make_filter(cfg)
+    return [_masked_mean(_ssim_map(nX[:, :, c], nY[:, :, c], filt), cov) for c in range(3)]
+
+
 def ssim_normal(nX, nY, cov, cfg=DEFAULT_CONFIG):
     """SSIM of the RGB normal map: per channel, then averaged over channels."""
-    filt = _make_filter(cfg)
-    vals = []
-    for c in range(3):
-        vals.append(_masked_mean(_ssim_map(nX[:, :, c], nY[:, :, c], filt), cov))
-    return float(np.mean(vals))
+    return float(np.mean(ssim_normal_channels(nX, nY, cov, cfg)))
 
 
 def ssim_depth(dX, dY, cov, cfg=DEFAULT_CONFIG):
