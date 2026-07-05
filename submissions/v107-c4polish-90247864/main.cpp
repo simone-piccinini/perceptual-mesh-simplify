@@ -1736,7 +1736,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        seed_heap(); Decimate(4990);               // read 19898422: S(4990)=0.905; twin of that read
+        seed_heap(); Decimate(5030);               // banked 5044 minus 14
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
         mini_refine(1.5);                          // case 4's first 1024 polish

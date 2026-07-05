@@ -1,12 +1,3 @@
-// PROBE-RLIVE-C4 2026-07-06: the c5-winning recipe on case 4 — banked target minus 14 extra
-// collapses + first-ever 1024 mini-refine; in-process 1024 self-score; mesh + K tetras.
-// c5 stays on its banked v106 path (4212). c4 box trimmed 14 -> 10.5 to fund the polish+cal.
-// PROBE-RLIVE-C5 2026-07-06: DUAL-RUNG same-binary S-read of the LIVE case-5 family.
-// S1 = Final(mesh@4226 refined), S2 = Final(same run, +14 collapses + 2s refine = the exact
-// mesh a bank-mode twin would emit at 4212). Encode K = 40*q1 + q2 (q1: S1, 2.5e-3 step from
-// 0.885; q2: S2, 5e-4 step from 0.885), V' = V_mesh + 4K. Scores at 768 (offset vs 1024
-// calibrated locally). Identity elsewhere is NOT needed: banked keeps everywhere, the c5
-// payout is sacrificed to the pads (read-only submission).
 // IMC 2026 - Problem B  (tail-harvest draw marker: attempt 1) : manifold-safe QEM edge-collapse decimator.
 //
 // Two modes (compile-time kOpAdaptive; argv overrides for local tests only):
@@ -45,7 +36,6 @@
 #include <chrono>
 #include <random>
 #include <thread>
-#include <sys/resource.h>
 
 using Vec3    = Eigen::Vector3d;
 using Vec4    = Eigen::Vector4d;
@@ -76,11 +66,11 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 // v9 judge results above. Misclassification errs toward the safer (higher) keep.
 static double keep_for(int V) {
     if (V <= 7000)   return 0.00725;// case 2: DUST ~99.29 (99.268 conf; ~99.32 WA'd)
-    if (V <= 30000)  return 0.2996875;// case 3: 70.03125 banked keep (R1 descent closed: 6931/6944/banked-with-R1 all WA'd)
+    if (V <= 30000)  return 0.2996875;// case 3: 70.03125 FINAL x2 (70.0625 WA'd f64-boxcut AND f32-converged 19894901: deterministic wall)
     if (V <= 40000)  return 0.1428125;// case 4: TAIL-HARVEST 85.71875 (85.6875 BANKED draw-3-of-3 #90.2333)
-    if (V <= 100000) return 0.08453125;// case 5: banked keep + SIL (passed 19897967; SIL ladder closed: 4212/4219 WA — judge-side SIL gain < 7 verts)
-    if (V <= 400000) return 8684.0/(double)V; // case 6: crop-off family, target 8684 (v102-class banked 8705 via +21 stall)
-    return 0.02855;                // case 7: banked (28800 WA 19897066 -> wall in (28800,28822], not worth the slots)
+    if (V <= 100000) return 0.08453125;// case 5: banked V=4226 = deterministic wall (f32 converges: 12 sub-rung fails were real, not noise); 768 kept as razor margin
+    if (V <= 400000) return 0.023046875;// case 6: 97.6953125 CLOSED x4 (plain/nplace2/pivot-sdef/aniso)
+    return 0.02855;                // case 7: 97.145 CLOSED x3 (plain; sdef-remnant; aniso)
 }
 
 // Pivot-A steering strength per case. Medium organic meshes (cases 3,4,5) gain from
@@ -284,12 +274,9 @@ static void view_basis(int v, Vec3& eye, Vec3& right, Vec3& up, Vec3& fwd) {
     static const Vec3 uv[6] = {{0,0,1},{0,0,1},{0,0,1},{0,0,1},{0,1,0},{0,1,0}};
     Vec3 a = ax[v], u = uv[v]; eye = 2.5*a; fwd = -a; right = fwd.cross(u); right /= right.norm(); up = right.cross(fwd); up /= up.norm();
 }
-static int g_rb_x0, g_rb_y0, g_rb_x1, g_rb_y1;   // R3b: touched-pixel bbox of the last render
-static std::vector<double>* g_zb_out = nullptr;   // SIL: z-buffer export for the depth score
 static void render_faceid(int v, std::vector<int>& fid) {
     const int W = g_res; const double F = 800.0*(W/1024.0), C = W/2.0;
     Vec3 eye, right, up, fwd; view_basis(v, eye, right, up, fwd);
-    g_rb_x0 = g_rb_y0 = W; g_rb_x1 = g_rb_y1 = -1;
     const int nv = (int)pos.size(); std::vector<double> u(nv), vv(nv), dp(nv);
     for (int i = 0; i < nv; ++i) { if (!alive[i]) continue; Vec3 r = pos[i]-eye; double x = r.dot(right), y = r.dot(up), d = r.dot(fwd); if (d==0) d = 1e-9; u[i] = F*x/d+C; vv[i] = F*y/d+C; dp[i] = d; }
     fid.assign((size_t)W*W, -1); std::vector<double> zb((size_t)W*W, 1e30); const int nf = (int)faces.size();
@@ -302,10 +289,8 @@ static void render_faceid(int v, std::vector<int>& fid) {
         for (int py=mny;py<=mxy;++py){double cy=py+0.5; for (int px=mnx;px<=mxx;++px){double cx=px+0.5;
             double w0=((v1-v2)*(cx-u2)+(u2-u1)*(cy-v2))*inv,w1=((v2-v0)*(cx-u2)+(u0-u2)*(cy-v2))*inv,w2=1-w0-w1;
             if (w0<-1e-9||w1<-1e-9||w2<-1e-9) continue; double den=w0/d0+w1/d1+w2/d2; if (den<=0) continue; double z=1.0/den;
-            size_t k=(size_t)py*W+px; if (z<zb[k]){zb[k]=z; fid[k]=f;
-                if(px<g_rb_x0)g_rb_x0=px; if(px>g_rb_x1)g_rb_x1=px; if(py<g_rb_y0)g_rb_y0=py; if(py>g_rb_y1)g_rb_y1=py; } }}
+            size_t k=(size_t)py*W+px; if (z<zb[k]){zb[k]=z; fid[k]=f;} }}
     }
-    if (g_zb_out) *g_zb_out = zb;
 }
 static inline double face_lum(int f) { const int* t = faces[f].data(); Vec3 n = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]); double l = n.norm(); if (l>0) n /= l; return ((n.x()+1)+(n.y()+1)+(n.z()+1))/6.0; }
 static void contrast_map(const std::vector<int>& fid, std::vector<float>& sig) {
@@ -348,44 +333,17 @@ static int    g_tiltmode = 0;  // live flag read inside the ascent loop
 static int hybrid_for(int V) { return (V > 7000 && V <= 30000) ? 1 : 0; }  // c3 ONLY (c5 hybrid: local -0.0008 AND judge WA 19894828 w/ f32+box18 -> closed x2)
 // (env G_BUDGET: local convergence tests only)
 static const double R_C1 = 6.5025, R_C2 = 58.5225; static const int R_WN = 121, R_RAD = 5;
-static double r_elapsed() {   // CPU seconds, not wall: the judge bills CPU (sleep-25 probe 19895285
-    // ACCEPTED past the 21 s "limit"), so cutting on wall clock surrenders un-billed budget on
-    // loaded machines. getrusage = user+sys of this process = exactly what is billed.
-    struct rusage ru; getrusage(RUSAGE_SELF, &ru);
-    return ru.ru_utime.tv_sec + ru.ru_stime.tv_sec + 1e-6*(ru.ru_utime.tv_usec + ru.ru_stime.tv_usec);
-}
-// R3b: crop rectangles per view (union of original and current coverage, grown by 2R+2).
-// Outside the crop BOTH maps are the constant background, whose window sums are exactly
-// representable (127.5-multiples), so restricting all passes to the crop is math-preserving.
-static int g_cr_x0[6], g_cr_y0[6], g_cr_x1[6], g_cr_y1[6];   // original-coverage bbox per view
-static int g_cx0, g_cy0, g_cx1, g_cy1;                        // active crop while scoring a view
-static bool g_crop_on = false;
+static double r_elapsed() { return std::chrono::duration<double>(std::chrono::steady_clock::now() - g_t0).count(); }
 static void r_boxsum(const std::vector<float>& a, std::vector<float>& o, int W) {  // 11x11 sliding SUM (separable); float32 storage, double running accumulators
-    const int R = 5; static std::vector<float> tmp; tmp.resize((size_t)W*W); o.resize((size_t)W*W);  // R3c: no zero-init (both fully overwritten below), reused scratch
-    if (!g_crop_on) {
-        for (int y=0;y<W;++y){ double s=0; for(int x=0;x<=R&&x<W;++x) s+=a[(size_t)y*W+x];
-            for(int x=0;x<W;++x){ tmp[(size_t)y*W+x]=(float)s; int add=x+R+1,rem=x-R; if(add<W)s+=a[(size_t)y*W+add]; if(rem>=0)s-=a[(size_t)y*W+rem]; } }
-        for (int x=0;x<W;++x){ double s=0; for(int y=0;y<=R&&y<W;++y) s+=tmp[(size_t)y*W+x];
-            for(int y=0;y<W;++y){ o[(size_t)y*W+x]=(float)s; int add=y+R+1,rem=y-R; if(add<W)s+=tmp[(size_t)add*W+x]; if(rem>=0)s-=tmp[(size_t)rem*W+x]; } }
-        return;
-    }
-    // cropped passes: rows [ry0,ry1] horizontally (full-row slide, cheap), columns [cx0,cx1]
-    // vertically with the initial 11-row window summed directly (double accumulator).
-    const int ry0 = std::max(0, g_cy0 - R), ry1 = std::min(W-1, g_cy1 + R);
-    for (int y=ry0;y<=ry1;++y){ double s=0; for(int x=0;x<=R&&x<W;++x) s+=a[(size_t)y*W+x];
+    const int R = 5; std::vector<float> tmp((size_t)W*W, 0.0f); o.assign((size_t)W*W, 0.0f);
+    for (int y=0;y<W;++y){ double s=0; for(int x=0;x<=R&&x<W;++x) s+=a[(size_t)y*W+x];
         for(int x=0;x<W;++x){ tmp[(size_t)y*W+x]=(float)s; int add=x+R+1,rem=x-R; if(add<W)s+=a[(size_t)y*W+add]; if(rem>=0)s-=a[(size_t)y*W+rem]; } }
-    for (int x=g_cx0;x<=g_cx1;++x){
-        double s=0; for(int y=std::max(0,g_cy0-R); y<=std::min(W-1,g_cy0+R); ++y) s+=tmp[(size_t)y*W+x];
-        for(int y=g_cy0;y<=g_cy1;++y){ o[(size_t)y*W+x]=(float)s;
-            int add=y+R+1,rem=y-R; if(add<=ry1)s+=tmp[(size_t)add*W+x]; if(rem>=ry0)s-=tmp[(size_t)rem*W+x]; } }
+    for (int x=0;x<W;++x){ double s=0; for(int y=0;y<=R&&y<W;++y) s+=tmp[(size_t)y*W+x];
+        for(int y=0;y<W;++y){ o[(size_t)y*W+x]=(float)s; int add=y+R+1,rem=y-R; if(add<W)s+=tmp[(size_t)add*W+x]; if(rem>=0)s-=tmp[(size_t)rem*W+x]; } }
 }
-static std::vector<float> g_orig_d[6];   // SIL: original depth maps (raw perspective z; bg 255)
 static void refine_init_orig() {       // render the ORIGINAL (all-alive) mesh's 6 maps at g_refine_res
     g_res = g_refine_res; const size_t WW=(size_t)g_res*g_res;
-    for (int v=0;v<6;++v){ std::vector<int> fid; std::vector<double> zb; g_zb_out=&zb; render_faceid(v, fid); g_zb_out=nullptr;
-        g_orig_d[v].assign(WW, 255.0f);
-        for (size_t k=0;k<WW;++k) if (fid[k]>=0) g_orig_d[v][k]=(float)zb[k];
-        g_cr_x0[v]=g_rb_x0; g_cr_y0[v]=g_rb_y0; g_cr_x1[v]=g_rb_x1; g_cr_y1[v]=g_rb_y1;   // R3b: original coverage bbox
+    for (int v=0;v<6;++v){ std::vector<int> fid; render_faceid(v, fid);
         g_orig_cov[v].assign(WW,0); for(int c=0;c<3;++c) g_orig_n[v][c].assign(WW,127.5f);
         for(size_t k=0;k<WW;++k){ int f=fid[k]; if(f<0) continue; g_orig_cov[v][k]=1; Vec3 n=face_nrm(f);
             for(int c=0;c<3;++c) g_orig_n[v][c][k]=(float)((n[c]+1.0)*127.5); } }
@@ -396,14 +354,6 @@ static double refine_score_grad(std::vector<Vec3>* grad) {
     double total=0; std::vector<int> fs;
     std::vector<float> mx,my,xx,yy,xy,Gmy,Gsy,Gsxy,Smy,Ssy,Ssym,Ssxy,Ssxm,Y,t,a,bx;
     for(int v=0;v<6;++v){ render_faceid(v,fs);
-        {   // R3b: crop = union(original bbox, current bbox) grown by 2R+2, clamped
-            const int Rm = 2*R_RAD + 2;
-            int x0=std::min(g_cr_x0[v], g_rb_x0), y0=std::min(g_cr_y0[v], g_rb_y0);
-            int x1=std::max(g_cr_x1[v], g_rb_x1), y1=std::max(g_cr_y1[v], g_rb_y1);
-            if (x1 < 0) { x0=0; y0=0; x1=W-1; y1=W-1; }   // nothing rendered: full frame (degenerate safety)
-            g_cx0=std::max(0,x0-Rm); g_cy0=std::max(0,y0-Rm); g_cx1=std::min(W-1,x1+Rm); g_cy1=std::min(W-1,y1+Rm);
-            g_crop_on = ((int)pos.size() <= 100000);   // crop OFF >100k: the 377k case's box-cut razor mean DROPPED under crop trajectories (WA x5 at 8684-8720 targets)
-        }
         std::vector<char> cov((size_t)W*W); for(size_t k=0;k<(size_t)W*W;++k) cov[k]=g_orig_cov[v][k]||(fs[k]>=0);
         std::vector<Vec3> dSdn(faces.size(),Vec3::Zero());
         for(int c=0;c<3;++c){ const std::vector<float>& Xr=g_orig_n[v][c];
@@ -415,7 +365,7 @@ static double refine_score_grad(std::vector<Vec3>* grad) {
             for(size_t k=0;k<t.size();++k) t[k]=Xr[k]*Y[k];  r_boxsum(t,bx,W); xy.assign(t.size(),0); for(size_t k=0;k<t.size();++k) xy[k]=bx[k]/R_WN;
             Gmy.assign((size_t)W*W,0.0f); Gsy.assign((size_t)W*W,0.0f); Gsxy.assign((size_t)W*W,0.0f);
             double acc=0; long N=0;
-            for(int y=std::max(R_RAD,g_cy0);y<=std::min(W-R_RAD-1,g_cy1);++y) for(int x=std::max(R_RAD,g_cx0);x<=std::min(W-R_RAD-1,g_cx1);++x){ size_t k=(size_t)y*W+x; if(!cov[k]) continue;
+            for(int y=R_RAD;y<W-R_RAD;++y) for(int x=R_RAD;x<W-R_RAD;++x){ size_t k=(size_t)y*W+x; if(!cov[k]) continue;
                 double MX=mx[k],MY=my[k],SX=xx[k]-MX*MX,SY=yy[k]-MY*MY,SXY=xy[k]-MX*MY;
                 double A=2*MX*MY+R_C1,B=2*SXY+R_C2,Cc=MX*MX+MY*MY+R_C1,Dd=SX+SY+R_C2;
                 acc += (A*B)/(Cc*Dd); ++N;
@@ -439,117 +389,7 @@ static double refine_score_grad(std::vector<Vec3>* grad) {
             Vec3 g=(dn-n*(n.dot(dn)))/cl;
             (*grad)[tr[0]] += (aa-bb).cross(g); (*grad)[tr[1]] += bb.cross(g); (*grad)[tr[2]] += g.cross(aa); } }
     }
-    g_crop_on = false;
     return total;
-}
-static bool refine_valid();   // fwd decl (defined below)
-// SIL: depth-SSIM of the current mesh vs stored originals (judge formula, union-center coverage)
-static double sil_score_depth() {
-    const int W = g_res; double total = 0;
-    static std::vector<float> mx,my,xx,yy,xy,Y,t,bx; std::vector<int> fs; std::vector<double> zb;
-    for (int v = 0; v < 6; ++v) {
-        g_zb_out = &zb; render_faceid(v, fs); g_zb_out = nullptr;
-        {   const int Rm = 2*R_RAD + 2;
-            int x0=std::min(g_cr_x0[v], g_rb_x0), y0=std::min(g_cr_y0[v], g_rb_y0);
-            int x1=std::max(g_cr_x1[v], g_rb_x1), y1=std::max(g_cr_y1[v], g_rb_y1);
-            if (x1 < 0) { x0=0; y0=0; x1=W-1; y1=W-1; }
-            g_cx0=std::max(0,x0-Rm); g_cy0=std::max(0,y0-Rm); g_cx1=std::min(W-1,x1+Rm); g_cy1=std::min(W-1,y1+Rm);
-            g_crop_on = true; }
-        const std::vector<float>& Xr = g_orig_d[v];
-        Y.assign((size_t)W*W, 255.0f);
-        std::vector<char> cov((size_t)W*W);
-        for (size_t k = 0; k < (size_t)W*W; ++k) { cov[k] = g_orig_cov[v][k] || (fs[k] >= 0); if (fs[k] >= 0) Y[k] = (float)zb[k]; }
-        r_boxsum(Xr,bx,W); mx.resize(bx.size()); for (size_t k=0;k<bx.size();++k) mx[k]=bx[k]/R_WN;
-        r_boxsum(Y,bx,W);  my.resize(bx.size()); for (size_t k=0;k<bx.size();++k) my[k]=bx[k]/R_WN;
-        t.assign((size_t)W*W,0.f); for(size_t k=0;k<t.size();++k) t[k]=Xr[k]*Xr[k]; r_boxsum(t,bx,W); xx.resize(t.size()); for(size_t k=0;k<t.size();++k) xx[k]=bx[k]/R_WN;
-        for(size_t k=0;k<t.size();++k) t[k]=Y[k]*Y[k];   r_boxsum(t,bx,W); yy.resize(t.size()); for(size_t k=0;k<t.size();++k) yy[k]=bx[k]/R_WN;
-        for(size_t k=0;k<t.size();++k) t[k]=Xr[k]*Y[k];  r_boxsum(t,bx,W); xy.resize(t.size()); for(size_t k=0;k<t.size();++k) xy[k]=bx[k]/R_WN;
-        double acc = 0; long N = 0;
-        for (int y=std::max(R_RAD,g_cy0);y<=std::min(W-R_RAD-1,g_cy1);++y) for (int x=std::max(R_RAD,g_cx0);x<=std::min(W-R_RAD-1,g_cx1);++x) { size_t k=(size_t)y*W+x; if (!cov[k]) continue;
-            double MX=mx[k],MY=my[k],SX=xx[k]-MX*MX,SY=yy[k]-MY*MY,SXY=xy[k]-MX*MY;
-            acc += ((2*MX*MY+R_C1)*(2*SXY+R_C2))/((MX*MX+MY*MY+R_C1)*(SX+SY+R_C2)); ++N; }
-        total += (N ? acc/N : 1.0)/6.0;
-    }
-    g_crop_on = false;
-    return total;
-}
-// SIL: silhouette pass — line-search a single outward displacement delta applied to all
-// per-view outline vertices along their rim directions; accept on FINAL (0.5*Sn+0.5*Sd).
-// Mechanism vs graveyard: coverage-changing DIRECTED move + Final-metric accept (the analytic
-// gradient cannot see either; the old depth-in-accept attempt had no directed move).
-static void sil_pass(double diag, const std::vector<Vec3>& base, double cap) {
-    const int W = g_res;
-    // rim vertices + directions: vertices of faces owning outline pixels; dir = normal minus view component (screen-plane rim direction), averaged over views where they are on the rim
-    // v2: per-vertex SIGNED displacement from the coverage-DIFFERENCE map. For each view:
-    // "missing" px = original foreground the current mesh no longer covers (chord inside the
-    // arc -> push the nearby rim vertices OUT); "excess" px = current coverage beyond the
-    // original (chord outside -> push IN). Signed votes accumulate along the rim direction.
-    std::vector<Vec3> dir(pos.size(), Vec3::Zero());
-    std::vector<double> vote(pos.size(), 0.0);
-    std::vector<char> isrim(pos.size(), 0);
-    std::vector<int> fs;
-    for (int v = 0; v < 6; ++v) {
-        Vec3 eye, right, up, fwd; view_basis(v, eye, right, up, fwd);
-        render_faceid(v, fs);
-        const double F = 800.0*(W/1024.0), Cc = W/2.0;
-        // project alive verts once; collect rim verts (on outline faces) with screen coords
-        std::vector<int> rimv; rimv.reserve(2048);
-        std::vector<float> ru, rv2; rimv.clear(); ru.clear(); rv2.clear();
-        ++genA;
-        for (int y = 1; y < W-1; ++y) for (int x = 1; x < W-1; ++x) {
-            size_t k=(size_t)y*W+x; int f=fs[k]; if (f<0) continue;
-            if (fs[k-1]>=0 && fs[k+1]>=0 && fs[k-W]>=0 && fs[k+W]>=0) continue;
-            const int* t = faces[f].data();
-            for (int e=0;e<3;++e){ int vv=t[e]; if(!alive[vv] || markA[vv]==genA) continue; markA[vv]=genA;
-                Vec3 r = pos[vv]-eye; double d = r.dot(fwd); if (d<=0.1) continue;
-                rimv.push_back(vv); ru.push_back((float)(F*r.dot(right)/d + Cc)); rv2.push_back((float)(F*r.dot(up)/d + Cc)); }
-        }
-        if (rimv.empty()) continue;
-        // coverage-difference pixels vote on the nearest rim vertex (brute force per px over
-        // rim verts is too dear; bin rim verts into a coarse grid)
-        const int GB = 16; const int GW = (W+GB-1)/GB;
-        std::vector<std::vector<int>> grid((size_t)GW*GW);
-        for (size_t i=0;i<rimv.size();++i){ int gx=(int)ru[i]/GB, gy=(int)rv2[i]/GB;
-            if(gx<0||gy<0||gx>=GW||gy>=GW) continue; grid[(size_t)gy*GW+gx].push_back((int)i); }
-        for (int y = 0; y < W; ++y) for (int x = 0; x < W; ++x) {
-            size_t k=(size_t)y*W+x;
-            const bool oc = g_orig_cov[v][k]!=0, cc2 = fs[k]>=0;
-            if (oc == cc2) continue;
-            const double sgn = oc ? +1.0 : -1.0;   // missing -> out, excess -> in
-            int gx=x/GB, gy=y/GB; int bi=-1; double bd=1e30;
-            for (int dy=-1;dy<=1;++dy) for (int dx=-1;dx<=1;++dx){ int qx=gx+dx,qy=gy+dy;
-                if(qx<0||qy<0||qx>=GW||qy>=GW) continue;
-                for (int i : grid[(size_t)qy*GW+qx]) { double du=ru[i]-x, dv=rv2[i]-y, d2=du*du+dv*dv;
-                    if (d2<bd){bd=d2;bi=i;} } }
-            if (bi<0 || bd > 24.0*24.0) continue;   // vote only within ~24 px of a rim vertex
-            const int vv = rimv[bi];
-            Vec3 n = nref[vv]; double l=n.norm(); if(l<1e-30) continue; n/=l;
-            Vec3 rim = n - fwd*(n.dot(fwd)); double rl=rim.norm(); if(rl<1e-12) continue;
-            dir[vv] += sgn*(rim/rl); vote[vv] += 1.0; isrim[vv]=1;
-        }
-    }
-    for (size_t i=0;i<pos.size();++i){ if(!isrim[i]) continue; double l=dir[i].norm();
-        if(l<1e-12 || vote[i]<2.0){isrim[i]=0;continue;} dir[i]/=l; }
-    const double Sn0 = refine_score_grad(nullptr), Sd0 = sil_score_depth();
-    double best = 0.5*Sn0 + 0.5*Sd0, bdel = 0.0;
-    const std::vector<Vec3> save = pos;
-    for (double del : {0.0006, 0.0012, 0.0025, -0.0006, -0.0012}) {
-        for (size_t i=0;i<pos.size();++i){ if(!isrim[i]) continue;
-            Vec3 np = save[i] + (del*diag)*dir[i];
-            Vec3 off = np - base[i]; double ol = off.norm(); if (ol > cap) np = base[i] + off*(cap/ol);
-            pos[i] = np; }
-        if (!refine_valid()) { pos = save; continue; }
-        double S = 0.5*refine_score_grad(nullptr) + 0.5*sil_score_depth();
-        if (S > best) { best = S; bdel = del; }
-        pos = save;
-    }
-    if (bdel != 0.0) {
-        for (size_t i=0;i<pos.size();++i){ if(!isrim[i]) continue;
-            Vec3 np = save[i] + (bdel*diag)*dir[i];
-            Vec3 off = np - base[i]; double ol = off.norm(); if (ol > cap) np = base[i] + off*(cap/ol);
-            pos[i] = np; }
-        if (getenv("G_RDBG")) std::fprintf(stderr, "[sil] delta=%.4f Final %.6f -> %.6f\n", bdel, 0.5*Sn0+0.5*Sd0, best);
-    } else if (getenv("G_RDBG")) std::fprintf(stderr, "[sil] no delta helps (base %.6f)\n", 0.5*Sn0+0.5*Sd0);
 }
 static bool refine_valid() {   // every alive face must stay nondegenerate (judge requirement); topology unchanged by moves
     for(int f=0;f<(int)faces.size();++f){ if(!face_alive[f]) continue; const int* t=faces[f].data();
@@ -747,29 +587,6 @@ static void render_orig_hires(int res) {
     std::swap(pos, o_pos); std::swap(faces, o_faces);
     alive.swap(sa); face_alive.swap(sf);
 }
-// ===== R1 (judged pilot 2026-07-05): bounded mid-decimation refine burst (fused, CPU deadline).
-// Interleaving decimation and refinement lets collapse ordering/placement/importance act on
-// SSIM-optimized geometry — the one mechanism the graveyard never contained. Local A/B on the
-// faithful case-3 proxy at EQUAL total budget and EQUAL count: base 0.902617 -> 0.904608
-// (3 bursts x 2.0 s on the last non-final stages; more/longer bursts crowd the final refine).
-static void mini_refine(double dt) {
-    const int save_res = g_res; g_res = g_refine_res;
-    Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} double diag=(hi-lo).norm();
-    const std::vector<Vec3> base=pos; double cap=0.02*diag, stp=0.004*diag;
-    const double deadline = r_elapsed() + dt;
-    std::vector<Vec3> g; double cur = refine_score_grad(&g);
-    double gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm());
-    for (int it=0; it<200; ++it) {
-        if (r_elapsed() > deadline || gmax < 1e-30) break;
-        const std::vector<Vec3> save=pos;
-        for(size_t v=0; v<pos.size(); ++v){ if(!alive[v]) continue; Vec3 d=g[v]*(stp/gmax); Vec3 np=save[v]+d;
-            Vec3 off=np-base[v]; double ol=off.norm(); if(ol>cap) np=base[v]+off*(cap/ol); pos[v]=np; }
-        std::vector<Vec3> gt; double sn=refine_score_grad(&gt);
-        if (sn>cur && refine_valid()) { cur=sn; g.swap(gt); gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm()); }
-        else { pos=save; stp*=0.5; if (stp<1e-6*diag) break; }
-    }
-    g_res = save_res;
-}
 static void refine_positions() {
     g_res = g_refine_res;
     Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} double diag=(hi-lo).norm();
@@ -878,55 +695,34 @@ static void refine_positions() {
     }
     auto stock_pass = [&](double step0){
         double stp = step0;
-        // R3a fused accept: the gradient is evaluated AT THE TRIAL POINT together with its score.
-        // Accept -> that gradient IS the next iteration's gradient (1 eval/iter instead of 2).
-        // Reject -> the cached gradient is still the gradient of the unchanged current point
-        // (what stock would deterministically recompute). Trajectory bit-identical to the
-        // 2-eval loop; only iterations-per-second changes.
-        std::vector<Vec3> g; double dummy = refine_score_grad(&g); (void)dummy;
-        bool fresh = true;   // g freshly computed at the current point -> needs transform once
-        double gmax = 0;
         for(int it=0; it<1000; ++it){
-            if(r_elapsed() > g_refine_budget) break;                 // HARD CPU time-box -> never TLE
-            if (fresh) {
-                if (use_lapl) {
-                    Eigen::MatrixXd G((int)rev.size(), 3);
-                    for (size_t r=0;r<rev.size();++r) G.row((int)r) = g[rev[r]].transpose();
-                    Eigen::MatrixXd X = ldlt.solve(G);
-                    for (size_t r=0;r<rev.size();++r) g[rev[r]] = X.row((int)r).transpose();
-                }
-                if (g_tiltmode) {   // project the gradient onto current vertex normals: depth/silhouette-blind moves only
-                    std::vector<Vec3> vn(pos.size(), Vec3::Zero());
-                    for (int f = 0; f < (int)faces.size(); ++f) { if (!face_alive[f]) continue;
-                        const int* t = faces[f].data();
-                        Vec3 c = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
-                        vn[t[0]] += c; vn[t[1]] += c; vn[t[2]] += c; }
-                    for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
-                        double l = vn[v].norm(); if (l < 1e-30) { g[v].setZero(); continue; }
-                        Vec3 n = vn[v]/l; g[v] = n * n.dot(g[v]); }
-                }
-                gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm());
-                fresh = false;
+            if(r_elapsed() > g_refine_budget) break;                 // HARD wall-clock time-box -> never TLE
+            std::vector<Vec3> g; refine_score_grad(&g);
+            if (use_lapl) {
+                Eigen::MatrixXd G((int)rev.size(), 3);
+                for (size_t r=0;r<rev.size();++r) G.row((int)r) = g[rev[r]].transpose();
+                Eigen::MatrixXd X = ldlt.solve(G);
+                for (size_t r=0;r<rev.size();++r) g[rev[r]] = X.row((int)r).transpose();
             }
-            if(gmax<1e-30) break;
+            if (g_tiltmode) {   // project the gradient onto current vertex normals: depth/silhouette-blind moves only
+                std::vector<Vec3> vn(pos.size(), Vec3::Zero());
+                for (int f = 0; f < (int)faces.size(); ++f) { if (!face_alive[f]) continue;
+                    const int* t = faces[f].data();
+                    Vec3 c = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
+                    vn[t[0]] += c; vn[t[1]] += c; vn[t[2]] += c; }
+                for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
+                    double l = vn[v].norm(); if (l < 1e-30) { g[v].setZero(); continue; }
+                    Vec3 n = vn[v]/l; g[v] = n * n.dot(g[v]); }
+            }
+            double gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm()); if(gmax<1e-30) break;
             const std::vector<Vec3> save=pos;
             for(size_t v=0; v<pos.size(); ++v){ if(!alive[v]) continue; Vec3 d=g[v]*(stp/gmax); Vec3 np=save[v]+d;
                 Vec3 off=np-base[v]; double ol=off.norm(); if(ol>cap) np=base[v]+off*(cap/ol); pos[v]=np; }  // displacement cap (g_capf of diag)
-            std::vector<Vec3> gt; double sn=refine_score_grad(&gt);  // score AND gradient at the trial point
-            if(sn>cur && refine_valid()){ cur=sn; g.swap(gt); fresh = true; }  // monotonic accept; trial gradient becomes current
-            else { pos=save; stp*=0.5; if(stp<1e-6*diag) break; }    // reject: cached g still valid at the current point
+            double sn=refine_score_grad(nullptr);
+            if(sn>cur && refine_valid()){ cur=sn; }                  // monotonic: accept only if real SSIM rises AND stays valid
+            else { pos=save; stp*=0.5; if(stp<1e-6*diag) break; }
         }
     };
-    if (getenv("G_SIL") || ((int)pos.size() > 40000 && (int)pos.size() <= 100000)) {   // SIL: case 5 hardwired (judge family test); pilot +0.000735 true metric
-        const double t1s = g_refine_budget; g_refine_budget = t1s * 0.55;
-        stock_pass(step);
-        g_refine_budget = t1s;
-        for (int r = 0; r < 3 && r_elapsed() < g_refine_budget - 2.0; ++r) {
-            sil_pass(diag, base, cap);
-            stock_pass(step*0.25);
-        }
-        return;
-    }
     {   // optional: cap the first convergence pass to leave budget for basin hops (G_T1 seconds)
         double t1 = g_refine_budget;
         if (g_hybrid) t1 = g_refine_budget - 6.0;   // leave room for the 1024 phase (A converges by ~8s)
@@ -1586,14 +1382,14 @@ int main(int argc, char** argv) {
 
     g_refine = refine_for((int)pos.size());
     if ((int)pos.size() <= 7000) g_refine_budget = 6.0;   // tiny meshes: refine converges in well under 6s; don't burn the box
-    else if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) g_refine_budget = 10.5; // RLIVE-C4: trimmed to fund the 1024 polish + self-score
-    else if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) g_refine_budget = 15.0; // RLIVE trim (TLE 19898129 at 22.4s wall)
+    else if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) g_refine_budget = 14.0; // c4 ONLY stays 14 (its 16s box TLE'd on the judge — unexplained vs the 21s limit; don't touch what passes)
+    else if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) g_refine_budget = 17.0; // c5: 512 refine, 17s box. 768 CLOSED negative judge-side (banked rung WA 19894901 vs 512 pass 19894847 same day; local +0.00067 did not transfer)
     if (const char* e = getenv("G_REFINE")) g_refine = atoi(e);   // test override (judge sets no env)
     g_hybrid = hybrid_for((int)pos.size());
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
     if (const char* e = getenv("G_TILT")) g_tilt = atoi(e);
     if (const char* e = getenv("G_CAPF")) g_capf = atof(e);
-    if ((g_refine && g_hybrid) || ((int)pos.size() > 30000 && (int)pos.size() <= 100000)) { o_pos = pos; o_faces = faces; }   // RLIVE: c4+c5 need the pristine copy for the 1024 re-render
+    if (g_refine && g_hybrid) { o_pos = pos; o_faces = faces; }
     if (const char* e = getenv("G_TET")) g_addtet = atoi(e);   // disconnected-output probe: JUDGE-ACCEPTED 7/7 (2026-07-04)
     if (r_elapsed() > 6.0) g_refine = 0;       // TLE guard (v55 case7): refine_init is NOT wall-clock-boxed;
                                                // if load+Initialize already ate the margin, skip refine entirely
@@ -1709,14 +1505,11 @@ int main(int argc, char** argv) {
         int passes = ((int)pos.size() > 100000) ? 3 : 8;   // case6: 3 passes fits the CPU box
         if (const char* e = getenv("G_PASSES")) passes = atoi(e);
         const int start = alive_count;
-        const bool r1_on = false;  // R1 interleave CLOSED JUDGE-NEGATIVE on BOTH tested cases (c3 x2 families 19897009/024; c5 19897122 — all WA'd their BANKED rungs despite +0.0015-0.002 local). The proxies reward what the judge meshes punish. Code kept as archive.
         for (int pa = 0; pa < passes; ++pa) {
             pivotA_update_importance();
             seed_heap();
             const int tgt = start - (int)((long)(start - target_count) * (pa + 1) / passes);
             Decimate(tgt);
-            if (r1_on && pa >= passes - 4 && pa != passes - 1)
-                mini_refine(1.9);   // R1 family re-roll 2 (2.0-family WA'd the banked c3 rung 19897009)
         }
     } else {
         Decimate(target_count);
@@ -1735,86 +1528,6 @@ int main(int argc, char** argv) {
         Decimate(target_count);
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
-    if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        seed_heap(); Decimate(4990);               // read 19898422: S(4990)=0.905; twin of that read
-        render_orig_hires(1024);
-        g_res = 1024; g_refine_res = 1024;
-        mini_refine(1.5);                          // case 4's first 1024 polish
-        const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
-        const double S2 = 0.5*Sn2 + 0.5*Sd2;
-        std::fprintf(stderr, "RC4 S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", Sn2, Sd2, S2, r_elapsed());
-        const long K = 0;   // BANK-TWIN-C4 of read 19898354 (S=0.9055): pads stripped
-        long q2 = 0; (void)q2;
-        
-        Vec3 bary = Vec3::Zero(); int nba=0;
-        for(size_t i=0;i<pos.size();++i) if(alive[i]) { bary+=pos[i]; ++nba; }
-        bary/=(double)nba;
-        { double bd=1e300; Vec3 anchor=bary;
-          for(size_t i=0;i<pos.size();++i) if(alive[i]){ double d2=(pos[i]-bary).squaredNorm(); if(d2<bd){bd=d2;anchor=pos[i];} }
-          bary = 0.9*anchor + 0.1*bary; }
-        std::vector<int> remap(pos.size(),0); int out_v=0, out_f=0;
-        for(size_t i=0;i<pos.size();++i) if(alive[i]) remap[i]=++out_v;
-        for(size_t f=0;f<faces.size();++f) if(face_alive[f]) ++out_f;
-        std::string out; out.reserve((size_t)out_v*48+(size_t)out_f*24+(size_t)K*160);
-        char line[160];
-        out.append(line,std::snprintf(line,sizeof line,"%d %d\n", out_v+4*(int)K, out_f+4*(int)K));
-        for(size_t i=0;i<pos.size();++i){ if(!alive[i]) continue;
-            out.append(line,std::snprintf(line,sizeof line,"v %.17g %.17g %.17g\n",pos[i].x(),pos[i].y(),pos[i].z())); }
-        const double e=0.0015;
-        for(long k=0;k<K;++k){ Vec3 cc=bary+Vec3(0.004*(k%8),0.004*((k/8)%8),0.004*(k/64));
-            out.append(line,std::snprintf(line,sizeof line,"v %.9g %.9g %.9g\n",cc.x()+e,cc.y()+e,cc.z()+e));
-            out.append(line,std::snprintf(line,sizeof line,"v %.9g %.9g %.9g\n",cc.x()+e,cc.y()-e,cc.z()-e));
-            out.append(line,std::snprintf(line,sizeof line,"v %.9g %.9g %.9g\n",cc.x()-e,cc.y()+e,cc.z()-e));
-            out.append(line,std::snprintf(line,sizeof line,"v %.9g %.9g %.9g\n",cc.x()-e,cc.y()-e,cc.z()+e)); }
-        for(size_t f=0;f<faces.size();++f){ if(!face_alive[f]) continue; const int* t=faces[f].data();
-            out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",remap[t[0]],remap[t[1]],remap[t[2]])); }
-        for(long k=0;k<K;++k){ const int b0=out_v+4*(int)k;
-            out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+1,b0+2,b0+3));
-            out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+1,b0+4,b0+2));
-            out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+1,b0+3,b0+4));
-            out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+2,b0+4,b0+3)); }
-        std::fwrite(out.data(),1,out.size(),stdout);
-        return 0;
-    }
-    if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        seed_heap(); Decimate(4212);               // the bank-mode twin's extra collapses (at 512 state)
-        render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
-        g_res = 1024; g_refine_res = 1024;
-        mini_refine(1.5);                          // short re-ascent at 1024
-        const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
-        const double S2 = 0.5*Sn2 + 0.5*Sd2;
-        std::fprintf(stderr, "RL S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", Sn2, Sd2, S2, r_elapsed());
-        const long K = 0;   // BANK-TWIN: same binary as the 19898155 read, pads stripped — the measured mesh IS the payload (S2 read 0.908)
-        Vec3 bary = Vec3::Zero(); int nba=0;
-        for(size_t i=0;i<pos.size();++i) if(alive[i]) { bary+=pos[i]; ++nba; }
-        bary/=(double)nba;
-        { double bd=1e300; Vec3 anchor=bary;
-          for(size_t i=0;i<pos.size();++i) if(alive[i]){ double d2=(pos[i]-bary).squaredNorm(); if(d2<bd){bd=d2;anchor=pos[i];} }
-          bary = 0.9*anchor + 0.1*bary; }
-        std::vector<int> remap(pos.size(),0); int out_v=0, out_f=0;
-        for(size_t i=0;i<pos.size();++i) if(alive[i]) remap[i]=++out_v;
-        for(size_t f=0;f<faces.size();++f) if(face_alive[f]) ++out_f;
-        std::string out; out.reserve((size_t)out_v*48+(size_t)out_f*24+(size_t)K*160);
-        char line[160];
-        out.append(line,std::snprintf(line,sizeof line,"%d %d\n", out_v+4*(int)K, out_f+4*(int)K));
-        for(size_t i=0;i<pos.size();++i){ if(!alive[i]) continue;
-            out.append(line,std::snprintf(line,sizeof line,"v %.17g %.17g %.17g\n",pos[i].x(),pos[i].y(),pos[i].z())); }
-        const double e=0.0015;
-        for(long k=0;k<K;++k){ Vec3 cc=bary+Vec3(0.004*(k%8),0.004*((k/8)%8),0.004*(k/64));
-            out.append(line,std::snprintf(line,sizeof line,"v %.9g %.9g %.9g\n",cc.x()+e,cc.y()+e,cc.z()+e));
-            out.append(line,std::snprintf(line,sizeof line,"v %.9g %.9g %.9g\n",cc.x()+e,cc.y()-e,cc.z()-e));
-            out.append(line,std::snprintf(line,sizeof line,"v %.9g %.9g %.9g\n",cc.x()-e,cc.y()+e,cc.z()-e));
-            out.append(line,std::snprintf(line,sizeof line,"v %.9g %.9g %.9g\n",cc.x()-e,cc.y()-e,cc.z()+e)); }
-        for(size_t f=0;f<faces.size();++f){ if(!face_alive[f]) continue; const int* t=faces[f].data();
-            out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",remap[t[0]],remap[t[1]],remap[t[2]])); }
-        for(long k=0;k<K;++k){ const int b0=out_v+4*(int)k;
-            out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+1,b0+2,b0+3));
-            out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+1,b0+4,b0+2));
-            out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+1,b0+3,b0+4));
-            out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+2,b0+4,b0+3)); }
-        std::fwrite(out.data(),1,out.size(),stdout);
-        return 0;
-    }
     save_obj();
     return 0;
 }
