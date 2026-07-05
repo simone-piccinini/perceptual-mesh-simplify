@@ -107,6 +107,16 @@ made past notes confusing.
 - **Compiler = GCC 11.5, baseline x86-64 arch (no `__AVX2__` at default flags), on a CPU that
   DOES support AVX2 at runtime.** [MEASURED — covert probe 19889788, 2026-07-05.] GCC 11 does
   not auto-vectorize at -O2, so the judge binary today runs fully scalar.
+  ⚠ CONFLICT (2026-07-06): a Compile Error page showed the driver is **g++-14** ("g++-14:
+  fatal error: Killed signal terminated program cc1plus", 19898649). Either the toolchain
+  changed mid-contest (GCC 12+ auto-vectorizes at -O2 → the scalar-baseline fact would be
+  stale) or the probe's __GNUC__ decode belongs to a different context. Re-pin with a probe-A
+  rerun before relying on either value. [MEASURED, unresolved]
+- **Compile-farm limits kill pathological optimizations** [MEASURED 19898649/661/670 vs control
+  19898679]: a constant-trip-count loop wrapping BIG callees (Decimate + mini_refine, 3
+  iterations) made cc1plus get SIGKILLed 3/3 (full unroll + inline explosion), while the same
+  code straight-line compiled fine. Engineering rule: make multi-iteration loops around large
+  functions OPAQUE (volatile trip counts) in judge builds.
 - **The GCC pragma region (`push_options` + `optimize("O3")` + `target("avx2,fma")`) compiles,
   runs, and really vectorizes on the judge**: pure compute-bound FMA lanes speed up 3.26×
   [MEASURED — 19889824]. But the REAL solver kernels gain NOTHING: the refine SSIM compound
