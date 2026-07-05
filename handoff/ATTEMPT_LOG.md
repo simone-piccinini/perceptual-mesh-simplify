@@ -766,3 +766,8 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
 - **Kattis rate limit hit (2026-07-06 ~morning): token bucket, ~1 token/4 min** after an
   ~8-submission burst. "Out of submission tokens... regenerate in 231 seconds." Envelope §4
   updated; the old "70+/day no throttle" note superseded (that was spread over a day).
+- **RC3D anneal @6912 (19898744, after the CE saga): case-3 WA.** Even 3 repaired -14 cycles
+  sit below 0.9 at banked-42. With clean-6800 (x2 families) and recursed-6800 dead too:
+  **the case-3 recipe buys EXACTLY ONE ~13-vertex rung and the cliff is immediately below —
+  same structural pattern as case 5's 4212 cliff.** c3 floor: (6912, 6941], 3 mechanisms
+  falsified below. c3 CLOSED at 6941 (banked, payout 70.083186).
