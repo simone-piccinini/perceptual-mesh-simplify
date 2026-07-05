@@ -201,8 +201,8 @@ stalls. Every pre-probe "recovered" size was wrong.
 | 3 | **23,201** [19895616] | 6,954 | 70.027154 | SSIM wall, ×2-DETERMINISTIC (70.06-rung WA'd in both refine regimes); TLE fragility GONE since float32 (converges) |
 | 4 | **35,292** [19895611] | 5,044 | 85.707809 | **SSIM wall ~5,029-5,044** (the 0.1425-keep rung = 5,029 passes only on lucky draws). Topology probe [19895626]: 1 component, **genus 0** — the "topological floor" story is DEAD; the greedy jam is geometric (gate exhaustion on CAD creases), and the old "4,570 floor" was wrong-size arithmetic; refine box-cut ⇒ per-run coin (§1) |
 | 5 | **49,987** [CAL §7.1] | 4,226 | 91.545802 | **deterministic SSIM wall at V=4226**: 0/12 sub-rung 2026-07-05 (f64/f32/λ/hybrid-1024/768 all WA; 768 negative even at the banked rung); f32 refine converges ⇒ no draw variance; slope ≈ 3.5e-5 S/vertex |
-| 6 | **377,084** [19895532] | 8,711 | 97.689905 | SSIM razor; fixed-count 8670-target WA'd ×2 → wall band [8670, 8711); refine box-cut ⇒ per-run coin (§1) |
-| 7 | **1,009,118** [19895536] | 28,822 | 97.143842 | deterministic (no refine ⇒ no draw variance); keep-rung pushes WA'd ×3 just below → wall within ~35 verts of bank |
+| 6 | **377,084** [19895532] | 8,705 (fixed-8684 target + 21 stall; bank event 19897075) | 97.691495 | SSIM razor + TRAJECTORY-SENSITIVE (box-cut): the bbox-crop refine family failed ×5 up to a SAFER-than-banked target (8720) until the crop was gated off for V>100k (THEORY §9.3); crop-off wall band (8691, 8705] |
+| 7 | **1,009,118** [19895536] | 28,822 | 97.143842 | deterministic (no refine); wall boxed to (28,800, 28,822] (fixed-28800 WA 19897066) → ≤ +0.0004 total available, dropped |
 
 Case *nature* (inferred from mechanism responses): c4 responds strongly to anisotropic placement
 (CAD-like); c3/c5/c6/c7 do not (organic/scan-like); c2 is tiny and topology-limited.
@@ -269,11 +269,15 @@ pinning V_case6 (§0 item 2).
   are judge-exact on the same input. But judge inputs ≠ our proxies: absolute local FinalSSIM
   still predicts NOTHING about pass/fail except on the case-3 proxy (historically faithful
   ±0.002). Case-5 proxy reads ~0.05 pessimistic FOREVER; don't re-litigate it.
-- **Local relative A/B is a screen, not a verdict.** Same-day proof both ways: float32 refine
-  (+0.0003 local at a cut-binding box) transferred; 768-native refine (+0.00067 local) was
-  judge-NEGATIVE (~−0.001, WA'd even the banked rung). Rule: a local win ≥ +0.0005 on the right
-  proxy buys ONE judge draw; never close a mechanism, and never push a razor rung, on local
-  evidence alone.
+- **Local relative A/B is a screen, not a verdict — and for position-space optimizers it is
+  now KNOWN-BIASED.** Transfer record (local gain → judge outcome): float32 throughput →
+  TRANSFERRED; 768-native (+0.00067) → judge-negative; R1 interleave (+0.002 on both proxies)
+  → judge-negative 3/3 live families AT THEIR BANKED RUNGS; SIL coverage optimizer (+0.000735
+  true-metric) → judge-POSITIVE sign, ~0.3× magnitude. Theory (THEORY.md §9.1): the proxies
+  over-reward fine position-space optimization; throughput and coverage-channel changes carry
+  over, trajectory-level geometric gains do not. MANDATORY PROTOCOL: any new mechanism runs a
+  judge FAMILY TEST at its banked rung (one submission, per-case verdict = the read) BEFORE
+  any descent; each keep change is a fresh deterministic family for converged-refine cases.
 - **Local tests ARE definitive for:** validity (manifold/indices/Hausdorff), output vertex
   counts (the mandatory pre-submission "prova del nove"), wall-time ballpark (×1.014 judge
   ratio), and the convergence-vs-box-cut diagnosis — if the refine converges locally inside its
