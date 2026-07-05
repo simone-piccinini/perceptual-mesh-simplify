@@ -743,3 +743,12 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
 - **RC3C-READ in flight: the recipe RECURSED** — primary 6814 (own converged family) + 14 extra
   collapses -> 6800 + 1024 repair. If S(6800) >= 0.9005, the ladder recurses at ~140 verts per
   rung until the clean-primary base drops below ~0.887 (projected floor ~6500 = +0.32 total).
+- **RC3C-READ recursed @6800 (19898640): case-3 WA** — the recipe delta does NOT re-apply on a
+  fresh 6814-primary family. The 6941 gain is anchored to the BANKED-primary family (or family
+  luck; discriminator = the anneal read). Clean-6800 and recursed-6800 both dead.
+- **RC3D anneal attempt 1 (19898649): Compile Error = "g++-14: fatal error: Killed signal
+  terminated program cc1plus"** — judge-side compiler OOM/kill, NOT a code error; resubmitted
+  --force. ⚠ ENVELOPE CONFLICT: the compile driver is **g++-14**, but covert probe 19889788
+  (2026-07-05) measured __GNUC__ = 11.5 at runtime. Either the toolchain changed mid-contest
+  (GCC 12+ auto-vectorizes at -O2 → the "fully scalar baseline" fact would be stale) or
+  compile/run environments differ. Re-pin with a probe-A rerun (1 submission) queued.
