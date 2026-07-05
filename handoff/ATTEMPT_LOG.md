@@ -705,3 +705,11 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   budget. Final bank of the night: **90.243142** (c5=4212, c6=8705). The READ→TWIN→BANK
   instrument is the durable asset: any future pipeline reads its judge-side S for one
   submission with zero bank risk.
+- **RLIVE-Q @4150 (19898329): WA — the stale-quadric theory of the 4212 cliff is FALSIFIED**
+  (fresh quadrics on refined geometry do not move the floor; neither did doubled repair). The
+  case-5 floor at 4212 stands on three legs of evidence. Case-5 CLOSED; the recipe (banked−14
+  extra collapses + first 1024 polish) migrates to case 4 via the same instrument.
+- **NEW BANK 90.247864 (+0.004722, 19898375, ~06:00): the recipe generalizes.** Case 4 read
+  S(5030) ≈ 0.9055 (19898354: banked−14 + case-4's FIRST 1024 polish, box 14→10.5) → twin
+  banked first try (c4 V'=5034, payout 85.736141). Third bank event of the night, all through
+  the instrument. Deep read @4950 in flight. Live = v107.
