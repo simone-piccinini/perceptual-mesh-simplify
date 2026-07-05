@@ -779,3 +779,5 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   IN-PROCESS true FinalSSIM at 1024 on the judge's own input (dodges THEORY §9.1 by
   construction — no proxy in the loop), winner polished 1.5 s at 1024. Proof-run on trefoil:
   5/5 seeds reach V=27, seed spread S = 0.038 (selection live), 10.1 s total. Read in flight.
+- **MS2 N=5 (19898784): case-2 TLE at 22.4 s** — the REAL case 2's jam-breaker endgame costs
+  ~3.6 s/seed (trefoil proxy: 1.6 s — floor class differs). Cut to N=3, resubmitted.
