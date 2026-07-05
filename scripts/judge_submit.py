@@ -61,11 +61,11 @@ STATUS = {
 }
 
 # ---- Bank constants: UPDATE WHEN THE BANK MOVES (last: 2026-07-05) ---------------------------
-BANK_SCORE = 90.266754  # 19898463: c4@4990 (read->twin, 2nd roll)
+BANK_SCORE = 90.276093  # 19898599: c3@6941 recipe twin (read 19898572 S=0.9135)
 # Per-case compression LABELS at the bank (rung names). NB: labels are keep-derived and can
 # differ from the judge's actual payout by rounding of V' = round(keep*V); the label sum
 # (541.4352) does NOT exactly reconstruct 6*BANK_SCORE (541.4313) — known open discrepancy.
-BANKED = {2: 99.316740, 3: 70.027154, 4: 85.861386, 5: 91.573402, 6: 97.691495, 7: 97.143842}  # c4 4990-level approx pending exact decode
+BANKED = {2: 99.316740, 3: 70.084910, 4: 85.861386, 5: 91.573402, 6: 97.691495, 7: 97.143842}  # c3 = 6941 verts (2026-07-06)
 # Input vertex counts (recovered from exact-score arithmetic; JUDGE-ENVELOPE.md §6).
 # Case 6 is APPROXIMATE (~256k inferred) — implied-V' readouts for it carry a '~'.
 # Case 5 = 49987 [MEASURED 2026-07-05]: unique integer solve over the 5 single-payer CAL probes

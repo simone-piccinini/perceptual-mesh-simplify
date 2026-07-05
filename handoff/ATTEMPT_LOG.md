@@ -732,3 +732,14 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   Converged-refine regime -> pads-stripped twin reproduced the read mesh exactly, first roll.
   Live = v109 (twin file). Descent ladder opened: read @6800 in flight (predicted S ~0.909 by
   the 3.1e-5/vertex judge slope; if the linear model holds, floor ~6500 = +0.32 total).
+- **RC3B-READ @6800 CLEAN-PRIMARY (19898621): case-3 WA** — the linear-slope model (predicted
+  S~0.909) is wrong. Mechanism re-read: the 6941 read's +0.0135 was NOT "extra polish" — a
+  converged mesh re-ascends from gradient ~0 (basin-hop history: converged = stuck). The gain
+  is COLLAPSE-PERTURBATION + RE-ASCENT (the 13 extra collapses knock the converged mesh off
+  its local optimum; the 1024 re-ascent lands in a better basin) — the same structure that
+  moved cases 5 and 4, and consistent with the c5 cliff (>22 collapses = unrepairable damage,
+  <=14 = repairable). Local proxies read ~0 for this mechanism (0.8969-0.8989 vs judge 0.9135)
+  — trajectory-class effect, invisible per THEORY 9.1, yet judge-POSITIVE.
+- **RC3C-READ in flight: the recipe RECURSED** — primary 6814 (own converged family) + 14 extra
+  collapses -> 6800 + 1024 repair. If S(6800) >= 0.9005, the ladder recurses at ~140 verts per
+  rung until the clean-primary base drops below ~0.887 (projected floor ~6500 = +0.32 total).
