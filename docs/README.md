@@ -34,6 +34,7 @@ story of how we got here.
 | *(top level)* | The three read-first orientation docs above, plus this index. |
 | [`theory/`](theory/) | Durable derivations we authored — the algorithm and the metric. |
 | [`postmortems/`](postmortems/) | What we tried, why it failed, and the lessons — chronological. |
+| [`Future/`](Future/) | Forward-looking ideas not yet tried — candidates to lower `V'_min`. |
 | [`references/`](references/) | External papers + bibliography ([index](references/README.md)). |
 | `imgs/` | Figures referenced by the docs (e.g. the base-algorithm pseudocode). |
 
