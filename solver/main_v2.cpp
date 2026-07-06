@@ -11,16 +11,16 @@
 // a design decision, it is satisfying a scoring contract. Every other choice below (seed
 // topology, growth order, split rule, vertex placement) is independent of main.cpp.
 //
-// STATUS (2026-07-06): first working skeleton. Seed = convex hull of the input vertices
-// (genus-0 by construction; verified genus-0 on the judge for 2 cases and on every local
-// proxy for the rest — see docs/JUDGE-ENVELOPE.md). Growth = split the face whose rendered
-// SSIM deficit (summed over 6 views via backprojection) is worst; new vertex placed at the
-// split point, pulled toward the nearest point on the ORIGINAL surface. This is a genuinely
-// new search direction (build up, not tear down) — expected to be UNCOMPETITIVE on day one;
-// this file is scaffolding for a multi-day effort, not a submission candidate.
-//
-// NEVER submit this file to the judge without an explicit local A/B against the current bank
-// AND a judge read via the measured-mesh instrument (see docs/THEORY.md §9.4) at a SAFE rung.
+// PROBE-V2-FIRST-JUDGE-READ 2026-07-06: day 7 of the construction effort. Seed = day-7 vertex-
+// clustering quotient (Rossignac & Borrel style, region-segmentation-anchored, falls back to
+// day-1's convex hull if the quotient fails its own manifold/genus check), then day 1-5's
+// exact-delta SSIM-driven refinement for any remaining budget. Local proxy results (bunny,
+// armadillo, cow — never the real case inputs, which this submission is the first read of):
+// FinalSSIM 0.63-0.81 across V=350-4249, all passing degenerate-face/Hausdorff/genus checks.
+// NEVER tested above ~50k input vertices locally; case6 (377k) and case7 (1.01M) are a genuine
+// unknown -- this submission is explicitly to find out, not a claim that it will complete
+// those. docs/V2-CONSTRUCTION.md has the full day-by-day log. Submitted standalone via
+// `scripts/judge_submit.py solver/main_v2.cpp` -- does not touch or risk the banked main.cpp.
 
 #include <cstdio>
 #include <cstdlib>
@@ -967,18 +967,41 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
 
         for (int r = 0; r < nr; ++r) {
             if (pointCount[r] <= 0 || regionVerts[r].empty()) continue;
-            // index-based farthest-point sample among this region's OWN vertices, spreading
-            // the region's interior points out instead of clustering them all near one centroid.
             auto& cand = regionVerts[r];
-            std::vector<double> mind(cand.size(), 1e300);
-            int cur = 0;
-            std::vector<int> chosen = {cand[cur]};
-            for (int it = 1; it < pointCount[r] && it < (int)cand.size(); ++it) {
-                for (size_t i = 0; i < cand.size(); ++i)
-                    mind[i] = std::min(mind[i], (origP[cand[i]]-origP[cand[cur]]).squaredNorm());
-                double best = -1; int bi = 0;
-                for (size_t i = 0; i < cand.size(); ++i) if (mind[i] > best) { best = mind[i]; bi = (int)i; }
-                cur = bi; chosen.push_back(cand[cur]);
+            std::vector<int> chosen;
+            // Full farthest-point-sample is O(pointCount x |candidates|) -- fine for a handful
+            // of points, but explodes when a large region needs THOUSANDS of interior points
+            // from thousands of candidates. Measured: this loop alone cost ~15s of a ~17s total
+            // at 800k input vertices (a scale between case6 and case7), the dominant setup-phase
+            // cost by far -- exactly the extra time that turned the earlier real judge
+            // submission's case6/7 into TLEs (their CASETIME exceeded the growth loop's own 16s
+            // budget by 5-7s, matching this). Switch to a cheap stratified sample (sort along
+            // the region's own dominant axis, take evenly-spaced picks) once the FPS cost would
+            // exceed a sane budget -- still spreads points out, without the near-quadratic cost.
+            long fpsWork = (long)pointCount[r] * (long)cand.size();
+            if (fpsWork > 2000000) {
+                Vec3 lo = origP[cand[0]], hi = lo;
+                for (int v : cand) { lo = lo.cwiseMin(origP[v]); hi = hi.cwiseMax(origP[v]); }
+                Vec3 ext = hi - lo;
+                int axis = 0;
+                if (ext[1] > ext[axis]) axis = 1;
+                if (ext[2] > ext[axis]) axis = 2;
+                std::vector<int> sorted = cand;
+                std::sort(sorted.begin(), sorted.end(), [&](int a, int b) { return origP[a][axis] < origP[b][axis]; });
+                int n = (int)sorted.size();
+                int k = std::min(pointCount[r], n);
+                for (int i = 0; i < k; ++i) chosen.push_back(sorted[(size_t)((double)i * n / k)]);
+            } else {
+                std::vector<double> mind(cand.size(), 1e300);
+                int cur = 0;
+                chosen = {cand[cur]};
+                for (int it = 1; it < pointCount[r] && it < (int)cand.size(); ++it) {
+                    for (size_t i = 0; i < cand.size(); ++i)
+                        mind[i] = std::min(mind[i], (origP[cand[i]]-origP[cand[cur]]).squaredNorm());
+                    double best = -1; int bi = 0;
+                    for (size_t i = 0; i < cand.size(); ++i) if (mind[i] > best) { best = mind[i]; bi = (int)i; }
+                    cur = bi; chosen.push_back(cand[cur]);
+                }
             }
             for (int v : chosen) { if ((int)kept.size() >= budget) break; tryKeep(v); }
         }
@@ -1034,6 +1057,18 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
     // geometry, so there is nothing to "repair" about a 3rd occurrence; it must be dropped.
     std::set<std::array<int,3>> seen;
     std::map<std::pair<int,int>, int> edgeCount;
+    // KNOWN, DEFERRED ISSUE (found 2026-07-06 at 800k-vertex synthetic-mesh scale, never
+    // confirmed on real judge geometry): absolute-index distinctness (a==b etc.) doesn't catch
+    // a triangle whose 3 kept vertices are topologically distinct but geometrically almost
+    // coincident -- measured 4 faces with area ~1e-23, technically positive but at floating-
+    // point noise level, a real risk of flipping to zero/negative under a different rounding
+    // order (the judge's own recompute). Traced to the ear-clipping hole-repair passes below
+    // (angle-only quality is numerically unstable on near-coincident points). Tried an area
+    // floor both here and in the ear-clipping loops: REGRESSED manifoldOk to false both times
+    // (some holes have no OTHER valid ear; rejecting the only option just leaves the hole
+    // open). An open hole is a CERTAIN validity failure; an ~1e-23-area sliver is only a risk
+    // of one -- kept the sliver risk over the certain failure. Not fixed; a real judge read at
+    // this scale is the plan to find out whether it matters on actual case geometry.
     for (const auto& t : origF) {
         int a = compact[nearestKept[t[0]]], b = compact[nearestKept[t[1]]], c = compact[nearestKept[t[2]]];
         if (a == b || b == c || c == a) continue;
@@ -1102,6 +1137,17 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
                     for (auto& ee : e) if (edgeCount[keyOf(ee[0], ee[1])] >= 2) { okTri = false; break; }
                     if (!okTri) continue;
                     Vec3 pa = out.P[a], pb = out.P[b], pc = out.P[c];
+                    // TRIED an area floor here (reject near-degenerate ears outright): traced
+                    // 4 faces at ~1e-23 area (800k-vertex scale) to this angle-only quality
+                    // metric being numerically unstable on near-coincident points, but rejecting
+                    // outright regressed manifoldOk to false (some holes have no OTHER valid
+                    // ear, so rejecting the only option just leaves the hole open). A genuinely
+                    // open hole is a CERTAIN validity failure (fails the exact-2-faces-per-edge
+                    // rule); an ~1e-23-area sliver is only a RISK of one (still technically
+                    // positive). Kept the sliver risk over the certain failure -- not fixed,
+                    // documented and deferred pending a real judge read at this scale to confirm
+                    // whether it actually matters on real geometry (this was a synthetic test
+                    // mesh, not a real case).
                     Vec3 uab = (pb-pa).normalized(), ubc = (pc-pb).normalized(), uca = (pa-pc).normalized();
                     double angA = std::acos(std::clamp(-uca.dot(uab), -1.0, 1.0));
                     double angB = std::acos(std::clamp(-uab.dot(ubc), -1.0, 1.0));
@@ -1265,6 +1311,8 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
                         for (auto& ee : e) if (edgeCount[keyOf(ee[0],ee[1])] >= 2) { okTri2 = false; break; }
                         if (!okTri2) continue;
                         Vec3 pa = out.P[a], pb = out.P[b], pc = out.P[c];
+                        // see the matching note in the main hole-closing pass above -- same
+                        // area-floor attempt, same regression, reverted for the same reason.
                         Vec3 uab = (pb-pa).normalized(), ubc = (pc-pb).normalized(), uca = (pa-pc).normalized();
                         double angA = std::acos(std::clamp(-uca.dot(uab), -1.0, 1.0));
                         double angB = std::acos(std::clamp(-uab.dot(ubc), -1.0, 1.0));
@@ -1383,20 +1431,44 @@ static std::vector<Vec3> farthest_point_sample(const std::vector<Vec3>& P, int K
 }
 
 int main(int argc, char** argv) {
+    const auto tSetup0 = std::chrono::steady_clock::now();
+    auto elapsedSetup = [&]{ return std::chrono::duration<double>(std::chrono::steady_clock::now() - tSetup0).count(); };
     load_obj();
+    if (getenv("V2_DBG")) std::fprintf(stderr, "[v2setup] load_obj: %.2fs\n", elapsedSetup());
     const int Vin = (int)pos.size();
     const double keepOverride = (argc > 1) ? std::atof(argv[1]) : -1.0;   // local testing only
     if (Vin < 100) { save_obj(pos, faces); return 0; }   // sample: too small to matter, echo
 
-    // ---- target vertex count: same per-case dispatch table as main.cpp (judge-measured
-    // sizes), but the KEEP fractions here are placeholders — this file has not been tuned. ----
+    // ---- target vertex count ----
+    // CRITICAL FIX 2026-07-06: the judge only pays the compression rate IF FinalSSIM >= 0.9;
+    // below that the case is WRONG ANSWER, not just a low score (docs/PROBLEM-AND-JUDGE.md
+    // §"Vincoli di validità" + §5b). First real judge submission of this file confirmed it:
+    // cases 2-6 were ALL "Wrong Answer" (not TLE, not a scoring issue) at the OLD placeholder
+    // fractions below (0.05-0.30), because their FinalSSIM never got near 0.9 -- this whole
+    // file had never been checked against that threshold before today, only against the
+    // decimator's SCORE at matched V, which is a completely different (smooth, no-cliff)
+    // comparison. Swept keep fraction upward on every local proxy to find where FinalSSIM
+    // actually crosses 0.9:
+    //   fandisk  (V=6475,  CAD/flat-dominated):  crosses ~0.11-0.12 (compression ~88)
+    //   cow      (V=2903,  organic):              crosses ~0.50-0.55 (compression ~48)
+    //   bunny    (V=3485,  organic):               crosses ~0.58-0.60 (compression ~41)
+    //   armadillo(V=49990, organic, detailed):    crosses ~0.175-0.18 (compression ~82)
+    // Mesh CHARACTER (flat/CAD vs curved/organic), not size, dominates this -- fandisk needs
+    // far LESS keep than bunny despite being ~2x bigger. Real per-case character is unknown
+    // except case4 = CAD (docs/PROBLEM-AND-JUDGE.md §5b). Undershooting costs the ENTIRE case
+    // (zero); overshooting only costs some compression -- so every bracket below uses the
+    // WORST (organic) crossover measured near that size, with real margin on top, except
+    // case4's bracket which can lean on the CAD data point. No local proxy exists at case3/6/7
+    // scale (23k/377k/1M) -- those brackets are extrapolated and unverified; a second judge
+    // read is the plan to correct them, not a claim they're already right.
     auto keep_for = [](int V) -> double {
-        if (V <= 7000)   return 0.05;      // tiny budget: hull-based construction wins easily here
-        if (V <= 30000)  return 0.30;
-        if (V <= 40000)  return 0.15;
-        if (V <= 100000) return 0.085;
-        if (V <= 400000) return 0.023;
-        return 0.029;
+        if (V <= 7000)   return 0.65;      // case2 (~4098): worst case bunny/cow ~0.55-0.60, +margin
+        if (V <= 30000)  return 0.45;      // case3 (~23201): no local data point -- interpolated conservatively
+        if (V <= 40000)  return 0.18;      // case4 (~35292): CONFIRMED CAD -- fandisk ~0.11-0.12, +margin
+        if (V <= 100000) return 0.24;      // case5 (~49987): matches armadillo directly, ~0.175-0.18, +margin
+        if (V <= 400000) return 0.20;      // case6 (~377084): no data -- extrapolated from the size trend, unverified
+        return 0.20;                       // case7 (~1009118): no data; PERFORMANCE (not SSIM) is the likely
+                                            // binding constraint here (measured TLE even at 0.029 pre-fix)
     };
     double kf = (keepOverride > 0) ? keepOverride : keep_for(Vin);
     int target = std::max(4, (int)(kf * Vin));
@@ -1413,13 +1485,16 @@ int main(int argc, char** argv) {
     // SSIM-driven growth (`g_featurePoints`, consumed inside `generate_split_candidates`) use
     // this same segmentation.
     auto adj = build_face_adjacency(faces);
+    if (getenv("V2_DBG")) std::fprintf(stderr, "[v2setup] build_face_adjacency: %.2fs\n", elapsedSetup());
     // K swept 1-350 on the bunny proxy (day 6): K~15-20 gave a small, NOT robust gain when used
     // only as extra SSIM-search candidates; the same sweep on armadillo showed no effect at any
     // K. Kept modest and non-cherry-picked rather than re-tuned for day 7's different use.
     int K = std::max(8, std::min((int)faces.size(), 20));
     if (getenv("V2_SEGK")) K = atoi(getenv("V2_SEGK"));   // local testing only
     Segmentation seg = segment_by_normal(pos, faces, adj, K);
+    if (getenv("V2_DBG")) std::fprintf(stderr, "[v2setup] segment_by_normal: %.2fs\n", elapsedSetup());
     FeatureSet feat = extract_features(pos, faces, seg.regionOf, seg.regionNormal);
+    if (getenv("V2_DBG")) std::fprintf(stderr, "[v2setup] extract_features: %.2fs\n", elapsedSetup());
     for (const auto& fp : feat.corners) g_featurePoints.push_back(fp.p);
     for (const auto& fp : feat.edgePts) g_featurePoints.push_back(fp.p);
     std::fprintf(stderr, "[v2feat] K=%d corners=%zu edgePts=%zu\n", K, feat.corners.size(), feat.edgePts.size());
@@ -1443,6 +1518,7 @@ int main(int argc, char** argv) {
         double polishFrac = getenv("V2_POLISHFRAC") ? atof(getenv("V2_POLISHFRAC")) : 0.0;
         int clusterBudget = std::max(4, (int)((1.0 - polishFrac) * target));
         ClusteredMesh cm = build_clustered_mesh(pos, faces, seg, feat, clusterBudget);
+        if (getenv("V2_DBG")) std::fprintf(stderr, "[v2setup] build_clustered_mesh: %.2fs\n", elapsedSetup());
         std::fprintf(stderr, "[v2cluster] kept=%zu faces=%zu manifoldOk=%d (clusterBudget=%d of target=%d)\n",
                      cm.P.size(), cm.F.size(), (int)cm.manifoldOk, clusterBudget, target);
         if (cm.manifoldOk && cm.P.size() >= 4 && !cm.F.empty()) {
@@ -1469,7 +1545,9 @@ int main(int argc, char** argv) {
     int RES = 256;   // day-1 steering resolution (cheap iteration; judge-res validation separately)
     if (getenv("V2_RES")) RES = atoi(getenv("V2_RES"));   // local testing only
     OrigViews O; capture_original(pos, faces, RES, O);
+    if (getenv("V2_DBG")) std::fprintf(stderr, "[v2setup] capture_original: %.2fs\n", elapsedSetup());
     g_origGrid.build(pos, faces);   // built ONCE: the original mesh never changes (day 5 perf pass)
+    if (getenv("V2_DBG")) std::fprintf(stderr, "[v2setup] g_origGrid.build: %.2fs\n", elapsedSetup());
 
     if (getenv("V2_GRIDTEST")) {
         // correctness check for SpatialGrid: compare against brute force on random-ish query
@@ -1581,7 +1659,18 @@ int main(int argc, char** argv) {
 
     const auto t0 = std::chrono::steady_clock::now();
     auto elapsed = [&]{ return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); };
+    // This BUDGET clock starts only AFTER setup (segmentation, clustering, capture_original,
+    // grid build) -- fine at small/medium scale where setup is sub-second, but setup itself
+    // scales with INPUT size, not the vertex target, and was measured taking ~15-17s at 800k
+    // input vertices before today's fast-interior-sampling fix (now ~3-5s there). Case6/7
+    // (377k/1.01M) are untested at their exact real size; main.cpp's own convention (see its
+    // g_refine_budget) is to trim the growth-phase budget for larger inputs specifically to
+    // leave room for setup + judge overhead, not just hope the ceiling has slack -- same idea
+    // applied here, sized conservatively since main_v2's setup-cost curve at 1M+ is still a
+    // real unknown, not a measured fact.
     double BUDGET = 16.0;
+    if (Vin > 400000)      BUDGET = 11.0;
+    else if (Vin > 100000) BUDGET = 13.0;
     if (getenv("V2_BUDGET")) BUDGET = atof(getenv("V2_BUDGET"));   // local testing only
 
     // Hausdorff leash (judge rule: 5% of the ORIGINAL AABB diagonal). A sparse growth process
@@ -1893,12 +1982,17 @@ int main(int argc, char** argv) {
         // from a convex hull, which is degenerate-face-free and genus-0 by construction) --
         // verify those same properties are not silently violated here, don't just trust it
         // because it rendered well.
-        long degenerate = 0;
+        long degenerate = 0; double minAreaFound = 1e300; long trueZero = 0;
         const double MIN_AREA_CHK = 1e-10 * diag * diag;
         for (const auto& t : curF) {
             double a = 0.5*(curP[t[1]]-curP[t[0]]).cross(curP[t[2]]-curP[t[0]]).norm();
             if (a <= MIN_AREA_CHK) ++degenerate;
+            if (a <= 0.0) ++trueZero;
+            minAreaFound = std::min(minAreaFound, a);
         }
+        if (getenv("V2_DBG") && degenerate)
+            std::fprintf(stderr, "[v2] degenerate detail: minAreaFound=%.3e (threshold %.3e) trueZeroOrNeg=%ld\n",
+                         minAreaFound, MIN_AREA_CHK, trueZero);
         double worstHaus = -1;
         g_curGrid.build(curP, curF);
         for (const Vec3& s : hausSample) { int fi; Vec3 cp = g_curGrid.query(s, &fi); worstHaus = std::max(worstHaus, (cp-s).norm()); }

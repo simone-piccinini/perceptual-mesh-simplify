@@ -652,6 +652,77 @@ V=522), 0.4589 (armadillo V=349), 0.7191 (armadillo V=1999) — all four configu
 every validity check (0 degenerate faces, Hausdorff under limit, V-E+F=2, single connected
 component). Armadillo's V=1999 result in particular is now in the same range as bunny's
 decimator reference at similar V, on a mesh construction has never been tested on before today.
-Not submitted to the judge -- still no measurement at real judge scale (tens of thousands to
-hundreds of thousands of vertices), which is the natural next checkpoint before considering it,
-not today's numbers.
+
+## Day 7, first real judge submission (2026-07-06, same day): two critical fixes, both found live
+
+User directive: keep going, test on the judge when confident. Real case sizes confirmed first
+(docs/JUDGE-ENVELOPE.md §6): case2=4098, case3=23201, case4=35292 (CAD), case5=49987, case6=
+377084, case7=1009118. Submitted `solver/main_v2.cpp` standalone via
+`scripts/judge_submit.py solver/main_v2.cpp` — does not touch or risk the banked `main.cpp`.
+
+**Result: sample passed, cases 2-6 all "Wrong Answer," case 7 "Time Limit Exceeded."** Not the
+outcome hoped for, but exactly the kind of information only a real judge read provides — and it
+immediately explained itself.
+
+**Critical fix 1 — FinalSSIM must be >= 0.9 or the case is Wrong Answer, not just low-scoring.**
+Re-read docs/PROBLEM-AND-JUDGE.md properly: "Punteggio per caso = tasso di compressione, valido
+solo se FinalSSIM >= 0.9." Every local result all week — 0.45 through 0.72 — was BELOW that
+cliff. This was never checked before today; the comparison basis all along was the decimator's
+SCORE at matched V (a smooth, no-cliff comparison), never against this binary threshold. Swept
+keep fraction upward on every local proxy to find where FinalSSIM actually crosses 0.9:
+  - fandisk (V=6475, CAD/flat-dominated): crosses ~0.11-0.12 (compression ~88)
+  - cow (V=2903, organic): crosses ~0.50-0.55 (compression ~48)
+  - bunny (V=3485, organic): crosses ~0.58-0.60 (compression ~41)
+  - armadillo (V=49990, organic, detailed): crosses ~0.175-0.18 (compression ~82)
+Mesh CHARACTER, not size, dominates — fandisk needs far less keep than bunny despite being
+~2x bigger. Real per-case character is unknown except case4=CAD. Since undershooting costs the
+ENTIRE case (zero) while overshooting only costs compression percentage, every `keep_for()`
+bracket was rewritten to use the WORST (organic) crossover measured near that size, with real
+margin, except case4's bracket which leans on the CAD data point:
+```
+V<=7000   -> 0.65   (case2 ~4098:  worst-case bunny/cow ~0.55-0.60, +margin)
+V<=30000  -> 0.45   (case3 ~23201: no local data point, conservative interpolation)
+V<=40000  -> 0.18   (case4 ~35292: CONFIRMED CAD, fandisk ~0.11-0.12, +margin)
+V<=100000 -> 0.24   (case5 ~49987: matches armadillo directly, +margin)
+V<=400000 -> 0.20   (case6 ~377084: no data, extrapolated, unverified)
+else      -> 0.20   (case7 ~1009118: no data; PERFORMANCE is the likely binding constraint)
+```
+Re-verified with the REAL default dispatch (no local override) at the REAL 16s time budget on
+every proxy: bunny 0.9129, cow 0.9365, fandisk 0.9815, armadillo 0.9162 — all comfortable, none
+of them a bare "just barely" cross.
+
+**Critical fix 2 — setup-phase performance collapses at case6/7 scale, independent of the SSIM
+fix.** The growth loop's own 16s time budget starts AFTER segmentation, clustering, and
+capture_original -- fine when setup is sub-second, which it always had been at the <=50k scale
+tested so far. Generated an 800k-vertex synthetic mesh (subdivided armadillo, between case6 and
+case7 in scale) to check directly: setup alone took ~17s BEFORE the growth loop even started,
+consistent with the submission's own case6 (~21.1s) and case7 (~23.0s) CASETIME figures against
+this file's 16s budget (21.1-16=5.1s, 23.0-16=7.0s of unaccounted overhead — a near-exact match).
+Root-caused with per-phase timing, not guessed: `build_clustered_mesh` alone cost ~15s of the
+~17s. Inside it, the interior-point placement (item 1's proportional allocation, day 7 follow-
+up) does a full farthest-point-sample per region — O(pointCount x candidates) — which is fine
+for a handful of points but explodes when a large region needs THOUSANDS of interior points
+from thousands of candidates at this scale. Fixed: switch to a cheap stratified sample (sort
+candidates along the region's own dominant axis, take evenly-spaced picks) once the FPS cost
+would exceed a fixed budget, falling back to the existing full FPS for the small counts where
+it was already fine. Result: the SAME 800k test now completes total setup in ~3.4s (~5x less),
+total wall time ~4.9s at a keep fraction that scores 0.9795. Also trimmed the growth loop's own
+BUDGET for large inputs (11s above 400k, 13s above 100k, mirroring main.cpp's own established
+convention of shrinking the time box for bigger cases) as an extra safety margin, since main_v2's
+setup-cost curve at the exact 1M+ scale is still not directly measured, only extrapolated.
+
+**A third issue found at this same 800k test, NOT fixed — documented as a deferred, unconfirmed
+risk.** 4 of ~313k output faces had area ~1e-23: technically positive (passes a naive check) but
+at floating-point noise level, a real risk of flipping sign under different rounding. Traced to
+the ear-clipping hole-repair passes (angle-only ear-quality scoring is numerically unstable on
+near-coincident points). Tried rejecting such candidates outright, in both the initial quotient
+accept-loop and the ear-clipping loops: BOTH attempts regressed `manifoldOk` to false (some
+boundary holes have no OTHER valid ear; rejecting the only option just leaves the hole open,
+which is a CERTAIN validity failure — worse than the near-zero-area risk it was meant to
+prevent). Reverted; the sliver risk is accepted for now. This was only ever observed on a
+SYNTHETIC subdivided mesh at extreme scale, never on any of the smaller real-shaped proxies —
+whether it occurs on actual case6/7 geometry is unknown and is exactly what the next judge read
+at that scale should reveal.
+
+**Status**: both critical fixes are local-verified but NOT yet re-confirmed on the judge — a
+second submission is the immediate next step, not a claim that cases 2-6 are now solved.
