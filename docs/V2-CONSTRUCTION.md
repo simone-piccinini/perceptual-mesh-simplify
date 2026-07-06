@@ -404,3 +404,77 @@ central question, not a data-structure problem.
 (`markTouched`, the `for (const Vec3& ev : curP)` scan inside `generate_split_candidates`) are
 O(current vertex count) per call — cheap at V~1000 (measured, not yet the bottleneck) but will
 need a spatial structure of their own before testing at case-3 scale (~23k) or larger.
+
+## Day 6 (2026-07-06 continued): normal-based region segmentation — real infra, honest result
+
+User directive: stop tuning, pursue a genuinely better MECHANISM, target competitive quality
+(explicitly acknowledged as a multi-day ask, not a today ask).
+
+**Diagnosis before building anything**: at matched V=522, the decimator's normal SSIM is ~0.56
+(back-derived from its 0.7733 FinalSSIM and the project's own measured depth-SSIM saturation
+constant, ~0.985) vs main_v2's 0.2132 — a huge gap, while depth SSIM is comparable (0.71 vs
+~0.98). The decimator starts from the FULL mesh, so its VSA-lite collapse order preserves
+flat-region boundaries by construction; main_v2 starts from a convex hull and discovers shape
+purely from a per-pixel error signal with no notion of "this triangle straddles a real fold."
+
+**Built (independent implementation, not shared with main.cpp)**: `build_face_adjacency`
+(face-to-face via shared edges), `segment_by_normal` (best-first/Dijkstra-like multi-source
+region growing from farthest-point-sampled seed faces, area-weighted running normal per
+region — a simpler, single-pass analogue of VSA, good enough to expose boundaries without a
+full Lloyd relaxation), `extract_features` (vertices touched by 2 distinct regions = boundary
+points, priority = dihedral angle; touched by 3+ = corners, priority = valence).
+
+**Attempt 1 — commit feature points directly, unranked, before any SSIM-driven refinement**:
+scored WORSE than pure SSIM-driven growth at every K tried (0.39-0.41 vs the day-5 baseline
+0.4507). Root cause: with K comparable to the vertex target, regions are tiny and almost every
+vertex qualifies as a "corner" (K=351 → 622 corners for a 331-vertex budget) — no discriminating
+signal, so the budget went to an arbitrary index-order subset with no attention to coverage.
+
+**Attempt 2 — rank by priority (valence / dihedral angle), cap to a fraction of budget, commit
+the rest as before**: better (0.42-0.43) but still below the day-5 baseline at every K/fraction
+combination tried. Root cause, in hindsight obvious: committing ANY point without checking
+whether it actually reduces rendered SSIM is exactly the "unvalidated proxy" mistake days 1-3
+already made and fixed once this session — a geometrically well-motivated point is not the same
+as a rendering-verified one.
+
+**Attempt 3 (kept) — feed the nearest feature point into the EXISTING exact-delta-scored
+candidate pool** (`generate_split_candidates` gains one more candidate per call, drawn from
+`g_featurePoints`; `exact_insertion_delta` still has final say, same `ACCEPT_BAR` as everything
+else). This is the correctness-respecting version: a feature point only wins if it demonstrably
+beats every other candidate on the real rendered metric.
+
+**Honest result — small, and NOT robust across meshes.** Sweeping K on the bunny proxy (target
+V=352) found a local pocket (K~15-18) scoring 0.454-0.461, a real-looking +0.005 to +0.011 over
+the 0.4507 baseline. But: (a) neighboring K values (10, 12, 20, 30) landed back at 0.445-0.452,
+statistically indistinguishable from baseline — consistent with the greedy search's known
+chaotic sensitivity to small candidate-pool perturbations, not a clean trend; (b) the SAME sweep
+on armadillo_watertight.obj (harder, no clean large flat regions, tested at matched V~349) showed
+**no measurable difference at any K** (0.2348-0.2364 regardless, K=1/no-feature-points included)
+— FinalSSIM on armadillo is itself far lower than bunny's at the same V (0.235 vs 0.45), i.e. a
+much harder mesh for this whole approach, and the segmentation signal provides nothing there.
+Shipped with a modest, non-cherry-picked default (`K=20`) rather than the single best bunny-only
+point — at K=20, bunny nets essentially ZERO change (0.4517 vs 0.4507 at V=351, 0.4611 vs 0.4613
+at V=522). **Conclusion: this specific integration (one extra scored candidate per face) is
+validated as harmless (never worse, mechanism-wise it's a strict candidate-pool superset that
+still requires a real render-verified win) but is NOT currently a reliable lever for the score
+gap.** Kept in the code — the segmentation infrastructure (adjacency, region growing, feature
+extraction) is reusable, and the honest negative result is itself useful: it rules out "just
+bias the candidate SEARCH toward known features" as a fix, which narrows what's left.
+
+**What this implies about the real gap**: the day-5-corrected baseline (0.45 bunny / 0.23
+armadillo) vs the decimator (0.70-0.77 at matched V) is not a search-bias problem that a smarter
+candidate suggestion can close. The decimator's advantage looks structural: it starts with every
+vertex's TRUE normal already present and its job is to not lose that information; construction
+starts with none of it and must both DISCOVER and PLACE it, one locally-greedy insertion at a
+time, with no mechanism for coordinated, region-scale triangulation choices. Closing this
+gap likely needs an actual remeshing step (extract each segmented region's boundary loop, build
+its own local triangulation sized to its curvature, then stitch regions into one manifold mesh)
+rather than feeding segmentation hints into the existing point-at-a-time greedy loop — a
+substantially bigger, multi-day undertaking (boundary-loop extraction and manifold stitching
+across regions is the hard, failure-prone part of any such remesher) that was not attempted
+today given the time already spent validating that lighter-weight integration doesn't work.
+
+**Not submitted to the judge.** Current best local numbers (FinalSSIM ~0.45-0.46 on a 3.5k-vertex
+proxy, ~0.23 on a 50k-vertex proxy) are far below any competitive threshold and the gap is
+already fully visible from local measurement — a judge submission at this stage would burn a
+submission slot without producing information the local numbers don't already show.

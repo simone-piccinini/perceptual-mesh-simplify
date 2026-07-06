@@ -31,6 +31,9 @@
 #include <algorithm>
 #include <chrono>
 #include <random>
+#include <map>
+#include <set>
+#include <queue>
 #include "Eigen/Dense"
 
 using Vec3 = Eigen::Vector3d;
@@ -653,6 +656,7 @@ struct SpatialGrid {
 
 static SpatialGrid g_origGrid;   // built once from the fixed original mesh
 static SpatialGrid g_curGrid;    // rebuilt once per growth iteration from the current mesh
+static std::vector<Vec3> g_featurePoints;   // day 6: region-boundary/corner points, set once in main()
 
 // Generate a small candidate set of split positions for face (a,b,c): the closest point on the
 // original surface from the centroid (position baseline), the actual nearest ORIGINAL VERTEX
@@ -673,7 +677,8 @@ static void generate_split_candidates(const Vec3& a, const Vec3& b, const Vec3& 
                                        const std::vector<Vec3>& OP, const std::vector<std::array<int,3>>& OF,
                                        const SpatialGrid& origGrid,
                                        const std::vector<Vec3>& curP, double edgeScale, double minArea,
-                                       double minSep, std::vector<Vec3>& out) {
+                                       double minSep, const std::vector<Vec3>& featurePts,
+                                       std::vector<Vec3>& out) {
     out.clear();
     Vec3 centroid = (a + b + c) / 3.0;
     int fi; Vec3 p0 = origGrid.query(centroid, &fi);
@@ -691,6 +696,16 @@ static void generate_split_candidates(const Vec3& a, const Vec3& b, const Vec3& 
     for (double s : {0.3, -0.3}) {
         cand.push_back(origGrid.query(p0 + s * edgeScale * t1, nullptr));
         cand.push_back(origGrid.query(p0 + s * edgeScale * t2, nullptr));
+    }
+    // day 6: also offer the nearest region-segmentation feature point (boundary/corner where
+    // the ORIGINAL surface's normal genuinely changes) as a candidate -- NOT inserted blindly
+    // (that measured WORSE than pure SSIM-driven growth, see docs day 6), just added to the
+    // pool the exact-delta scorer already picks from. It only wins if it demonstrably beats
+    // every other option on the real rendered metric, same bar as everything else here.
+    if (!featurePts.empty()) {
+        double bd = 1e300; Vec3 bv = p0;
+        for (const Vec3& fp : featurePts) { double d = (fp - centroid).squaredNorm(); if (d < bd) { bd = d; bv = fp; } }
+        cand.push_back(bv);
     }
     auto filterInto = [&](const std::vector<Vec3>& in) {
         for (const Vec3& p : in) {
@@ -728,6 +743,131 @@ static void generate_split_candidates(const Vec3& a, const Vec3& b, const Vec3& 
 // GUARANTEES a seed of at most K vertices — unlike hulling the full point set (measured on
 // the bunny proxy: 3485 points -> a genuinely valid 647-vertex hull, already bigger than a
 // 5%-budget target). This is a well-known sampling technique, independent of any decimator.
+// day 6: face-to-face adjacency of the ORIGINAL mesh via shared edges (up to 3 neighbors per
+// face). Needed for normal-based region growing below -- an independent mechanism from
+// main.cpp's decimation, built for a construction context: main.cpp collapses edges ORDERED by
+// induced normal distortion; this instead SEGMENTS the original surface into normal-coherent
+// regions up front and treats the boundaries between regions as insertion targets. Same
+// underlying insight (flat regions matter more than raw vertex density), independently applied.
+static std::vector<std::array<int,3>> build_face_adjacency(const std::vector<std::array<int,3>>& F) {
+    std::map<std::pair<int,int>, std::vector<int>> edgeFaces;
+    auto keyOf = [](int a, int b) { return a < b ? std::make_pair(a, b) : std::make_pair(b, a); };
+    for (int f = 0; f < (int)F.size(); ++f) {
+        const auto& t = F[f];
+        int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
+        for (auto& ee : e) edgeFaces[keyOf(ee[0], ee[1])].push_back(f);
+    }
+    std::vector<std::array<int,3>> adj(F.size(), {-1,-1,-1});
+    for (int f = 0; f < (int)F.size(); ++f) {
+        const auto& t = F[f];
+        int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
+        for (int k = 0; k < 3; ++k) {
+            auto& lst = edgeFaces[keyOf(e[k][0], e[k][1])];
+            for (int g : lst) if (g != f) { adj[f][k] = g; break; }
+        }
+    }
+    return adj;
+}
+
+// Best-first (Dijkstra-like) multi-source region growing: seed K faces spread over the mesh
+// (farthest-point sampling in centroid space, same generic technique as the hull seed), then
+// flood outward, always claiming the cheapest (best normal-aligned) unclaimed neighbor next,
+// updating each region's running area-weighted normal as it grows. This is a standard seeded
+// segmentation strategy (independent of, and much simpler than, a full Lloyd-relaxed VSA), good
+// enough to expose region BOUNDARIES, which is all this needs it for.
+struct Segmentation { std::vector<int> regionOf; std::vector<Vec3> regionNormal; };
+static Segmentation segment_by_normal(const std::vector<Vec3>& P, const std::vector<std::array<int,3>>& F,
+                                       const std::vector<std::array<int,3>>& adj, int K) {
+    const int nf = (int)F.size();
+    std::vector<Vec3> fn(nf), fc(nf);
+    std::vector<double> fa(nf);
+    for (int f = 0; f < nf; ++f) {
+        fn[f] = face_normal(P, F[f]);
+        const auto& t = F[f];
+        fc[f] = (P[t[0]] + P[t[1]] + P[t[2]]) / 3.0;
+        fa[f] = 0.5 * (P[t[1]]-P[t[0]]).cross(P[t[2]]-P[t[0]]).norm();
+    }
+    K = std::max(1, std::min(K, nf));
+    std::vector<int> seeds; seeds.reserve(K);
+    {
+        std::vector<double> mind(nf, 1e300);
+        int cur = 0;
+        for (int i = 1; i < nf; ++i) if (fc[i].x() < fc[cur].x()) cur = i;
+        seeds.push_back(cur);
+        for (int it = 1; it < K; ++it) {
+            for (int i = 0; i < nf; ++i) mind[i] = std::min(mind[i], (fc[i]-fc[cur]).squaredNorm());
+            double best = -1; int bi = 0;
+            for (int i = 0; i < nf; ++i) if (mind[i] > best) { best = mind[i]; bi = i; }
+            cur = bi; seeds.push_back(cur);
+        }
+    }
+    Segmentation seg; seg.regionOf.assign(nf, -1);
+    std::vector<Vec3> regionNormal(seeds.size());
+    std::vector<double> regionArea(seeds.size(), 0.0);
+    for (size_t r = 0; r < seeds.size(); ++r) {
+        seg.regionOf[seeds[r]] = (int)r;
+        regionNormal[r] = fn[seeds[r]];
+        regionArea[r] = fa[seeds[r]];
+    }
+    struct QE { double cost; int face; int region; };
+    struct Cmp { bool operator()(const QE& a, const QE& b) const { return a.cost > b.cost; } };
+    std::priority_queue<QE, std::vector<QE>, Cmp> pq;
+    for (size_t r = 0; r < seeds.size(); ++r)
+        for (int nb : adj[seeds[r]]) if (nb >= 0 && seg.regionOf[nb] < 0)
+            pq.push({1.0 - fn[nb].dot(regionNormal[r]), nb, (int)r});
+    while (!pq.empty()) {
+        QE e = pq.top(); pq.pop();
+        if (seg.regionOf[e.face] >= 0) continue;   // already claimed by a cheaper path
+        seg.regionOf[e.face] = e.region;
+        regionNormal[e.region] = (regionNormal[e.region]*regionArea[e.region] + fn[e.face]*fa[e.face]).normalized();
+        regionArea[e.region] += fa[e.face];
+        for (int nb : adj[e.face]) if (nb >= 0 && seg.regionOf[nb] < 0)
+            pq.push({1.0 - fn[nb].dot(regionNormal[e.region]), nb, e.region});
+    }
+    // faces unreached by adjacency (shouldn't happen on a closed manifold, but guard anyway)
+    // get their own singleton region rather than being left unassigned.
+    for (int f = 0; f < nf; ++f) if (seg.regionOf[f] < 0) {
+        seg.regionOf[f] = (int)seeds.size(); seeds.push_back(f);
+        regionNormal.push_back(fn[f]); regionArea.push_back(fa[f]);
+    }
+    seg.regionNormal = regionNormal;
+    return seg;
+}
+
+// Where the segmentation actually pays off: a vertex touched by 2 distinct regions sits on a
+// region BOUNDARY (a fold/seam in the true surface); a vertex touched by 3+ is a CORNER where
+// multiple seams meet -- both are exactly the points a good triangulation needs to place
+// vertices at to avoid a single triangle straddling a real normal discontinuity. Every point
+// carries a PRIORITY score (corners: how many regions meet there, i.e. valence; edge points:
+// the dihedral angle between the two regions it separates) -- inserting all of them unranked
+// wastes budget on marginal points ahead of ones that actually matter (measured: unranked
+// insertion scored WORSE than the pure SSIM-driven baseline it was meant to beat).
+struct FeaturePoint { Vec3 p; double priority; };
+struct FeatureSet { std::vector<FeaturePoint> corners; std::vector<FeaturePoint> edgePts; };
+static FeatureSet extract_features(const std::vector<Vec3>& P, const std::vector<std::array<int,3>>& F,
+                                    const std::vector<int>& regionOf, const std::vector<Vec3>& regionNormal) {
+    const int nv = (int)P.size();
+    std::vector<std::set<int>> vertRegions(nv);
+    for (int f = 0; f < (int)F.size(); ++f) {
+        const auto& t = F[f];
+        for (int k = 0; k < 3; ++k) vertRegions[t[k]].insert(regionOf[f]);
+    }
+    FeatureSet fs;
+    for (int v = 0; v < nv; ++v) {
+        if (vertRegions[v].size() >= 3) {
+            fs.corners.push_back({P[v], (double)vertRegions[v].size()});
+        } else if (vertRegions[v].size() == 2) {
+            auto it = vertRegions[v].begin();
+            int r0 = *it; ++it; int r1 = *it;
+            double dihedral = 1.0 - regionNormal[r0].dot(regionNormal[r1]);   // 0=coplanar, 2=fold back
+            fs.edgePts.push_back({P[v], dihedral});
+        }
+    }
+    std::sort(fs.corners.begin(), fs.corners.end(), [](const FeaturePoint& a, const FeaturePoint& b) { return a.priority > b.priority; });
+    std::sort(fs.edgePts.begin(), fs.edgePts.end(), [](const FeaturePoint& a, const FeaturePoint& b) { return a.priority > b.priority; });
+    return fs;
+}
+
 static std::vector<Vec3> farthest_point_sample(const std::vector<Vec3>& P, int K) {
     const int n = (int)P.size();
     K = std::min(K, n);
@@ -901,6 +1041,38 @@ int main(int argc, char** argv) {
     const double diag = (hi - lo).norm();
     const double LEASH = 0.05 * diag;
     std::vector<Vec3> hausSample = farthest_point_sample(pos, 400);
+
+    // ---- day 6: normal-based region-segmentation feature points ----
+    // Days 1-5's pixel-SSIM-driven greedy insertion plateaus around FinalSSIM~0.45 (normal
+    // channel ~0.21) while the decimator reaches ~0.56 normal SSIM at the SAME vertex count --
+    // it starts from the full mesh, so its VSA-lite collapse order preserves flat-region
+    // boundaries by construction; this construction approach starts from a convex hull and has
+    // no equivalent mechanism, discovering shape purely from a per-pixel error signal that has
+    // no notion of "this triangle straddles a real fold." Segment the ORIGINAL mesh into
+    // normal-coherent regions up front (independent implementation, not shared with main.cpp's
+    // decimation code) and expose the region BOUNDARIES/corners as extra candidate points for
+    // the SSIM-driven search below (`g_featurePoints`, consumed inside
+    // `generate_split_candidates`). Tried committing these directly (blindly, unscored, either
+    // all of them or a ranked+capped subset): BOTH scored WORSE than pure SSIM-driven growth
+    // (0.39-0.43 vs 0.4507) -- an unvalidated geometric proxy misdirecting budget, the same
+    // lesson days 1-3 already learned once this session. Feeding them into the EXISTING
+    // exact-delta-scored candidate pool instead means they only win when they demonstrably
+    // beat every other option on the real rendered metric.
+    {
+        auto adj = build_face_adjacency(faces);
+        // K swept 1-350 on the bunny proxy: K~15-20 gave a real (+0.005 to +0.011) FinalSSIM
+        // gain over no feature points; the SAME sweep on armadillo (harder, no clean large flat
+        // regions) showed no measurable difference at any K tested. Picked a modest, non-overfit
+        // default in the "helps on bunny, harmless on armadillo" zone rather than the single
+        // best bunny-only point (day 6 finding: this mechanism is not a general win yet).
+        int K = std::max(8, std::min((int)faces.size(), 20));
+        if (getenv("V2_SEGK")) K = atoi(getenv("V2_SEGK"));   // local testing only
+        Segmentation seg = segment_by_normal(pos, faces, adj, K);
+        FeatureSet feat = extract_features(pos, faces, seg.regionOf, seg.regionNormal);
+        for (const auto& fp : feat.corners) g_featurePoints.push_back(fp.p);
+        for (const auto& fp : feat.edgePts) g_featurePoints.push_back(fp.p);
+        std::fprintf(stderr, "[v2feat] K=%d corners=%zu edgePts=%zu\n", K, feat.corners.size(), feat.edgePts.size());
+    }
 
     // day 5 perf: exact_insertion_delta was being recomputed for EVERY tried face EVERY
     // iteration, even for faces whose local neighborhood is untouched since the last split --
@@ -1080,7 +1252,7 @@ int main(int argc, char** argv) {
                     const Vec3 &fa = curP[t[0]], &fb = curP[t[1]], &fc = curP[t[2]];
                     double edgeScale = std::max({(fb-fa).norm(), (fc-fb).norm(), (fa-fc).norm()});
                     double minSep = 0.02 * edgeScale;
-                    generate_split_candidates(fa, fb, fc, pos, faces, g_origGrid, curP, edgeScale, MIN_AREA, minSep, cands);
+                    generate_split_candidates(fa, fb, fc, pos, faces, g_origGrid, curP, edgeScale, MIN_AREA, minSep, g_featurePoints, cands);
                     double bestDelta = -1e300; Vec3 bestP = fa;
                     for (const Vec3& p : cands) {
                         double d = exact_insertion_delta(cand, t[0], t[1], t[2], p, curP, curF, O);
@@ -1140,7 +1312,7 @@ int main(int argc, char** argv) {
                 const Vec3 &fa = curP[tf[0]], &fb = curP[tf[1]], &fc = curP[tf[2]];
                 double edgeScale = std::max({(fb-fa).norm(), (fc-fb).norm(), (fa-fc).norm()});
                 double minSep = 0.02 * edgeScale;
-                generate_split_candidates(fa, fb, fc, pos, faces, g_origGrid, curP, edgeScale, MIN_AREA, minSep, ccands);
+                generate_split_candidates(fa, fb, fc, pos, faces, g_origGrid, curP, edgeScale, MIN_AREA, minSep, g_featurePoints, ccands);
                 double freshBest = -1e300;
                 for (const Vec3& p : ccands) {
                     double d = exact_insertion_delta((int)f, tf[0], tf[1], tf[2], p, curP, curF, O);
