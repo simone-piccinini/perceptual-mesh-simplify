@@ -1085,8 +1085,40 @@ multi-component synthetic test now keeps both pieces (0 faces dropped), manifold
 and FinalSSIM improved (0.9477 -> 0.9554) since the real geometry is no longer missing. Repeated
 at 806k-vertex scale (armadillo_big + fandisk, realistic separation) with the same result:
 both components kept, V-E+F=4 matches the corrected 2*ncomp check, FinalSSIM=0.9745, ~5s total
-(no timing regression). This is the first hypothesis all session that is BOTH a confirmed, real,
-reproducible local bug AND mechanistically explains every observed case6/7 symptom: fraction-
-independent (dropping happens regardless of keep fraction), timing-independent (a structural
-defect, not noise), and scale-specific in principle (more real-world complexity/multi-part
-structure is far more likely in the biggest, most detailed real assets). Submitting as round 21.
+(no timing regression).
+
+**Round 21 result on the real judge: SCORE unchanged (35.417013), case6/case7 still Wrong
+Answer.** The multi-component fix, while a confirmed real bug worth keeping, did not crack
+case6/7 -- meaning their real input almost certainly is NOT multi-component. Checked the
+problem spec itself for why (should have done this FIRST): docs/PROBLEM-AND-JUDGE.md quotes
+the PDF verbatim -- "Input: ... **watertight, connessa** [connected], senza duplicati." The
+input is GUARANTEED single-component. That rules out round 21's hypothesis at the source,
+consistent with the null result.
+
+## Round 22: genus -- the guarantee that ISN'T there
+
+The same spec quote guarantees watertight + connected + no-duplicates -- but says NOTHING
+about genus. A real handle/hole (genus > 0) is completely legal input, and this file's entire
+pipeline (both the clustering seed and the hull fallback) was built assuming genus-0, exactly
+like the round 8/9 hypothesis first raised and later wrongly weakened (that weakening was about
+a LOCAL pinch-vertex artifact on a proxy mesh, not evidence against real genus on case6/7,
+which was never actually tested end-to-end).
+
+Built a genuine test this time: a real genus-1 torus (1800v/3600f). Result: `manifoldOk=0`
+(Euler characteristic 0, correctly reflecting genus-1, but the OLD gate required exactly 2 --
+genus-0 only) -- clustering gets REJECTED and falls back to the convex hull, which by
+construction can never represent a hole. FinalSSIM crashed to 0.19-0.57 depending on fraction,
+**identically bad regardless of fraction** (a hull's quality barely depends on it) -- exactly
+matching case6's observed symptom across 5 different fractions.
+
+**Fix**: stopped requiring genus-0. Every closed orientable component satisfies V-E+F=2-2g for
+SOME non-negative genus g; accept any (2*ncomp - eulerChar) that's a non-negative even number
+instead of hardcoding g=0. The clustering quotient ITSELF already handled the torus correctly
+(its raw Euler characteristic was exactly right for genus-1) -- only the validation gate was
+wrong, incorrectly rejecting a valid answer and triggering the destructive hull fallback.
+
+**Verified**: torus FinalSSIM 0.19 -> 0.86 at the seed fraction, 0.92 at 0.90 (clears the 0.9
+cliff). All 4 genus-0 proxies and the multi-component test unchanged (purely additive fix --
+accepts more valid topologies, never rejects anything that used to pass). Submitting as round
+22 -- this is the most mechanistically complete explanation found all session for case6/7's
+fraction-independent, timing-independent Wrong Answer.

@@ -2,12 +2,10 @@
 // (starts near-empty, ADDS vertices) -- unrelated to main.cpp's DECIMATION algorithm at the
 // design level. Shares only the judge's own spec (OBJ I/O, rasterizer, SSIM formula).
 //
-// STATUS 2026-07-06 (12 submissions): seed = vertex-clustering quotient (Rossignac & Borrel),
-// each kept vertex now repositioned to its cell's QEM-optimal point (not just the raw
-// representative), hull fallback on manifold failure, exact-delta SSIM-driven refinement.
-// PASSING: case2/3/4/5. FAILING case6/case7: BOTH confirmed (round 11/12) to have one real,
-// timing-independent Wrong-Answer defect, cause unconfirmed without the real input file.
-// Full history: docs/V2-CONSTRUCTION.md. Submit via `scripts/judge_submit.py solver/main_v2.cpp`.
+// STATUS 2026-07-06 (21 submissions): seed = vertex-clustering quotient (Rossignac & Borrel),
+// QEM-optimal per-cell repositioning, ANY-genus manifold acceptance (not just genus-0 -- round
+// 21's leading fix for case6/7), hull fallback only on a real manifold failure, exact-delta
+// SSIM-driven refinement. PASSING: case2/3/4/5. case6/case7 history: docs/V2-CONSTRUCTION.md.
 
 #include <cstdio>
 #include <cstdlib>
@@ -1285,12 +1283,10 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
         if (pinchesFound == 0 && stripped == 0) break;   // stable, no more progress possible
     }
 
-    // This USED TO keep only the single largest component and drop the rest -- correct for a
-    // repair-induced sliver but a real BUG for genuinely multi-part input (plausible for
-    // "mobile platform" assets -- detachable parts/props): validity is a purely local edge-
-    // manifold check, never single-connectedness. Confirmed reproducible locally: a synthetic
-    // multi-component test silently dropped an entire real piece this way. Fixed to only drop
-    // FRAGMENTS (small relative to the whole mesh), keeping any real-sized component.
+    // Used to keep only the single largest component, dropping the rest -- fine for a repair-
+    // induced sliver but a bug if the mesh legitimately has multiple pieces (confirmed via a
+    // synthetic test: a real 3490-face piece got silently dropped). Only drop FRAGMENTS now
+    // (small relative to the whole mesh), keeping any real-sized component.
     for (int compPass = 0; compPass < 3; ++compPass) {
         std::unordered_map<std::pair<int,int>, std::vector<int>, PairIntHash> ef2;
         for (int f = 0; f < (int)out.F.size(); ++f) {
@@ -1475,10 +1471,8 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
         if (kv.second > 2) { ++badEdges; worstCount = std::max(worstCount, kv.second); }
     }
     long eulerChar = (long)out.P.size() - (long)edgeCount.size() + (long)out.F.size();
-    // A genuinely multi-component input is legal output too -- validity is a purely LOCAL
-    // edge-manifold check, never single-connectedness. N disjoint genus-0 pieces give
-    // V-E+F=2N, not the hardcoded single-component 2 this used to assume -- count components
-    // directly instead (see compPass above, which used to wrongly drop legitimate ones).
+    // Multi-component output is legal too (a purely local edge-manifold check, never
+    // single-connectedness) -- count components instead of assuming N=1 (see compPass above).
     std::vector<std::vector<int>> fadj(out.F.size());
     {
         std::unordered_map<std::pair<int,int>, std::array<int,2>, PairIntHash> ef3;
@@ -1499,7 +1493,14 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
         while (!stack.empty()) { int u = stack.back(); stack.pop_back(); for (int w : fadj[u]) if (fcomp[w] < 0) { fcomp[w] = ncomp; stack.push_back(w); } }
         ++ncomp;
     }
-    out.manifoldOk = (badEdges == 0 && oneEdges == 0 && ncomp > 0 && eulerChar == 2 * (long)ncomp);
+    // Do NOT require genus-0: the spec only guarantees the input is watertight and connected,
+    // never genus-0 -- a real handle/hole is legal. Every closed orientable component satisfies
+    // V-E+F=2-2g for SOME non-negative genus g, so accept any (2*ncomp-eulerChar) that's a
+    // non-negative even number instead of forcing g=0. A genuine genus-1 torus used to fail
+    // this gate and fall back to a hull that flattens the hole -- FinalSSIM 0.19 regardless of
+    // fraction (a hull barely depends on it) -- the leading candidate for case6/7's WA.
+    long genusDefect = 2 * (long)ncomp - eulerChar;
+    out.manifoldOk = (badEdges == 0 && oneEdges == 0 && ncomp > 0 && genusDefect >= 0 && genusDefect % 2 == 0);
     if (getenv("V2_DBG")) {
         std::fprintf(stderr, "[v2cluster] connected components (by face adjacency): %d\n", ncomp);
         std::fprintf(stderr, "[v2cluster] edges=%zu badEdges(>2)=%ld boundaryEdges(=1)=%ld worstCount=%d V-E+F=%ld (expect %d)\n",
