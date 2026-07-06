@@ -1354,3 +1354,15 @@ controlled re-test proved this was a PRE-EXISTING limit at that aggressive a fra
 combination, reproduced byte-for-byte identically by the OLD continuous-solve binary too --
 not something subset placement caused. Shipping as round 31, case7's fraction left at 0.03
 (unchanged) to isolate subset placement's effect cleanly on the real judge.
+
+**Round 31 real-judge result: case7 still Wrong Answer.** SCORE 45.100068 (case2-6 unaffected,
+as expected). The judge run itself hit an infrastructure hiccup mid-submission (a spurious
+"Compiling" status re-appeared after test case 4, inflating case5's measured CASETIME to
+~207s, obviously not real computation) -- but case2-6's actual verdicts were unaffected by it,
+and case7's verdict (Wrong Answer, not TLE) is unambiguous regardless of the timing noise.
+
+Subset placement is confirmed safe, sometimes better, and meaningfully faster -- worth keeping
+as a real improvement -- but it does not fix case7. This rules out one more well-motivated,
+mathematically principled hypothesis: continuous QEM placement was not the cause. Whatever
+case7's defect is, it survives even when every kept vertex is guaranteed to sit exactly on the
+original surface.
