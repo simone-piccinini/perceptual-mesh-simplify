@@ -572,15 +572,86 @@ reads V-E+F=2, and the full post-fix growth run also reads 2, with an unchanged 
 Hausdorff under the limit, V-E+F=2 (bunny V=351/522, armadillo V=364) — not just "renders well,"
 genuinely valid.
 
-**Remaining gap**: bunny closed from ~0.25-0.31 behind the decimator to ~0.11-0.13 behind.
-Substantial, real progress — still short of parity, far short of the 90% target. The mechanism
-now has real headroom left unexplored: interior representative placement is currently one
-crude nearest-vertex-to-centroid pick per region (could use more points for large/high-curvature
-regions, proportional to local complexity rather than flat "one each"); the SSIM-driven
-refinement barely engages since clustering already fills the budget (worth deliberately
-UNDER-filling via clustering and reserving real budget for validated SSIM polish on top); ear-
-clipping triangle quality is unoptimized (whatever ear is found first, not the best-shaped one).
-None of these were tuned today given how much of the session went into getting a first correct,
-validated version working end-to-end. Not submitted to the judge — still below any competitive
-threshold, and today's numbers are stable enough locally that a submission would not add
-information.
+**Remaining gap (at end of day 7)**: bunny closed from ~0.25-0.31 behind the decimator to
+~0.11-0.13 behind. Three concrete headroom items identified for follow-up: (1) interior
+representative placement is one crude nearest-vertex-to-centroid pick per region, flat
+regardless of region size; (2) the SSIM-driven refinement barely engages since clustering
+already fills the whole budget; (3) ear-clipping picks whatever ear is found first, not the
+best-shaped one. Not yet tested beyond a ~522-vertex budget on a 3.5k-vertex input.
+
+## Day 7 follow-up (2026-07-06, same day): budget allocation is the real lever, plus a scale bug
+
+User directive: work the three headroom items above, in order, but first think about whether
+this is the right architecture to keep investing in at all (see the strategy discussion this
+session — conclusion: yes, continue; the day-7 jump was real and generalizing, not a plateau
+that would justify a restart).
+
+**Item 4 (test at real scale) done FIRST, out of order — it changed the priority of the rest.**
+At V~2000 on armadillo (49990-vertex input), clustering FAILED its own manifold gate: V-E+F=4,
+and neither the pinch-vertex check (found 0) nor the isolated-vertex strip explained it.
+Diagnosed directly rather than guessed: an explicit connected-component count on the quotient's
+faces found 2 fully disconnected closed pieces (chi=2+2=4, distinct from a pinch's 2+2-1=3) --
+a chain of dropped/rejected faces had fully severed part of the surface, a defect none of the
+existing repairs (edge-cap, ear-clipping, pinch-split, isolated-strip) could detect. Fixed:
+after those repairs stabilize, explicitly check components; if more than one, keep only the
+largest by face count, re-close the resulting boundary holes via the same ear-clipping, and
+re-run the pinch/isolated repair once more (pruning can introduce fresh instances of either).
+Also made pinch-split and isolated-strip iterate together (they can create follow-on work for
+each other), where before each ran exactly once. Fell back to the slow hull-and-grow path
+before this fix, which itself stalled on candidate exhaustion at V=898/1996 (0.2379); after the
+fix, clustering succeeds directly in ~1s at 0.4935 -- confirming the mechanism's benefit holds
+at 6x the previously-tested scale, once the manifold pipeline is actually robust there.
+
+**Item 1 (smarter interior point allocation) — the real lever, not a minor tweak.** Diagnosed
+before touching code: in every prior test, boundary feature points (corners + edge points)
+alone vastly outnumbered any realistic budget (e.g. 36 corners + 4812 edge points vs a
+1996-vertex budget on armadillo) — meaning the "1 interior point per region" fallback almost
+NEVER triggered. A region's interior was being triangulated purely from whatever its boundary
+vertices happened to form among themselves: correct for a genuinely flat region, chord-cutting
+any real curvature inside a curved one. Fixed: cap boundary points to 70% of budget (corners
+always included in full — they're rare and important), reserve the rest for interior points
+allocated PROPORTIONAL to region area (greedy largest-remaining-share, like D'Hondt
+apportionment) instead of flat "one each," each region's points spread via farthest-point
+sampling among its own vertices rather than clustered at one centroid.
+
+Result — large, and NOT a tuning-scale win:
+
+| mesh | V | day-7 (1/region) | +item 1 (proportional) | decimator ref |
+|---|---|---|---|---|
+| bunny | 351 | 0.5981 | **0.6287** | 0.7059 |
+| bunny | 522 | 0.6455 | **0.6842** | 0.7733 |
+| armadillo | ~350 | 0.3404 | **0.4589** | — |
+| armadillo | ~2000 | 0.4935 | **0.7191** | — |
+
+Armadillo at V~2000 nearly doubled its normal SSIM (0.30->0.57) from ONE change to how the
+existing interior-point budget is spent — no new mechanism, just spending the same budget where
+the surface actually needs it. This is the clearest evidence yet that budget ALLOCATION, not
+raw mechanism power, is the dominant lever left in this architecture.
+
+**Item 2 (reserve budget for SSIM polish) — tested and REVERTED, a genuine negative result.**
+Hypothesis: clustering and the validated exact-delta SSIM refinement (days 4-5) are
+complementary, so deliberately under-filling via clustering and spending the remainder on SSIM
+polish should beat clustering alone. Tested by sweeping the reserved fraction on bunny V=522:
+0.6842 at 0%, monotonically DOWN to 0.6803 / 0.6742 / 0.6731 / 0.6678 at 5/10/15/20% — a clean
+trend in the wrong direction, not noise. In hindsight this makes sense: item 1 made clustering
+the STRONGER per-vertex mechanism, so taking budget away from it to feed the weaker SSIM-greedy
+loop is a net loss more often than a complementary gain (bunny V=352 and armadillo both showed
+much smaller, inconsistent effects in the same sweep — never a clear win anywhere). Reverted to
+0% by default; the env var (`V2_POLISHFRAC`) is left in place for further experimentation, not
+because a positive default was found.
+
+**Item 3 (ear-clipping quality) done, small and low-risk as expected.** Among all valid ears in
+a boundary-hole ring, take the one with the largest minimum angle (standard sliver-avoidance
+heuristic) instead of the first one found. These hole patches are a tiny fraction of the mesh
+(a handful of small repairs, not the bulk of the quotient triangulation), so no meaningful
+score movement was expected or measured on these test cases — kept because it's free and
+principled, not because it was the lever.
+
+**Final state after this follow-up round**: FinalSSIM 0.6287 (bunny V=351), 0.6842 (bunny
+V=522), 0.4589 (armadillo V=349), 0.7191 (armadillo V=1999) — all four configurations passing
+every validity check (0 degenerate faces, Hausdorff under limit, V-E+F=2, single connected
+component). Armadillo's V=1999 result in particular is now in the same range as bunny's
+decimator reference at similar V, on a mesh construction has never been tested on before today.
+Not submitted to the judge -- still no measurement at real judge scale (tens of thousands to
+hundreds of thousands of vertices), which is the natural next checkpoint before considering it,
+not today's numbers.

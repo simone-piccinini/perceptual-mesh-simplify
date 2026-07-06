@@ -903,31 +903,84 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
     std::vector<int> kept;
     std::vector<char> isKept(nv, 0);
     auto tryKeep = [&](int v) { if (!isKept[v]) { isKept[v] = 1; kept.push_back(v); } };
-    for (const auto& fp : feat.corners) { if ((int)kept.size() >= budget) break; tryKeep(fp.vIdx); }
-    for (const auto& fp : feat.edgePts) { if ((int)kept.size() >= budget) break; tryKeep(fp.vIdx); }
+
+    // Follow-up item 1: boundary feature points (corners+edges) used to be allowed to consume
+    // the ENTIRE budget before interior representatives ever got a look-in. Measured: in every
+    // test so far, edge points alone (hundreds to thousands) vastly outnumbered any realistic
+    // budget, so interior allocation almost NEVER triggered -- a region's interior got
+    // triangulated purely from whatever its boundary vertices happen to form among themselves,
+    // correct for a genuinely FLAT region but chord-cutting any real curvature inside a curved
+    // one. Cap boundary points to a fraction of budget (corners are rare and important, always
+    // included in full), reserving the rest for interior coverage.
+    const double BOUNDARY_FRAC = 0.7;
+    int boundaryBudget = std::min(budget, std::max((int)feat.corners.size(), (int)(BOUNDARY_FRAC * budget)));
+    for (const auto& fp : feat.corners) { if ((int)kept.size() >= boundaryBudget) break; tryKeep(fp.vIdx); }
+    for (const auto& fp : feat.edgePts) { if ((int)kept.size() >= boundaryBudget) break; tryKeep(fp.vIdx); }
 
     if ((int)kept.size() < budget) {
-        // interior representatives: one candidate per region (nearest ORIGINAL vertex to that
-        // region's own area-weighted centroid), largest region first -- a big flat region with
-        // no feature points on its interior still needs at least one vertex to be represented
-        // at all once its boundary is quotiented down.
         int nr = (int)seg.regionNormal.size();
-        std::vector<Vec3> centroid(nr, Vec3::Zero()); std::vector<double> area(nr, 0.0);
+        std::vector<double> area(nr, 0.0);
         for (int f = 0; f < (int)origF.size(); ++f) {
             const auto& t = origF[f];
-            Vec3 c = (origP[t[0]]+origP[t[1]]+origP[t[2]])/3.0;
             double a = 0.5*(origP[t[1]]-origP[t[0]]).cross(origP[t[2]]-origP[t[0]]).norm();
-            centroid[seg.regionOf[f]] += c*a; area[seg.regionOf[f]] += a;
+            area[seg.regionOf[f]] += a;
         }
-        std::vector<int> order(nr); for (int r = 0; r < nr; ++r) order[r] = r;
-        std::sort(order.begin(), order.end(), [&](int a, int b) { return area[a] > area[b]; });
-        for (int r : order) {
-            if ((int)kept.size() >= budget) break;
-            if (area[r] <= 0) continue;
-            Vec3 c = centroid[r] / area[r];
-            double bd = 1e300; int bv = -1;
-            for (int v = 0; v < nv; ++v) { double d = (origP[v]-c).squaredNorm(); if (d < bd) { bd = d; bv = v; } }
-            if (bv >= 0) tryKeep(bv);
+        // Follow-up item 1 continued: give each region a number of interior points
+        // PROPORTIONAL to its area (greedy largest-remaining-share allocation, same idea as
+        // D'Hondt apportionment), not a flat "1 each" -- a tiny region and a huge one used to
+        // get identical interior representation.
+        int interiorBudget = budget - (int)kept.size();
+        std::vector<int> pointCount(nr, 0);
+        for (int i = 0; i < interiorBudget; ++i) {
+            int best = -1; double bestRatio = -1;
+            for (int r = 0; r < nr; ++r) {
+                if (area[r] <= 0) continue;
+                double ratio = area[r] / (1.0 + pointCount[r]);
+                if (ratio > bestRatio) { bestRatio = ratio; best = r; }
+            }
+            if (best < 0) break;
+            ++pointCount[best];
+        }
+        // per-vertex majority-region tag (which region most of a vertex's incident faces
+        // belong to), used only to pool candidates for farthest-point-sampling WITHIN a region
+        // -- doesn't need to be exact, just a reasonable "this vertex is roughly in region r".
+        std::vector<int> vertRegion(nv, -1);
+        {
+            std::vector<std::vector<int>> votes(nv);
+            for (int f = 0; f < (int)origF.size(); ++f) {
+                const auto& t = origF[f];
+                for (int k = 0; k < 3; ++k) votes[t[k]].push_back(seg.regionOf[f]);
+            }
+            for (int v = 0; v < nv; ++v) {
+                if (votes[v].empty()) continue;
+                std::sort(votes[v].begin(), votes[v].end());
+                int bestR = votes[v][0], bestCount = 1, curR = votes[v][0], curCount = 1;
+                for (size_t i = 1; i < votes[v].size(); ++i) {
+                    if (votes[v][i] == curR) ++curCount; else { curR = votes[v][i]; curCount = 1; }
+                    if (curCount > bestCount) { bestCount = curCount; bestR = curR; }
+                }
+                vertRegion[v] = bestR;
+            }
+        }
+        std::vector<std::vector<int>> regionVerts(nr);
+        for (int v = 0; v < nv; ++v) if (vertRegion[v] >= 0) regionVerts[vertRegion[v]].push_back(v);
+
+        for (int r = 0; r < nr; ++r) {
+            if (pointCount[r] <= 0 || regionVerts[r].empty()) continue;
+            // index-based farthest-point sample among this region's OWN vertices, spreading
+            // the region's interior points out instead of clustering them all near one centroid.
+            auto& cand = regionVerts[r];
+            std::vector<double> mind(cand.size(), 1e300);
+            int cur = 0;
+            std::vector<int> chosen = {cand[cur]};
+            for (int it = 1; it < pointCount[r] && it < (int)cand.size(); ++it) {
+                for (size_t i = 0; i < cand.size(); ++i)
+                    mind[i] = std::min(mind[i], (origP[cand[i]]-origP[cand[cur]]).squaredNorm());
+                double best = -1; int bi = 0;
+                for (size_t i = 0; i < cand.size(); ++i) if (mind[i] > best) { best = mind[i]; bi = (int)i; }
+                cur = bi; chosen.push_back(cand[cur]);
+            }
+            for (int v : chosen) { if ((int)kept.size() >= budget) break; tryKeep(v); }
         }
     }
 
@@ -1031,12 +1084,14 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
             if (!ok || loop.size() < 3) continue;
             // Proper ear-clipping, not a fixed fan apex: a fixed apex (e.g. always loop[0]) can
             // fail identically on every retry if ITS edges happen to already be at capacity,
-            // even when plenty of OTHER valid ears exist elsewhere in the same loop. Repeatedly
-            // take any consecutive triple whose ear respects the shared edge cap, shrinking the
-            // ring by one vertex each time, until no ear in the current ring is acceptable.
+            // even when plenty of OTHER valid ears exist elsewhere in the same loop. Among all
+            // valid ears in the current ring, take the BEST one by shape quality (largest
+            // minimum angle -- the standard ear-clipping heuristic to avoid slivers), not just
+            // the first one found; these hole patches are a tiny fraction of the mesh, so this
+            // is a small, low-risk win rather than the main lever (see items 1-2 above).
             std::vector<int> ring = loop;
             while (ring.size() >= 3) {
-                bool progressed = false;
+                int bestI = -1; double bestQuality = -1e300;
                 for (size_t i = 0; i < ring.size(); ++i) {
                     int a = ring[(i + ring.size() - 1) % ring.size()];
                     int b = ring[i];
@@ -1046,13 +1101,24 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
                     bool okTri = true;
                     for (auto& ee : e) if (edgeCount[keyOf(ee[0], ee[1])] >= 2) { okTri = false; break; }
                     if (!okTri) continue;
-                    for (auto& ee : e) ++edgeCount[keyOf(ee[0], ee[1])];
-                    out.F.push_back({a, b, c});
-                    ring.erase(ring.begin() + (long)i);
-                    progressed = true; ++addedThisPass;
-                    break;
+                    Vec3 pa = out.P[a], pb = out.P[b], pc = out.P[c];
+                    Vec3 uab = (pb-pa).normalized(), ubc = (pc-pb).normalized(), uca = (pa-pc).normalized();
+                    double angA = std::acos(std::clamp(-uca.dot(uab), -1.0, 1.0));
+                    double angB = std::acos(std::clamp(-uab.dot(ubc), -1.0, 1.0));
+                    double angC = std::acos(std::clamp(-ubc.dot(uca), -1.0, 1.0));
+                    double quality = std::min({angA, angB, angC});
+                    if (quality > bestQuality) { bestQuality = quality; bestI = (int)i; }
                 }
-                if (!progressed) break;   // no ear in the current ring works -- leave the rest
+                if (bestI < 0) break;   // no ear in the current ring works -- leave the rest
+                size_t i = (size_t)bestI;
+                int a = ring[(i + ring.size() - 1) % ring.size()];
+                int b = ring[i];
+                int c = ring[(i + 1) % ring.size()];
+                int e[3][2] = {{a,b}, {b,c}, {c,a}};
+                for (auto& ee : e) ++edgeCount[keyOf(ee[0], ee[1])];
+                out.F.push_back({a, b, c});
+                ring.erase(ring.begin() + (long)i);
+                ++addedThisPass;
             }
         }
         if (addedThisPass == 0) break;   // no progress -- further passes would just repeat this
@@ -1190,18 +1256,29 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
                 if (!ok2 || loop2.size() < 3) continue;
                 std::vector<int> ring2 = loop2;
                 while (ring2.size() >= 3) {
-                    bool prog2 = false;
+                    // same best-ear-by-quality selection as the main hole-closing pass above
+                    int bestI2 = -1; double bestQ2 = -1e300;
                     for (size_t i = 0; i < ring2.size(); ++i) {
                         int a = ring2[(i+ring2.size()-1)%ring2.size()], b = ring2[i], c = ring2[(i+1)%ring2.size()];
                         if (a == c) continue;
                         int e[3][2] = {{a,b},{b,c},{c,a}}; bool okTri2 = true;
                         for (auto& ee : e) if (edgeCount[keyOf(ee[0],ee[1])] >= 2) { okTri2 = false; break; }
                         if (!okTri2) continue;
-                        for (auto& ee : e) ++edgeCount[keyOf(ee[0],ee[1])];
-                        out.F.push_back({a,b,c}); ring2.erase(ring2.begin()+(long)i);
-                        prog2 = true; ++added2; break;
+                        Vec3 pa = out.P[a], pb = out.P[b], pc = out.P[c];
+                        Vec3 uab = (pb-pa).normalized(), ubc = (pc-pb).normalized(), uca = (pa-pc).normalized();
+                        double angA = std::acos(std::clamp(-uca.dot(uab), -1.0, 1.0));
+                        double angB = std::acos(std::clamp(-uab.dot(ubc), -1.0, 1.0));
+                        double angC = std::acos(std::clamp(-ubc.dot(uca), -1.0, 1.0));
+                        double q2 = std::min({angA, angB, angC});
+                        if (q2 > bestQ2) { bestQ2 = q2; bestI2 = (int)i; }
                     }
-                    if (!prog2) break;
+                    if (bestI2 < 0) break;
+                    size_t i = (size_t)bestI2;
+                    int a = ring2[(i+ring2.size()-1)%ring2.size()], b = ring2[i], c = ring2[(i+1)%ring2.size()];
+                    int e[3][2] = {{a,b},{b,c},{c,a}};
+                    for (auto& ee : e) ++edgeCount[keyOf(ee[0],ee[1])];
+                    out.F.push_back({a,b,c}); ring2.erase(ring2.begin()+(long)i);
+                    ++added2;
                 }
             }
             if (added2 == 0) break;
@@ -1353,9 +1430,21 @@ int main(int argc, char** argv) {
     std::vector<Vec3> curP; std::vector<std::array<int,3>> curF;
     bool usedCluster = false;
     if (!getenv("V2_NOCLUSTER")) {
-        ClusteredMesh cm = build_clustered_mesh(pos, faces, seg, feat, target);
-        std::fprintf(stderr, "[v2cluster] kept=%zu faces=%zu manifoldOk=%d\n",
-                     cm.P.size(), cm.F.size(), (int)cm.manifoldOk);
+        // Follow-up item 2, TESTED AND REVERTED: tried reserving a POLISH fraction of target
+        // for the existing SSIM-driven refinement (days 4-5) to run on top of a deliberately
+        // under-filled clustered seed, on the theory that the two mechanisms are complementary.
+        // Measured on bunny V=522: MONOTONIC regression as the reserved fraction grows (0.6842
+        // at 0%, 0.6803/0.6742/0.6731/0.6678 at 5/10/15/20%) -- not noise, a clean trend in the
+        // wrong direction. In hindsight this makes sense: item 1 made clustering the STRONGER
+        // per-vertex mechanism, so taking budget away from it to feed the weaker SSIM-greedy
+        // loop is a net loss more often than a complementary gain. Default kept at 0 (clustering
+        // gets the full target, as before item 2 was tried); the env var is left in place for
+        // further experimentation, not because a positive default was found.
+        double polishFrac = getenv("V2_POLISHFRAC") ? atof(getenv("V2_POLISHFRAC")) : 0.0;
+        int clusterBudget = std::max(4, (int)((1.0 - polishFrac) * target));
+        ClusteredMesh cm = build_clustered_mesh(pos, faces, seg, feat, clusterBudget);
+        std::fprintf(stderr, "[v2cluster] kept=%zu faces=%zu manifoldOk=%d (clusterBudget=%d of target=%d)\n",
+                     cm.P.size(), cm.F.size(), (int)cm.manifoldOk, clusterBudget, target);
         if (cm.manifoldOk && cm.P.size() >= 4 && !cm.F.empty()) {
             curP = cm.P; curF = cm.F; usedCluster = true;
         }
