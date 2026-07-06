@@ -143,6 +143,16 @@ kill-shot says governs appearance. One knob (σ), ~50× cheaper than SVD (safe e
 for cases 6/7), a drop-in swap of the placement in `Evaluate`. Candidate across
 **all** cases, including the large ones where nothing else has moved.
 
+*Status: SHELVED (2026-07-06).* Implemented + screened (+0.0009 on the armadillo case-5
+proxy @σ=0.25, normalized), but it cost four judge submissions to compile-memory OOMs
+(the file sat AT the judge's cc1plus limit; see
+[../postmortems/d4-compile-oom.md](../postmortems/d4-compile-oom.md)) and the expected
+transfer (~+0.004 best case, one case, judge-negative history for this gain class) never
+justified the fight. The final Eigen-free implementation lives on
+`feat/d4-probabilistic-quadrics` (+2 MB compile cost, entrywise-exact) — with the v109
+compile headroom (~110 MB) it is now *compilable* if its EV ever changes; it remains
+unjudged.
+
 **D5. Connectivity in the optimizer loop.** Lever 4 freezes topology and only moves
 vertices — stuck in the given triangulation's basin. Extend it: between
 position-ascent steps allow a few **manifold-safe edge flips** (link condition,

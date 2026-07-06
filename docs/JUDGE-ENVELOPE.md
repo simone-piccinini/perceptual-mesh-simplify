@@ -104,9 +104,21 @@ made past notes confusing.
 
 ## 3. Hardware & environment
 
-- **Compiler = GCC 11.5, baseline x86-64 arch (no `__AVX2__` at default flags), on a CPU that
-  DOES support AVX2 at runtime.** [MEASURED — covert probe 19889788, 2026-07-05.] GCC 11 does
-  not auto-vectorize at -O2, so the judge binary today runs fully scalar.
+- **Compiler = g++-14 since ≥2026-07-05 (supersedes the GCC 11.5 read below).** Every
+  compile-failure message names `g++-14` (four D4-era submissions, 2026-07-05/06).
+  **The compile-MEMORY limit sits at the solver's own footprint**: v108 compiles at
+  ~738 MB cc1plus peak [MEASURED, Linux gcc:14 + Eigen 5.0.1 container] and passes;
+  +59 MB (one extra inlined Eigen `ldlt().solve()` blob) OOM'd 4×. The memory is
+  FRONT-END template instantiation (-O1/-O0 save only ~40 MB) → add no new Eigen
+  instantiations; hand-roll small solves in plain doubles. Since v109 the dead
+  Eigen-sparse Sobolev path is `#ifdef`'d out → **629 MB, ~110 MB margin**
+  [judge-confirmed compile 2026-07-06]. Local g++-15 peak-RSS does NOT predict g++-14 —
+  measure in a `gcc:14` container. Full record: docs/postmortems/d4-compile-oom.md +
+  compile-headroom.md.
+- Baseline x86-64 arch (no `__AVX2__` at default flags), on a CPU that DOES support AVX2
+  at runtime. [MEASURED — covert probe 19889788, 2026-07-05, GCC 11.5-era; the scalar
+  -O2 conclusion should be re-verified under g++-14 if it ever becomes load-bearing,
+  since GCC 14 auto-vectorizes more at -O2 than GCC 11.]
 - **The GCC pragma region (`push_options` + `optimize("O3")` + `target("avx2,fma")`) compiles,
   runs, and really vectorizes on the judge**: pure compute-bound FMA lanes speed up 3.26×
   [MEASURED — 19889824]. But the REAL solver kernels gain NOTHING: the refine SSIM compound

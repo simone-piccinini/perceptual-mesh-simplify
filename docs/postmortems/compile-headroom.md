@@ -5,6 +5,15 @@
 every proxy), by compiling out a dead env-gated Eigen-sparse path. This moves the
 submission clear of the razor-thin compile-memory limit it was sitting on.
 
+**JUDGE-CONFIRMED (2026-07-06, v109 = 90.191194, 7/7):** the headroom build compiled and
+ran on the judge. Its first submission (75.956618) failed ONE case — score arithmetic
+proved it was **case 4's known per-run coin at N=4990** (drop 14.310136 ⟹ V=35,292 =
+the measured case-4 size; byte-identical bytes had flipped WA↔Accepted on case 4 before —
+envelope §1), NOT this change. With case 4 de-razored to N=5150 the build passed 7/7 and
+the score matched its prediction 90.266754 − (100/6)·160/35292 = 90.191194 **to all six
+decimal places** — simultaneously validating the scoring formula, V_c4, and byte-exact
+reproduction of every other case. This build is the new dev base.
+
 ## Why this matters
 
 The D4 saga (see [d4-compile-oom.md](d4-compile-oom.md)) ended with a hard fact: the banked
