@@ -1,11 +1,11 @@
 // IMC2 Problem B (simplifygeometry) — SECOND SOLVER, built from scratch. CONSTRUCTION method
-// (starts near-empty, ADDS vertices) -- unrelated to main.cpp's DECIMATION algorithm at the
-// design level. Shares only the judge's own spec (OBJ I/O, rasterizer, SSIM formula).
+// (starts near-empty, ADDS vertices) -- unrelated to main.cpp's DECIMATION algorithm.
 //
-// STATUS 2026-07-06 (21 submissions): seed = vertex-clustering quotient (Rossignac & Borrel),
-// QEM-optimal per-cell repositioning, ANY-genus manifold acceptance (not just genus-0 -- round
-// 21's leading fix for case6/7), hull fallback only on a real manifold failure, exact-delta
-// SSIM-driven refinement. PASSING: case2/3/4/5. case6/case7 history: docs/V2-CONSTRUCTION.md.
+// STATUS 2026-07-06 (24 submissions): seed = vertex-clustering quotient (Rossignac & Borrel),
+// QEM-optimal per-cell repositioning, ANY-genus manifold acceptance (round 22 fix -- case6's
+// real defect was a genus-0-only gate, not fraction). PASSING case2/3/4/5/6. case7 (~1M v)
+// still WA at the CPU ceiling; cause unexplained despite real-mesh testing at scale -- see
+// docs/V2-CONSTRUCTION.md.
 
 #include <cstdio>
 #include <cstdlib>
@@ -1087,8 +1087,13 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
     // edge-collapse, this seed never did (docs/V2-CONSTRUCTION.md: the leading suspect for
     // main_v2's ~half-banked-rate payout). Solve is deferred until topology is final -- see
     // the note by the solve loop for why (an earlier pre-topology clamp attempt was unreliable).
+    // Compact built up front: cellQ used to be sized `nv` (every original vertex, 1M+ at the
+    // largest scale) despite only ever using `kept.size()` (often 10-100x smaller) of it.
+    std::vector<int> compact(nv, -1);
+    for (size_t i = 0; i < kept.size(); ++i) compact[kept[i]] = (int)i;
+
     struct Quadric { Eigen::Matrix3d A = Eigen::Matrix3d::Zero(); Vec3 b = Vec3::Zero(); };
-    std::vector<Quadric> cellQ(nv);
+    std::vector<Quadric> cellQ(kept.size());
     for (const auto& t : origF) {
         Vec3 n = face_normal(origP, t);
         double area = 0.5 * (origP[t[1]]-origP[t[0]]).cross(origP[t[2]]-origP[t[0]]).norm();
@@ -1096,13 +1101,11 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
         double d = -n.dot(origP[t[0]]);
         Eigen::Matrix3d A = area * (n * n.transpose());
         Vec3 b = area * d * n;
-        for (int k = 0; k < 3; ++k) { int kv = nearestKept[t[k]]; cellQ[kv].A += A; cellQ[kv].b += b; }
+        for (int k = 0; k < 3; ++k) { int kv = compact[nearestKept[t[k]]]; cellQ[kv].A += A; cellQ[kv].b += b; }
     }
-    std::vector<int> compact(nv, -1);
     ClusteredMesh out;
-    std::vector<int> srcKept;   // out.P[i] <- original vertex srcKept[i]; carried through every
-                                 // push_back/compaction below for the solve loop's cellQ lookup.
-    for (int k : kept) { compact[k] = (int)out.P.size(); out.P.push_back(origP[k]); srcKept.push_back(k); }
+    std::vector<int> srcKept;   // out.P[i] -> cellQ index; carried through compaction below.
+    for (int k : kept) { out.P.push_back(origP[k]); srcKept.push_back(compact[k]); }
     auto keyOf = [](int a, int b) { return a < b ? std::make_pair(a, b) : std::make_pair(b, a); };
 
     // Accept quotient faces GREEDILY, capping every edge at 2 uses by construction (not just
@@ -1285,9 +1288,8 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
     }
 
     // Used to keep only the single largest component, dropping the rest -- fine for a repair-
-    // induced sliver but a bug if the mesh legitimately has multiple pieces (confirmed via a
-    // synthetic test: a real 3490-face piece got silently dropped). Only drop FRAGMENTS now
-    // (small relative to the whole mesh), keeping any real-sized component.
+    // induced sliver but a bug for a legitimately multi-piece mesh (confirmed: a real 3490-face
+    // piece got dropped). Only drop FRAGMENTS now (small vs the whole mesh).
     for (int compPass = 0; compPass < 15; ++compPass) {   // was 3, same free-when-converged logic
         std::unordered_map<std::pair<int,int>, std::vector<int>, PairIntHash> ef2;
         for (int f = 0; f < (int)out.F.size(); ++f) {
