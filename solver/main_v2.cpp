@@ -1737,17 +1737,13 @@ int main(int argc, char** argv) {
 
     const auto t0 = std::chrono::steady_clock::now();
     auto elapsed = [&]{ return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); };
-    // This BUDGET clock starts only AFTER setup (segmentation, clustering, capture_original,
-    // grid build) -- fine at small/medium scale where setup is sub-second, but setup itself
-    // scales with INPUT size, not the vertex target, and was measured taking ~15-17s at 800k
-    // input vertices before today's fast-interior-sampling fix (now ~3-5s there). Case6/7
-    // (377k/1.01M) are untested at their exact real size; main.cpp's own convention (see its
-    // g_refine_budget) is to trim the growth-phase budget for larger inputs specifically to
-    // leave room for setup + judge overhead, not just hope the ceiling has slack -- same idea
-    // applied here, sized conservatively since main_v2's setup-cost curve at 1M+ is still a
-    // real unknown, not a measured fact.
+    // This clock starts only AFTER setup, whose cost is NOT bounded by BUDGET at all -- trim
+    // harder for larger inputs to leave room for it + judge overhead (mirrors main.cpp's own
+    // g_refine_budget convention). case7's real CASETIME has landed at 21-24s across multiple
+    // submissions despite an 11s budget there, meaning ~10-13s goes to setup+overhead -- more
+    // than local synthetic tests predicted. Cut harder rather than trust the local estimate.
     double BUDGET = 16.0;
-    if (Vin > 400000)      BUDGET = 11.0;
+    if (Vin > 400000)      BUDGET = 7.0;
     else if (Vin > 100000) BUDGET = 13.0;
     if (getenv("V2_BUDGET")) BUDGET = atof(getenv("V2_BUDGET"));   // local testing only
 
