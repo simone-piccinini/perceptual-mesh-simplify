@@ -266,6 +266,18 @@ Reference: the decimator at matched V=352 reads 0.7467 — the gap (~0.20) is st
 this is the first day where the REMAINING gap can be attributed to "not enough
 candidates/iterations yet" rather than "the mechanism is actively working against itself."
 
+**RETRACTED 2026-07-06 (day 5)**: this 0.5417 figure does not reproduce. Rebuilt the exact
+`6068ee8` commit unmodified and reran it (bunny proxy, same conditions) — result: FinalSSIM
+0.450 at V=351, cross-checked two independent ways (this file's own inline print AND the
+already-validated `full_score`/`V2_VALMESH` path, which agree to 5 decimal places). Zero code
+difference from the commit that supposedly produced 0.5417; the only way to explain the gap is
+a measurement/transcription error at the time (0.5417 is also inconsistent with the two
+neighboring data points logged below it — 0.5148 at the SMALLER V=174 and 0.4929 at the LARGER
+V=522 — a spike above both neighbors is not the shape a monotonic mechanism produces). Treat
+0.5417 as never having happened; 0.45 is the real, reproducible number at this V. This does NOT
+change day 4's actual conclusion (the exact-delta mechanism is sound and validated) — it changes
+the honest quality baseline the whole effort is measured against, downward.
+
 **Performance note**: exact-delta scoring costs a 6-view local rescore per candidate (~5
 candidates x up to 150 faces tried in the worst case) — roughly 8x slower per split than the
 day 1-3 proxy (0.26s/split vs 0.03-0.04s/split here). Growing to case-3-scale budgets (~7000
@@ -300,3 +312,95 @@ is the concrete day 5 target, now that the mechanism itself is validated and imp
   OK (0.031); V=522 → FinalSSIM 0.7733, Hausdorff OK (0.015) — the decimator IMPROVES with V,
   as expected, and leads by a wide margin at both sizes. This gap is the honest starting point;
   closing it is exactly the multi-day project this file exists for.
+
+## Day 5 (2026-07-06 continued): performance root-caused and fixed; quality baseline corrected
+
+Day 4 ended budget-bound: exact-delta scoring cost ~0.26s/split, making anything past a few
+hundred vertices infeasible. Day 5's target was finding the REAL bottleneck (instrument first,
+never guess — the same discipline as every prior day).
+
+**Spatial grid alone did not help.** A `SpatialGrid` (uniform-cell, expanding-ring, provably-
+correct stopping bound) had already been built and validated (0/200 mismatches vs brute-force
+`closest_point_on_mesh` on 3 meshes) going into today, targeting the day-4 doc's own stated
+suspect (`closest_point_on_mesh`, O(faces) per query). Timing it head-to-head: V=300 in 60s
+before, V=300 in 60s after — no measurable change. Wrong hypothesis; moved to per-phase timing
+instrumentation (`t_iterStart`/`t_afterDeficit`/`t_afterHaus`/`t_afterCand`) to find the real
+cost instead of re-guessing.
+
+**Finding 1 — duplicate full-mesh render, real but small.** The per-iteration deficit scan
+rendered all 6 views via `render()`, then the candidate-scoring phase called
+`build_view_cache()` again — identical `project_view`+`render_proj` work on the same unchanged
+`curP`/`curF`, done twice. Fixed: `build_view_cache` now runs once at the top of each iteration;
+the deficit scan reads `VC[v].fid`/`VC[v].depth` instead of re-rendering. Measured impact:
+negligible at RES=256 (render/rasterize cost is small next to the 18 SSIM box-sums) — correct
+to remove, but not the dominant cost.
+
+**Finding 2 (the real one) — O(tried) redundant re-scoring, unbounded growth.** Per-iteration
+`cand` time grew from 0.12s (V=60) to 0.39s (V=300) as `tried` (faces scanned before one clears
+`ACCEPT_BAR`) grew 15→110 — because most faces in the deficit-sorted scan order are UNCHANGED
+between iterations (a single insertion only affects a small local region), yet every one of them
+was getting a full fresh 6-view `exact_insertion_delta` recompute every single iteration
+regardless. This is the actual reason the mechanism didn't scale, not `closest_point_on_mesh`.
+
+**Fix: a dirty-tracked per-face cache — but the naive version is UNSOUND, caught by validation
+before it shipped.** Face indices are stable (split commits overwrite in place + append, never
+reorder), so a persistent `cacheDelta`/`cachePos`/`cacheDirty` array is safe to keep across
+iterations. First version: invalidate (mark dirty) any face sharing a vertex with the just-split
+region, trust everything else. Built a `V2_CACHECHECK` mode (periodic brute-force recompute of
+every "clean" cached face, diffed against the cached value) before trusting this in the growth
+loop — exactly the same "validate before trust" discipline as every proxy this whole session.
+**It failed**: ~10-20% of clean entries drifted, with errors up to 5.7e-4 (57x `ACCEPT_BAR`),
+appearing within a SINGLE iteration (not a slow accumulation a periodic flush could bound). Root
+cause: vertex-adjacency can't catch staleness from screen-space-adjacent, topologically-unrelated
+overlap — the same self-occlusion mechanism day 3/4 already found for the insertion evaluator
+itself, now showing up in cache invalidation too.
+
+**Safe fix, no correctness cost**: the cache may only be used to cheaply SKIP a face (clean AND
+its cached value looks like a reject) — never to ACCEPT one. Any face whose cache is dirty, OR
+whose cached value looks like it clears the bar, always gets a fresh recompute before that
+decision is trusted (`needFresh = cacheDirty[cand] || cacheDelta[cand] > ACCEPT_BAR`). A stale
+"looks bad" entry can only cost a missed opportunity (quality), never a false accept
+(correctness) — proof is structural (any accept path is always preceded by a same-iteration
+fresh computation), not just empirical, though `V2_CACHECHECK` still passes as a sanity check.
+
+**Measured result**: V=522 (the full 0.15-keep target on the bunny proxy) reached in 32-37s,
+vs stalling at V=300 in 60s before — roughly a 5-8x effective speedup depending on stage, with
+zero change to `V2_VALIDATE`'s correctness numbers (still 13/20 on the known ultra-coarse blind
+spot, 19/20 on a dense mesh — identical to pre-day-5, since none of this touched
+`exact_insertion_delta`/`eval_insertion_view` themselves).
+
+**Finding 3 — candidate exhaustion, a NEW binding wall once performance stopped being one.**
+Pushing to a larger target (keep=0.5, V target 1742) hit `no valid split candidate` at V=1167,
+well inside budget — performance was no longer the limiter. Counters
+(`g_areaRejects`/`g_sepRejects`) showed `sep` (the `minSep` existing-vertex guard) dominating
+26190:837 over `area` — confirmed minSep exhaustion, not the face-shrinks-below-floor theory
+tried first (which the counters ruled out directly rather than by assumption). Widening the
+candidate fan (8 directions x 3 radii, always evaluated) fixed the exhaustion but made the
+common case ~4x more expensive per dirty-face recompute, net REGRESSING V-at-fixed-budget
+(V=681 in 90s vs V=1167 before). Fix: adaptive — keep the cheap original 6-point set as the
+default, only fall back to the wide fan when it comes back completely empty. This alone didn't
+move the exhaustion point much (V=1149, within noise of 1167), so the deeper fix was reducing
+`minSep`'s coefficient (0.05→0.02 x edgeScale): `sep` rejects dropped 26190→7365 and the hard
+stop disappeared entirely — growth now uses the full time budget instead of hard-stopping.
+
+**Finding 4 — the day-4 "0.5417 at V=352" headline result does not reproduce; corrected above.**
+While re-measuring FinalSSIM at matched V to check for regressions from today's changes, none of
+the individual day-5 changes (cache, minSep, widened fan, spatial-grid-vs-brute-force — each
+tested in isolation via A/B) explained a ~0.09 gap versus the documented 0.5417. Rebuilding and
+running the exact unmodified `6068ee8` binary settled it: it ALSO produces ~0.450 at V=351, cross
+-checked via two independent code paths. The 0.5417 entry was never reproducible from the code
+that supposedly generated it — most likely a transcription error at the time, given it's also
+inconsistent with its own neighboring data points (0.5148 at V=174, 0.4929 at V=522 — a spike
+above both neighbors). See the RETRACTED note inline in the day-4 section above.
+
+**Honest state at end of day 5**: FinalSSIM 0.4507 at V=351, 0.4613 at V=522 (bunny proxy,
+today's code, reproducible). Reference decimator at the same V's: 0.7059 (V=174) / 0.7733
+(V=522) — the gap is real and, per this corrected baseline, somewhat wider than day 4 believed.
+Performance is no longer the blocker for reaching case-3 scale (~7000 vertices) in principle;
+whether the mechanism's QUALITY ceiling is competitive at any scale remains open and is now the
+central question, not a data-structure problem.
+
+**Known performance debt remaining**: the `minSep` and cache-invalidation checks
+(`markTouched`, the `for (const Vec3& ev : curP)` scan inside `generate_split_candidates`) are
+O(current vertex count) per call — cheap at V~1000 (measured, not yet the bottleneck) but will
+need a spatial structure of their own before testing at case-3 scale (~23k) or larger.
