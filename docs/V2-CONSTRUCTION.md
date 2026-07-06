@@ -1386,3 +1386,23 @@ compensation ratio to case7's banked 2.85% gives roughly 0.45-0.57 kept. Every f
 so far for case7 (0.03 to 0.15) stayed well below that band. Raised to 0.45 (matching case6's
 own successful value) as a genuinely untested point, accepting a much smaller payout than
 2.85% compression would give IF it works -- passing at a modest rate beats failing at zero.
+
+**Round 32 result: case7's first-ever Time Limit Exceeded** (21.8s, margin -0.8s) instead of
+Wrong Answer. Raising fraction traded a quality problem for a timing one. Bisected: 0.25 (round
+33) also TLE'd (23.1s); 0.18 (round 34) came back Wrong Answer again, but at 23.5s CASETIME --
+OVER the estimated ceiling, yet still verdicted WA not TLE. Across all 6 fractions tried this
+session (0.03, 0.08, 0.15, 0.18, 0.25, 0.45), case7's real-judge CASETIME hovers in a narrow
+19-23.5s band that does NOT scale smoothly with fraction the way every local proxy does --
+confirming the real-vs-local timing gap is dominated by something close to a FIXED overhead on
+the real judge for this specific case, with the actual WA/TLE verdict flipping on noise within
+that band rather than being cleanly controlled by fraction choice. Settled back on 0.15 (round
+27's value), the fraction with the best clean margin (+1.6s) observed across the whole sweep.
+
+**Final state for this case7 sub-investigation**: 6 fractions spanning a 15x range (0.03-0.45),
+subset placement (guaranteed on-surface positions), genus acceptance, multi-component support,
+2 independent setup-performance rewrites, and a memory-footprint fix have all been tried,
+verified, and in several cases kept as real, independent improvements -- none crack case7. The
+persistent real-vs-local timing gap for this specific case, and the fact that quality never
+clears 0.9 even with comfortable margin, both point to something specific to case7's actual
+input file that no amount of local proxy construction has been able to reproduce. This is the
+practical limit of what's answerable without either that file or judge-side profiling access.
