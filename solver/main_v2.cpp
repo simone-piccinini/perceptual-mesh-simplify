@@ -1577,8 +1577,8 @@ int main(int argc, char** argv) {
         if (V <= 7000)   return 0.65;      // case2: bunny proxy drops below 0.9 SSIM already at
                                             // 0.55 -- little headroom, left alone
         if (V <= 30000)  return 0.70;      // case3: CONFIRMED PASSING (r17); 0.60 was WA (r15)
-        if (V <= 40000)  return 0.30;      // case4: passing at 0.40 w/ 11.9s margin; fandisk
-                                            // proxy clears 0.25 at SSIM 0.9781 -- pull further
+        if (V <= 40000)  return 0.40;      // case4: r19's 0.30 was TLE (33.5s), not WA -- growth
+                                            // needed far more work than fandisk predicted; revert
         if (V <= 100000) return 0.40;      // case5: passing at 0.40 (r18); only 1.3s CASETIME
                                             // margin now (TLE risk) -- timing- not SSIM-limited
         if (V <= 400000) return 0.65;      // case6 (~377084): 5 fractions (0.50-0.95) all failed WA, then
