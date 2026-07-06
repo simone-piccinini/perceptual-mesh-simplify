@@ -811,3 +811,85 @@ and repeatable; case6 and case7 remain open, with case6's likely cause now narro
 specific, well-reasoned but unconfirmed hypothesis (unverified genus) rather than continued
 blind guessing, and case7 dominated by judge-side timing variance interacting with a real
 SSIM gap that hasn't been cleanly separated from the noise.
+
+**Round 9** (case7 growth budget 11s -> 7s, more timing margin): added an inert input-topology
+diagnostic (Euler characteristic + component count on the ORIGINAL mesh) to test the genus
+hypothesis passively before risking a behavioral gate on it -- immediately caught a real
+regression locally: `cow_watertight.obj` reports `V-E+F=1` (fails the naive genus-0 check)
+despite clustering working perfectly on it (0.9369 FinalSSIM); gating clustering on this check
+would have silently downgraded cow to the weak hull fallback (0.3326). Reverted the gate to
+`(void)`-cast diagnostic-only before submitting -- the check itself isn't reliable enough to
+act on, only to observe. Submission result: SCORE unchanged (29.39), but for the first time
+case6 showed **Time Limit Exceeded** (21.9s) while case7 showed **Wrong Answer** instead of its
+usual TLE -- the two cases' failure MODES swapped, with case6's own code/budget untouched this
+round. This is the clearest direct evidence yet that judge-side per-run timing noise (not a
+fraction/budget choice) is what flips these two cases between WA and TLE run to run.
+
+**Round 10** (case6 retreat 0.95 -> 0.65, budget 13s -> 9s): given the round-9 swap showed
+case6's aggressive fraction now carries TLE risk with no SSIM upside ever observed across 5
+prior fractions, retreated to the same 0.65 used pre-round-5 and tightened its budget bracket
+to match case7's earlier margin-seeking cut. Result: SCORE unchanged (29.391422), pattern back
+to the "usual" case6=Wrong Answer / case7=Time Limit Exceeded (case7 CASETIME 21.3s, margin
+-0.3s -- over the estimated ceiling). Ten submissions in: score has not moved off 29.39 since
+round 4, and every well-reasoned structural hypothesis for case6 tested so far (SSIM budget,
+degenerate/collinear faces, Hausdorff undersampling, and now genus, passively) has come back
+either ruled out or unactionable without the real input file.
+
+**Round 11** (setup-phase performance fix, no behavior change): profiled the setup phase at
+3.2M-vertex synthetic scale and found two allocation-heavy hotspots: `build_face_adjacency`'s
+per-edge `std::vector<int>` (a heap node per edge) and `build_clustered_mesh`'s per-vertex
+`std::vector<std::vector<int>>` region-vote array (a heap node per vertex, plus a sort each) --
+together roughly 12.7s of a 14.1s total setup at that scale. Replaced both with allocation-free
+fixed-size equivalents (`array<int,2>` per edge -- provably identical result, since the old
+vector-scan only ever read back the first two inserted faces anyway; a flat `nv x nr` count
+table for the vote, since region count `nr` is capped at 20) with no behavioral change,
+confirmed via matching FinalSSIM/manifold/Hausdorff sanity checks on all four local proxies.
+Measured ~1.5s faster wall-clock at 3.2M-vertex scale (23.0s -> 21.6s of setup+growth). Aimed
+directly at case7, whose CASETIME has consistently run past the estimated ceiling with its
+growth-loop BUDGET already cut to the floor -- if setup itself is the dominant, currently
+unbounded cost at ~1M vertices, shrinking setup (not growth budget) is the only lever left that
+doesn't also cut into SSIM.
+
+Submitted: the fix worked exactly as intended for timing -- case7's CASETIME dropped to 15.5s
+(margin +5.5s, no TLE risk flag for the first time ever) -- but with the timing pressure gone,
+case7 surfaced as **Wrong Answer** instead. Meanwhile case6 (whose own budget bracket got the
+same setup speedup) got SLOWER this round (23.2s, its own first TLE) despite no code change to
+its bracket -- reinforcing that case6's remaining margin is dominated by run-to-run judge noise,
+not the setup cost this fix targeted. SCORE unchanged (29.390088).
+
+**This is the clearest evidence yet that case6 and case7 share ONE real, timing-independent
+Wrong-Answer defect**: give either case enough margin to actually finish, and it fails
+validity, not the clock. The TLEs seen across 11 rounds were never proof of "too slow" in the
+sense of needing a faster algorithm -- they were this same defect intermittently getting
+masked by whichever case had the tighter margin that particular run. Fixing the real setup
+performance (round 11) was still worth doing (it's a genuine, free, zero-risk win, and it
+converted one of the two noisy TLEs into a clean WA read) but it cannot move SCORE further on
+its own -- the defect underneath needs the actual failing input file or a structural fix
+(leading hypothesis remains unverified genus, see round 8's writeup) to close.
+
+**Strategic finding, independent of case6/7**: comparing this round's SUM6 (176.34, over the
+4 currently-passing cases) against BANKED's sum for those same 4 cases (346.84, from the
+`ARITH` line) shows main_v2 is paying out at roughly **half** the banked decimator's rate on
+cases it already passes cleanly (avg ~44/case here vs ~86.7/case banked) -- i.e. even a
+main_v2 that passed all 6 cases at its CURRENT quality would land far short of the bank's
+90.28, because the gap isn't only case6/7's validity failures, it's that vertex-clustering +
+SSIM-driven growth is fundamentally less efficient per kept vertex than main.cpp's greedy QEM
+decimation at the same SSIM floor. Closing case6/7 remains worth doing (each is free score on
+the table), but reaching or beating BANK_SCORE through this file requires the construction
+method itself to become more compression-efficient, not just valid on all 6 cases.
+
+**Correction to the round-8/9 genus hypothesis**: dug into WHY `cow_watertight.obj` reports
+`V-E+F=1` instead of the expected 2 for a closed genus-0 surface -- checked directly (Python,
+not this codebase) for boundary edges (0) and non-manifold edges of degree>2 (0), so the mesh
+passes every edge-level manifold check, yet still isn't Euler-consistent with genus 0. Cause:
+exactly one **pinch (bowtie) vertex** -- a vertex whose incident faces form two separate fans
+meeting only at that single point, invisible to any edge-degree test but topologically
+equivalent to two vertices glued together, which shifts the Euler count by exactly 1 without
+violating "every edge has exactly 2 faces." This is NOT real positive genus (no actual
+handle/hole) -- it's a much more mundane defect, and `build_clustered_mesh` already has a
+repair pass for exactly this (`pinch-vertex splitting`, applied to the constructed quotient).
+Since cow (the one local proxy that trips this diagnostic) already passes cleanly through that
+existing repair, the "unverified genus" hypothesis for case6 is weaker than round 8/9 framed
+it: if case6 has a similar issue, it's more likely a pinch-vertex pattern the repair handles
+imperfectly at scale (different density, cluster-boundary interaction) than a genuine
+topological handle. Still unconfirmed either way without the real file.

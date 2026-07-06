@@ -1742,7 +1742,7 @@ int main(int argc, char** argv) {
     // reruns) -- cut harder rather than trust a single-run local or judge timing sample.
     double BUDGET = 16.0;
     if (Vin > 400000)      BUDGET = 7.0;
-    else if (Vin > 100000) BUDGET = 9.0;
+    else if (Vin > 100000) BUDGET = 5.0;
     if (getenv("V2_BUDGET")) BUDGET = atof(getenv("V2_BUDGET"));   // local testing only
 
     // Hausdorff leash (judge rule: 5% of the ORIGINAL AABB diagonal). A sparse growth process
