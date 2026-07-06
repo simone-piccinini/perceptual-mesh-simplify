@@ -154,14 +154,20 @@ kill-shot says governs appearance. One knob (σ), ~50× cheaper than SVD (safe e
 for cases 6/7), a drop-in swap of the placement in `Evaluate`. Candidate across
 **all** cases, including the large ones where nothing else has moved.
 
-*Status: IMPLEMENTED + LOCALLY SCREENED (2026-07-05) — BLOCKED on a judge COMPILE
-OOM (`cc1plus` killed, "Compilation memory limit exceeded", g++-14).* Measured cause:
-D4 added only ~80 MB (a single fat Eigen expression), total 0.66→0.74 GB under
-g++-15 — not a plausible multi-GB OOM; the judge compiler appears to have changed
-(g++-14 vs the recorded GCC 11.5), which would break the pre-D4 solver too. Fixed
-locally by slimming `pq_accumulate` (D4 back to control's 0.66 GB, off-band
-byte-identical). Decisive next step: resubmit the banked pre-D4 build — if it
-compiles, D4 is submittable; if it OOMs, the whole file needs slimming. Full record:
+*Status: IMPLEMENTED + LOCALLY SCREENED (2026-07-05) — hit a judge COMPILE OOM
+(`cc1plus` killed, "Compilation memory limit exceeded", g++-14); REWRITTEN Eigen-free
+(2026-07-06), awaiting judge resubmit.* The probe resolved it: the banked pre-D4 build
+**compiled and scored 90.27** on the judge, so the toolchain is fine — D4's Eigen delta
+was tipping a razor-edge limit. The first fix (slimming `pq_accumulate`) matched control
+footprint under local g++-15 but **still OOM'd** on g++-14, because g++-14 amplifies
+Eigen expression-template instantiation far more than g++-15 (local footprint parity ≠
+judge-side). Fix #2 removes the *cause*: D4 now instantiates **no Eigen template v108
+doesn't already use** — flat `vector<double>` storage (6+3 scalars/vertex), entrywise
+scalar `pq_accumulate` (Vec3 cross/dot only), Matrix3d reconstructed once at the solve
+site to reuse v108's existing `ldlt()`. Result: compile 0.666 GB (**below** v108's
+0.684), entrywise math == Matrix3d @1.4e-14, off-band byte-identical, case-5 screen
+reproduced exactly (+0.0009 @σ=0.25, valid). Since v108 compiles on g++-14 and D4 now
+uses only its templates at ≤ its footprint, D4 must compile too. Full record:
 [../postmortems/d4-compile-oom.md](../postmortems/d4-compile-oom.md). Implemented per the corrected recipe in
 [../theory/paper-notes.md](../theory/paper-notes.md) (the notes' σ-powers were
 dimensionally wrong; re-derived from Q(x)=E[(s̃·x−det̃)²] and verified: σ=0 ⇒ exact

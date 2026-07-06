@@ -73,9 +73,58 @@ Levers to cut single-TU GCC compile memory, cheapest first (none change the algo
   headers (`LDLT`, `SelfAdjointEigenSolver`), or gate rarely-used solvers behind the paths
   that need them.
 
+## The test ran — and it decided (2026-07-06)
+
+The banked pre-D4 90.27 solver (`submissions/v108-c4-4990-90266754/main.cpp`) was
+resubmitted: **it compiled and scored 90.266754**. So the judge's toolchain is fine —
+the OOM is D4's delta tipping a razor-edge limit, not a judge-wide regression. Good news
+for the project; bad news for the *slimmed* D4, because:
+
+The slimmed D4 (per-statement `pq_accumulate`, but still `vector<Eigen::Matrix3d>` storage
+and Matrix3d arithmetic on the collapse/eval paths) was **also resubmitted — and still
+OOM'd** on g++-14. Local `g++-15` couldn't reproduce it (the delta looked "gone" at 0.66 GB),
+which is exactly the trap: **g++-14 amplifies Eigen expression-template instantiation far
+more than g++-15**, so a local footprint match is not a judge-side guarantee. The remaining
+`Matrix3d` operators (`s*s.transpose()`, `ldlt()`, the `vector<Matrix3d>` accumulation) were
+still pulling new template instantiations that g++-14 blows up on.
+
+## Fix #2 — make D4 add ZERO new Eigen instantiations
+
+Rather than chase footprint, the rewrite removes the *cause*: D4 now instantiates **no Eigen
+template that v108 doesn't already use.**
+
+- Storage: `vector<Eigen::Matrix3d> Apq; vector<Vec3> bpq; vector<double> cpq;`
+  → `vector<double> pqA` (6 per vertex: a00 a01 a02 a11 a12 a22) + `vector<double> pqB`
+  (3 per vertex). Dropped dead `cpq`.
+- `pq_accumulate`: builds A's six entries and b's three entries as **plain `double`s**,
+  entrywise, using only `Vec3` cross/dot (which v108 already instantiates). No `Matrix3d`
+  ever constructed in the accumulate path.
+- Collapse: adds the flat `double` arrays elementwise (6+3 adds) — no Matrix3d `operator+`.
+- Solve site (once per candidate, off the hot storage path): reconstruct a local
+  `Eigen::Matrix3d` from the flat entries and reuse v108's **existing** `ldlt().solve()`.
+  That `LDLT<Matrix3d>` instantiation already lives in v108, so it costs nothing new.
+
+Verification (this Mac, g++-15 -O2, and end-to-end):
+
+| build | peak RSS (g++-15 -O2) |
+|---|---|
+| v108 (banked, compiles+scores on judge) | 0.684 GB |
+| D4 Eigen-free (this fix) | **0.666 GB — below v108** |
+
+- Entrywise A,b vs the reference Matrix3d formula, 500 random triangles:
+  `max|ΔA|=1.4e-14, max|Δb|=7.1e-15` → exact transcription.
+- Off-band (cases 2/3/4/6/7) byte-identical to v108 (cow/bunny/fandisk IDENTICAL).
+- Case-5 screen reproduced exactly: σ=0.25 → SSIM 0.9276 vs control 0.9267 = **+0.0009**, valid.
+
+D4 now compiles at-or-below the banked build that the judge already accepts, using only its
+templates — so if v108 compiles on g++-14, D4 must too. Awaiting the judge resubmit to close.
+
 ## Takeaway
 
 The file was already near the ceiling; a single fat Eigen expression is worth ~80 MB of
-`cc1plus` memory. Keep new Eigen code in small per-statement ops, and **treat a compile
-verdict as a toolchain probe** — the decisive read is whether the banked build still
-compiles.
+`cc1plus` memory — but the deeper lesson is that **local `g++-15` footprint parity does NOT
+predict `g++-14`**: expression-template instantiation is the axis that diverges. The robust
+fix for a compile-limited single-TU Eigen file is not "use less memory" but "**add no new
+template instantiations**" — keep new math in plain scalars and reuse the solver types the
+banked build already pays for. And **treat a compile verdict as a toolchain probe**: the
+decisive read was whether the banked build still compiled (it did).
