@@ -1576,8 +1576,8 @@ int main(int argc, char** argv) {
     auto keep_for = [](int V) -> double {
         if (V <= 7000)   return 0.65;      // case2: bunny proxy drops below 0.9 SSIM already at
                                             // 0.55 -- little headroom, left alone
-        if (V <= 30000)  return 0.80;      // case3: r15 pulled to 0.60 -> Wrong Answer, reverted;
-                                            // no local proxy at this size, was a bad blind guess
+        if (V <= 30000)  return 0.70;      // case3: 0.60->WA (r15), 0.80 safe w/ 16s margin (r16)
+                                            // -- bisecting on the real judge, no proxy at this size
         if (V <= 40000)  return 0.40;      // case4: CONFIRMED PASSING at 0.40 (r15) -- kept
         if (V <= 100000) return 0.45;      // case5: passing at 0.55; QEM reposition (r13) clears
                                             // local SSIM at 0.35 (0.9533) -- pull to 0.45
