@@ -1,24 +1,15 @@
-// IMC2 Problem B (simplifygeometry) — SECOND SOLVER, built from scratch (2026-07-06).
+// IMC2 Problem B (simplifygeometry) — SECOND SOLVER, built from scratch. CONSTRUCTION method
+// (starts near-empty, ADDS vertices where the render is wrong) -- unrelated to main.cpp's
+// DECIMATION algorithm at the design level. Shares only the judge's own spec (OBJ I/O,
+// rasterizer, SSIM formula), never main.cpp's decimation logic.
 //
-// This is NOT a variant of solver/main.cpp. main.cpp's algorithm (greedy QEM/VSA-lite
-// edge-collapse decimation) is a DECIMATION method: it starts from the full mesh and removes
-// vertices. This file is a CONSTRUCTION method: it starts from almost nothing and ADDS
-// vertices where the rendered image is wrong. The two are unrelated at the algorithm level.
-//
-// What IS shared with main.cpp, deliberately: the parts that are not "the algorithm" but the
-// judge's own specification — OBJ I/O, the 6-camera rasterizer, the SSIM formula. There is
-// exactly one correct way to implement an external spec; reproducing it here is not reusing
-// a design decision, it is satisfying a scoring contract. Every other choice below (seed
-// topology, growth order, split rule, vertex placement) is independent of main.cpp.
-//
-// STATUS 2026-07-06 (8 real judge submissions so far): seed = vertex-clustering quotient
-// (Rossignac & Borrel style, region-segmentation-anchored), falls back to a convex hull if the
-// quotient fails its own manifold/genus check, then exact-delta SSIM-driven refinement for any
-// remaining budget. CONFIRMED passing on the real judge: case2/3/4/5. Still failing: case6
-// (Wrong Answer across 5 keep fractions 0.50-0.95 plus targeted fixes -- cause unconfirmed,
-// leading hypothesis is unverified input genus, see the topology check in main()) and case7
-// (Time Limit Exceeded, judge-side timing variance not yet cleanly separated from a real SSIM
-// gap). Full history: docs/V2-CONSTRUCTION.md. Submitted standalone via
+// STATUS 2026-07-06 (10 real judge submissions): seed = vertex-clustering quotient
+// (Rossignac & Borrel, region-segmentation-anchored), hull fallback if the quotient fails its
+// manifold/genus check, then exact-delta SSIM-driven refinement. PASSING: case2/3/4/5.
+// FAILING: case6 (Wrong Answer across 6 keep fractions 0.50-0.95 -- cause unconfirmed, not
+// SSIM/budget, leading guess is unverified input genus, see topology check in main()) and
+// case7 (right at the CPU ceiling -- setup cost, not the growth loop, dominates at ~1M
+// vertices). Full history: docs/V2-CONSTRUCTION.md. Submit standalone via
 // `scripts/judge_submit.py solver/main_v2.cpp` -- never touches the banked main.cpp.
 
 #include <cstdio>
@@ -779,21 +770,26 @@ static void generate_split_candidates(const Vec3& a, const Vec3& b, const Vec3& 
 // regions up front and treats the boundaries between regions as insertion targets. Same
 // underlying insight (flat regions matter more than raw vertex density), independently applied.
 static std::vector<std::array<int,3>> build_face_adjacency(const std::vector<std::array<int,3>>& F) {
-    std::unordered_map<std::pair<int,int>, std::vector<int>, PairIntHash> edgeFaces;
+    // array<int,2>, not vector<int> -- no per-edge heap alloc; only the first two faces per
+    // edge are ever read back below, so this matches the old vector-scan result exactly.
+    std::unordered_map<std::pair<int,int>, std::array<int,2>, PairIntHash> edgeFaces;
     edgeFaces.reserve(F.size() * 2);
     auto keyOf = [](int a, int b) { return a < b ? std::make_pair(a, b) : std::make_pair(b, a); };
     for (int f = 0; f < (int)F.size(); ++f) {
         const auto& t = F[f];
         int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
-        for (auto& ee : e) edgeFaces[keyOf(ee[0], ee[1])].push_back(f);
+        for (auto& ee : e) {
+            auto& slot = edgeFaces.try_emplace(keyOf(ee[0], ee[1]), std::array<int,2>{-1,-1}).first->second;
+            if (slot[0] == -1) slot[0] = f; else if (slot[1] == -1) slot[1] = f;
+        }
     }
     std::vector<std::array<int,3>> adj(F.size(), {-1,-1,-1});
     for (int f = 0; f < (int)F.size(); ++f) {
         const auto& t = F[f];
         int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
         for (int k = 0; k < 3; ++k) {
-            auto& lst = edgeFaces[keyOf(e[k][0], e[k][1])];
-            for (int g : lst) if (g != f) { adj[f][k] = g; break; }
+            const auto& slot = edgeFaces[keyOf(e[k][0], e[k][1])];
+            adj[f][k] = (slot[0] == f) ? slot[1] : slot[0];
         }
     }
     return adj;
@@ -955,19 +951,18 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
         // -- doesn't need to be exact, just a reasonable "this vertex is roughly in region r".
         std::vector<int> vertRegion(nv, -1);
         {
-            std::vector<std::vector<int>> votes(nv);
+            // Flat nv x nr count table, not nv per-vertex vector<int>+sort -- nr is small (<=20).
+            // Same lowest-region-id-wins tie-break (`>` not `>=`) as the old version.
+            std::vector<int> voteCount((size_t)nv * nr, 0);
             for (int f = 0; f < (int)origF.size(); ++f) {
                 const auto& t = origF[f];
-                for (int k = 0; k < 3; ++k) votes[t[k]].push_back(seg.regionOf[f]);
+                int r = seg.regionOf[f];
+                for (int k = 0; k < 3; ++k) voteCount[(size_t)t[k] * nr + r]++;
             }
             for (int v = 0; v < nv; ++v) {
-                if (votes[v].empty()) continue;
-                std::sort(votes[v].begin(), votes[v].end());
-                int bestR = votes[v][0], bestCount = 1, curR = votes[v][0], curCount = 1;
-                for (size_t i = 1; i < votes[v].size(); ++i) {
-                    if (votes[v][i] == curR) ++curCount; else { curR = votes[v][i]; curCount = 1; }
-                    if (curCount > bestCount) { bestCount = curCount; bestR = curR; }
-                }
+                const int* row = &voteCount[(size_t)v * nr];
+                int bestR = -1, bestCount = 0;
+                for (int r = 0; r < nr; ++r) if (row[r] > bestCount) { bestCount = row[r]; bestR = r; }
                 vertRegion[v] = bestR;
             }
         }
