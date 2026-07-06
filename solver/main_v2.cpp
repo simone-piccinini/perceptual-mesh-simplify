@@ -1064,64 +1064,184 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
     // count can't catch. Detect via per-vertex fan connectivity (two faces sharing an edge
     // THROUGH this vertex are in the same fan) and split any pinch vertex into one duplicate per
     // disconnected fan -- the standard, minimal fix (never assume clustering avoided this).
-    {
-        int nvOut = (int)out.P.size();
-        std::vector<std::vector<int>> incident(nvOut);
-        for (int f = 0; f < (int)out.F.size(); ++f) for (int k = 0; k < 3; ++k) incident[out.F[f][k]].push_back(f);
+    // Iterated together with the isolated-vertex strip below: at larger scale (more kept
+    // vertices, denser edge-point sets) a single pass of each left V-E+F=4 instead of 2 --
+    // splitting a pinch can, in principle, leave a vertex 0-face on one side, and stripping can
+    // shift which vertex a later pass would have found; loop both until nothing changes rather
+    // than assuming one pass of each suffices.
+    for (int repairPass = 0; repairPass < 6; ++repairPass) {
         int pinchesFound = 0;
-        for (int v = 0; v < nvOut; ++v) {
-            auto& facesV = incident[v];
-            if (facesV.size() <= 1) continue;
-            std::vector<std::vector<int>> adjF(facesV.size());
-            for (size_t i = 0; i < facesV.size(); ++i) {
-                const auto& fi = out.F[facesV[i]];
-                std::vector<int> oi; for (int k = 0; k < 3; ++k) if (fi[k] != v) oi.push_back(fi[k]);
-                for (size_t j = i + 1; j < facesV.size(); ++j) {
-                    const auto& fj = out.F[facesV[j]];
-                    std::vector<int> oj; for (int k = 0; k < 3; ++k) if (fj[k] != v) oj.push_back(fj[k]);
-                    bool shareEdge = false;
-                    for (int a : oi) for (int b : oj) if (a == b) shareEdge = true;
-                    if (shareEdge) { adjF[i].push_back((int)j); adjF[j].push_back((int)i); }
+        {
+            int nvOut = (int)out.P.size();
+            std::vector<std::vector<int>> incident(nvOut);
+            for (int f = 0; f < (int)out.F.size(); ++f) for (int k = 0; k < 3; ++k) incident[out.F[f][k]].push_back(f);
+            for (int v = 0; v < nvOut; ++v) {
+                auto& facesV = incident[v];
+                if (facesV.size() <= 1) continue;
+                std::vector<std::vector<int>> adjF(facesV.size());
+                for (size_t i = 0; i < facesV.size(); ++i) {
+                    const auto& fi = out.F[facesV[i]];
+                    std::vector<int> oi; for (int k = 0; k < 3; ++k) if (fi[k] != v) oi.push_back(fi[k]);
+                    for (size_t j = i + 1; j < facesV.size(); ++j) {
+                        const auto& fj = out.F[facesV[j]];
+                        std::vector<int> oj; for (int k = 0; k < 3; ++k) if (fj[k] != v) oj.push_back(fj[k]);
+                        bool shareEdge = false;
+                        for (int a : oi) for (int b : oj) if (a == b) shareEdge = true;
+                        if (shareEdge) { adjF[i].push_back((int)j); adjF[j].push_back((int)i); }
+                    }
+                }
+                std::vector<int> comp(facesV.size(), -1); int nc = 0;
+                for (size_t i = 0; i < facesV.size(); ++i) {
+                    if (comp[i] >= 0) continue;
+                    std::vector<size_t> stack = {i}; comp[i] = nc;
+                    while (!stack.empty()) {
+                        size_t u = stack.back(); stack.pop_back();
+                        for (int w : adjF[u]) if (comp[w] < 0) { comp[w] = nc; stack.push_back((size_t)w); }
+                    }
+                    ++nc;
+                }
+                if (nc <= 1) continue;   // manifold vertex, nothing to do
+                ++pinchesFound;
+                std::vector<int> newIdxForComp(nc, v);
+                for (int c = 1; c < nc; ++c) { newIdxForComp[c] = (int)out.P.size(); out.P.push_back(out.P[v]); }
+                for (size_t i = 0; i < facesV.size(); ++i) {
+                    int c = comp[i]; if (c == 0) continue;
+                    auto& f = out.F[facesV[i]];
+                    for (int k = 0; k < 3; ++k) if (f[k] == v) f[k] = newIdxForComp[c];
                 }
             }
-            std::vector<int> comp(facesV.size(), -1); int nc = 0;
-            for (size_t i = 0; i < facesV.size(); ++i) {
-                if (comp[i] >= 0) continue;
-                std::vector<size_t> stack = {i}; comp[i] = nc;
-                while (!stack.empty()) {
-                    size_t u = stack.back(); stack.pop_back();
-                    for (int w : adjF[u]) if (comp[w] < 0) { comp[w] = nc; stack.push_back((size_t)w); }
-                }
-                ++nc;
-            }
-            if (nc <= 1) continue;   // manifold vertex, nothing to do
-            ++pinchesFound;
-            std::vector<int> newIdxForComp(nc, v);
-            for (int c = 1; c < nc; ++c) { newIdxForComp[c] = (int)out.P.size(); out.P.push_back(out.P[v]); }
-            for (size_t i = 0; i < facesV.size(); ++i) {
-                int c = comp[i]; if (c == 0) continue;
-                auto& f = out.F[facesV[i]];
-                for (int k = 0; k < 3; ++k) if (f[k] == v) f[k] = newIdxForComp[c];
-            }
+            if (getenv("V2_DBG") && pinchesFound) std::fprintf(stderr, "[v2cluster] pass %d: pinch vertices split: %d\n", repairPass, pinchesFound);
         }
-        if (getenv("V2_DBG")) std::fprintf(stderr, "[v2cluster] pinch vertices split: %d\n", pinchesFound);
+
+        // Repair pass: a KEPT vertex whose entire cluster's faces all got dropped (degenerate
+        // quotient or edge-cap rejection), OR a pinch-split's freshly duplicated vertex that
+        // happened to get zero faces on its side, survives with ZERO incident faces -- inflating
+        // vertex count without touching edge/face count, silently breaking the genus-0 Euler
+        // invariant. Strip any 0-face vertex and recompact indices.
+        int stripped;
+        {
+            std::vector<char> used(out.P.size(), 0);
+            for (const auto& t : out.F) for (int k = 0; k < 3; ++k) used[t[k]] = 1;
+            std::vector<int> remap(out.P.size(), -1);
+            std::vector<Vec3> newP;
+            for (size_t v = 0; v < out.P.size(); ++v) if (used[v]) { remap[v] = (int)newP.size(); newP.push_back(out.P[v]); }
+            stripped = (int)out.P.size() - (int)newP.size();
+            out.P = newP;
+            for (auto& t : out.F) for (int k = 0; k < 3; ++k) t[k] = remap[t[k]];
+            if (getenv("V2_DBG") && stripped) std::fprintf(stderr, "[v2cluster] pass %d: stripped %d isolated (0-face) vertices\n", repairPass, stripped);
+        }
+        if (pinchesFound == 0 && stripped == 0) break;   // stable, no more progress possible
     }
 
-    // Repair pass: a KEPT vertex whose entire cluster's faces all got dropped (degenerate
-    // quotient or edge-cap rejection) survives in out.P with ZERO incident faces -- inflating
-    // vertex count without touching edge/face count, which silently breaks the genus-0 Euler
-    // invariant (measured: exactly 1 isolated vertex, V-E+F=3 instead of 2 -- an exact match,
-    // not a coincidence). Strip any 0-face vertex and recompact indices.
-    {
-        std::vector<char> used(out.P.size(), 0);
-        for (const auto& t : out.F) for (int k = 0; k < 3; ++k) used[t[k]] = 1;
-        std::vector<int> remap(out.P.size(), -1);
-        std::vector<Vec3> newP;
-        for (size_t v = 0; v < out.P.size(); ++v) if (used[v]) { remap[v] = (int)newP.size(); newP.push_back(out.P[v]); }
-        int stripped = (int)out.P.size() - (int)newP.size();
-        out.P = newP;
-        for (auto& t : out.F) for (int k = 0; k < 3; ++k) t[k] = remap[t[k]];
-        if (getenv("V2_DBG") && stripped) std::fprintf(stderr, "[v2cluster] stripped %d isolated (0-face) vertices\n", stripped);
+    // Repair pass: none of the above (edge cap, ear-clipping, pinch-split, isolated-strip) can
+    // catch a mesh that got cut into multiple fully DISCONNECTED closed pieces -- a different
+    // signature (chi=4 = 2+2, two separate spheres, not chi=3's single-shared-point pinch).
+    // Measured at larger scale (K=20, ~2000-vertex budget on armadillo): 2 connected components,
+    // where the smaller size scale test never triggered it. A chain of dropped/rejected faces
+    // can, in principle, fully sever part of the surface once enough of them cluster together.
+    // Pragmatic fix: keep only the LARGEST component (by face count) and re-close whatever
+    // boundary holes that creates, then re-run the pinch/isolated repair once more -- discarding
+    // is safe only if the leash still holds afterward, checked by the caller's manifoldOk gate
+    // plus main()'s own Hausdorff sanity check either way.
+    for (int compPass = 0; compPass < 3; ++compPass) {
+        std::map<std::pair<int,int>, std::vector<int>> ef2;
+        for (int f = 0; f < (int)out.F.size(); ++f) {
+            const auto& t = out.F[f];
+            int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
+            for (auto& ee : e) ef2[keyOf(ee[0], ee[1])].push_back(f);
+        }
+        std::vector<std::vector<int>> fadj(out.F.size());
+        for (auto& kv : ef2) if (kv.second.size() == 2) { fadj[kv.second[0]].push_back(kv.second[1]); fadj[kv.second[1]].push_back(kv.second[0]); }
+        std::vector<int> fcomp(out.F.size(), -1); std::vector<int> compSize; int ncomp = 0;
+        for (int f = 0; f < (int)out.F.size(); ++f) {
+            if (fcomp[f] >= 0) continue;
+            std::vector<int> stack = {f}; fcomp[f] = ncomp; int sz = 0;
+            while (!stack.empty()) { int u = stack.back(); stack.pop_back(); ++sz; for (int w : fadj[u]) if (fcomp[w] < 0) { fcomp[w] = ncomp; stack.push_back(w); } }
+            compSize.push_back(sz); ++ncomp;
+        }
+        if (ncomp <= 1) break;   // single piece -- nothing to prune
+        int best = 0; for (int c = 1; c < ncomp; ++c) if (compSize[c] > compSize[best]) best = c;
+        std::vector<std::array<int,3>> kept2;
+        for (int f = 0; f < (int)out.F.size(); ++f) if (fcomp[f] == best) kept2.push_back(out.F[f]);
+        if (getenv("V2_DBG"))
+            std::fprintf(stderr, "[v2cluster] compPass %d: %d components, dropping %zu faces outside the largest\n",
+                         compPass, ncomp, out.F.size() - kept2.size());
+        out.F = kept2;
+
+        // re-close boundary holes the pruning just created, same ear-clipping as before.
+        edgeCount.clear();
+        for (const auto& t : out.F) { int e[3][2]={{t[0],t[1]},{t[1],t[2]},{t[2],t[0]}}; for (auto& ee:e) ++edgeCount[keyOf(ee[0],ee[1])]; }
+        for (int pass2 = 0; pass2 < 8; ++pass2) {
+            std::map<int, std::vector<int>> bnext;
+            for (const auto& kv : edgeCount) if (kv.second == 1) { bnext[kv.first.first].push_back(kv.first.second); bnext[kv.first.second].push_back(kv.first.first); }
+            if (bnext.empty()) break;
+            size_t added2 = 0; std::set<int> vis2;
+            for (auto& kv : bnext) {
+                int start = kv.first; if (vis2.count(start)) continue;
+                std::vector<int> loop2; int prev = -1, cur = start; bool ok2 = true;
+                while (true) {
+                    loop2.push_back(cur); vis2.insert(cur);
+                    int next = -1; for (int n : bnext[cur]) if (n != prev) { next = n; break; }
+                    if (next < 0) { ok2 = false; break; }
+                    prev = cur; cur = next;
+                    if (cur == start) break;
+                    if ((int)loop2.size() > (int)out.P.size()) { ok2 = false; break; }
+                }
+                if (!ok2 || loop2.size() < 3) continue;
+                std::vector<int> ring2 = loop2;
+                while (ring2.size() >= 3) {
+                    bool prog2 = false;
+                    for (size_t i = 0; i < ring2.size(); ++i) {
+                        int a = ring2[(i+ring2.size()-1)%ring2.size()], b = ring2[i], c = ring2[(i+1)%ring2.size()];
+                        if (a == c) continue;
+                        int e[3][2] = {{a,b},{b,c},{c,a}}; bool okTri2 = true;
+                        for (auto& ee : e) if (edgeCount[keyOf(ee[0],ee[1])] >= 2) { okTri2 = false; break; }
+                        if (!okTri2) continue;
+                        for (auto& ee : e) ++edgeCount[keyOf(ee[0],ee[1])];
+                        out.F.push_back({a,b,c}); ring2.erase(ring2.begin()+(long)i);
+                        prog2 = true; ++added2; break;
+                    }
+                    if (!prog2) break;
+                }
+            }
+            if (added2 == 0) break;
+        }
+
+        // pruning + re-closing can itself create fresh pinch/isolated defects -- one more pass.
+        {
+            int nvOut = (int)out.P.size();
+            std::vector<std::vector<int>> incident(nvOut);
+            for (int f = 0; f < (int)out.F.size(); ++f) for (int k = 0; k < 3; ++k) incident[out.F[f][k]].push_back(f);
+            for (int v = 0; v < nvOut; ++v) {
+                auto& facesV = incident[v]; if (facesV.size() <= 1) continue;
+                std::vector<std::vector<int>> adjF(facesV.size());
+                for (size_t i = 0; i < facesV.size(); ++i) {
+                    const auto& fi = out.F[facesV[i]]; std::vector<int> oi; for (int k=0;k<3;++k) if (fi[k]!=v) oi.push_back(fi[k]);
+                    for (size_t j = i+1; j < facesV.size(); ++j) {
+                        const auto& fj = out.F[facesV[j]]; std::vector<int> oj; for (int k=0;k<3;++k) if (fj[k]!=v) oj.push_back(fj[k]);
+                        bool se = false; for (int a:oi) for (int b:oj) if (a==b) se=true;
+                        if (se) { adjF[i].push_back((int)j); adjF[j].push_back((int)i); }
+                    }
+                }
+                std::vector<int> comp(facesV.size(), -1); int nc = 0;
+                for (size_t i = 0; i < facesV.size(); ++i) {
+                    if (comp[i] >= 0) continue;
+                    std::vector<size_t> stack = {i}; comp[i] = nc;
+                    while (!stack.empty()) { size_t u = stack.back(); stack.pop_back(); for (int w : adjF[u]) if (comp[w] < 0) { comp[w] = nc; stack.push_back((size_t)w); } }
+                    ++nc;
+                }
+                if (nc <= 1) continue;
+                std::vector<int> newIdxForComp(nc, v);
+                for (int c = 1; c < nc; ++c) { newIdxForComp[c] = (int)out.P.size(); out.P.push_back(out.P[v]); }
+                for (size_t i = 0; i < facesV.size(); ++i) { int c = comp[i]; if (c==0) continue; auto& f = out.F[facesV[i]]; for (int k=0;k<3;++k) if (f[k]==v) f[k]=newIdxForComp[c]; }
+            }
+            std::vector<char> used2(out.P.size(), 0);
+            for (const auto& t : out.F) for (int k = 0; k < 3; ++k) used2[t[k]] = 1;
+            std::vector<int> remap2(out.P.size(), -1); std::vector<Vec3> newP2;
+            for (size_t v = 0; v < out.P.size(); ++v) if (used2[v]) { remap2[v] = (int)newP2.size(); newP2.push_back(out.P[v]); }
+            out.P = newP2;
+            for (auto& t : out.F) for (int k = 0; k < 3; ++k) t[k] = remap2[t[k]];
+        }
     }
 
     // Final check: after the edge-cap + repair pass, require a properly CLOSED 2-manifold
@@ -1141,9 +1261,30 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
     // entirely) shows up as a wrong Euler characteristic even when every edge count is clean --
     // gate on it explicitly rather than trusting edge counts alone.
     out.manifoldOk = (badEdges == 0 && oneEdges == 0 && eulerChar == 2);
-    if (getenv("V2_DBG"))
+    if (getenv("V2_DBG")) {
+        // chi=4 (off by exactly 2) is the signature of TWO fully disconnected closed components
+        // (2+2=4), distinct from a pinch (2+2-1=3) -- check directly rather than guess.
+        int nvOut = (int)out.P.size();
+        std::vector<std::vector<int>> fadj(out.F.size());
+        std::map<std::pair<int,int>, std::vector<int>> edgeFaces2;
+        for (int f = 0; f < (int)out.F.size(); ++f) {
+            const auto& t = out.F[f];
+            int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
+            for (auto& ee : e) edgeFaces2[keyOf(ee[0], ee[1])].push_back(f);
+        }
+        for (auto& kv : edgeFaces2) if (kv.second.size() == 2) { fadj[kv.second[0]].push_back(kv.second[1]); fadj[kv.second[1]].push_back(kv.second[0]); }
+        std::vector<int> fcomp(out.F.size(), -1); int ncomp = 0;
+        for (int f = 0; f < (int)out.F.size(); ++f) {
+            if (fcomp[f] >= 0) continue;
+            std::vector<int> stack = {f}; fcomp[f] = ncomp;
+            while (!stack.empty()) { int u = stack.back(); stack.pop_back(); for (int w : fadj[u]) if (fcomp[w] < 0) { fcomp[w] = ncomp; stack.push_back(w); } }
+            ++ncomp;
+        }
+        (void)nvOut;
+        std::fprintf(stderr, "[v2cluster] connected components (by face adjacency): %d\n", ncomp);
         std::fprintf(stderr, "[v2cluster] edges=%zu badEdges(>2)=%ld boundaryEdges(=1)=%ld worstCount=%d V-E+F=%ld\n",
                      edgeCount.size(), badEdges, oneEdges, worstCount, eulerChar);
+    }
     return out;
 }
 
