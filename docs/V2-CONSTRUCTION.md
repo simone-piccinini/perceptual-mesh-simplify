@@ -1258,3 +1258,37 @@ case7 remains the sole open case, its defect unexplained after the most thorough
 this project's tooling allows (real genus-3 and genus-131 objects at matching scale, both
 passing quickly and cleanly -- ruling out topology and scale as the cause). Further progress on
 case7 needs the real input file or judge-side access neither available here.
+
+## Round 26: case7 setup-time attack -- sort-based adjacency + dead-diagnostic removal
+
+User pushed for continued 100% focus on case7 rather than stopping. Checked and ruled out two
+more theories: (1) CPU-billed-across-threads (documented for this same judge, real cause of
+past TLEs on the other solver) -- grepped for any thread/parallel/async usage in this file,
+found none, doesn't apply. (2) Memory pressure against the documented 1-2 GiB judge limit --
+found and fixed a real inefficiency (cellQ sized by `nv`, 1M+ at case7 scale, when only
+`kept.size()` was ever used -- shrunk ~115MB -> ~9MB at a 1.2M-vertex test), shipped as round
+25, but SCORE was unchanged on the real judge (case7 still WA, same ~-1.8s margin) -- memory
+wasn't the binding constraint either.
+
+Confirmed via repeated local timing tests (varying case7's fraction from 0.08 down to 0.02)
+that GROWTH time is not the bottleneck -- total runtime barely changes with fraction, meaning
+SETUP time (fraction-independent, scales only with raw input size) dominates and is the only
+remaining lever. Two real wins found by profiling setup directly:
+
+1. **`build_face_adjacency` rewritten sort-based instead of hash-map-based**: one bulk sort
+   over packed int64 edge keys has far better cache locality than ~3F individual hash-map
+   inserts/lookups. Verified byte-identical output on every local proxy; measured ~17% faster
+   at both 1.2M and 3.2M vertex scale.
+2. **Deleted a whole dead code path**: the `inputIsSimpleGenus0` diagnostic (added round 9,
+   originally meant to test the pre-fix genus hypothesis, explicitly inert via `(void)`-cast
+   ever since, confirmed to never affect behavior) was still running a full, UNoptimized
+   hash-map-based edge/component/Euler-characteristic computation over the entire original
+   mesh on every run, for a result nothing ever read. Removing it alone accounted for most of
+   the setup-time win.
+
+**Combined result at case7 scale (1.2M-vertex real genus-3 proxy, case7's own fraction/budget):
+setup time 4.56s -> 2.70s (41% reduction), total runtime ~9.4s vs ~11s before** -- a savings
+(~1.6-1.8s) landing right in the range of case7's most recent real-judge margin deficit (-1.8s).
+This is the most promising case7 lever found all session: not a guess about the INPUT, but a
+confirmed, verified-correct, purely mechanical speedup that should apply regardless of what
+case7's real geometry actually is. Submitting immediately as round 26.

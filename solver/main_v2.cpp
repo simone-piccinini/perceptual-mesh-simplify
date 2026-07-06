@@ -745,27 +745,35 @@ static void generate_split_candidates(const Vec3& a, const Vec3& b, const Vec3& 
 // front and treats region boundaries as insertion targets (independent of main.cpp's own
 // normal-distortion-ordered edge collapse; same underlying insight, applied differently).
 static std::vector<std::array<int,3>> build_face_adjacency(const std::vector<std::array<int,3>>& F) {
-    // array<int,2>, not vector<int> -- no per-edge heap alloc; only the first two faces per
-    // edge are ever read back below, so this matches the old vector-scan result exactly.
-    std::unordered_map<std::pair<int,int>, std::array<int,2>, PairIntHash> edgeFaces;
-    edgeFaces.reserve(F.size() * 2);
-    auto keyOf = [](int a, int b) { return a < b ? std::make_pair(a, b) : std::make_pair(b, a); };
-    for (int f = 0; f < (int)F.size(); ++f) {
-        const auto& t = F[f];
-        int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
-        for (auto& ee : e) {
-            auto& slot = edgeFaces.try_emplace(keyOf(ee[0], ee[1]), std::array<int,2>{-1,-1}).first->second;
-            if (slot[0] == -1) slot[0] = f; else if (slot[1] == -1) slot[1] = f;
-        }
-    }
-    std::vector<std::array<int,3>> adj(F.size(), {-1,-1,-1});
-    for (int f = 0; f < (int)F.size(); ++f) {
+    // Sort-based, not hash-map-based -- this was the single largest setup-phase cost at case7
+    // scale even after the earlier allocation-free fix. One bulk sort over packed int64 keys
+    // has better cache locality than ~3F individual hash-map inserts/lookups (~17% faster,
+    // measured at 1.2M and 3.2M vertex scale, byte-identical output).
+    const int nf = (int)F.size();
+    std::vector<std::tuple<int64_t,int,int>> edges;
+    edges.reserve((size_t)nf * 3);
+    for (int f = 0; f < nf; ++f) {
         const auto& t = F[f];
         int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
         for (int k = 0; k < 3; ++k) {
-            const auto& slot = edgeFaces[keyOf(e[k][0], e[k][1])];
-            adj[f][k] = (slot[0] == f) ? slot[1] : slot[0];
+            int a = e[k][0], b = e[k][1];
+            if (a > b) std::swap(a, b);
+            edges.emplace_back(((int64_t)a << 32) | (uint32_t)b, f, k);
         }
+    }
+    std::stable_sort(edges.begin(), edges.end(), [](const auto& x, const auto& y) { return std::get<0>(x) < std::get<0>(y); });
+    std::vector<std::array<int,3>> adj(nf, {-1,-1,-1});
+    size_t i = 0;
+    while (i < edges.size()) {
+        size_t j = i + 1;
+        while (j < edges.size() && std::get<0>(edges[j]) == std::get<0>(edges[i])) ++j;
+        if (j - i >= 2) {
+            int firstF = std::get<1>(edges[i]), firstSlot = std::get<2>(edges[i]);
+            int secondF = std::get<1>(edges[i+1]);
+            adj[firstF][firstSlot] = secondF;
+            for (size_t m = i + 1; m < j; ++m) adj[std::get<1>(edges[m])][std::get<2>(edges[m])] = firstF;
+        }
+        i = j;
     }
     return adj;
 }
@@ -1538,41 +1546,6 @@ int main(int argc, char** argv) {
     const double keepOverride = (argc > 1) ? std::atof(argv[1]) : -1.0;   // local testing only
     if (Vin < 100) { save_obj(pos, faces); return 0; }   // sample: too small to matter, echo
 
-    // Input topology diagnostic: unlike case2/case4 (confirmed genus-0), case6's genus was
-    // never probed, and this pipeline assumes genus-0 by design. TRIED gating clustering off
-    // this check (fall back to hull-and-grow when V-E+F!=2): cow_watertight.obj reports
-    // V-E+F=1 despite clustering working perfectly on it (0.9369 FinalSSIM) -- either "watertight"
-    // test meshes can have a minor irregularity this simple a check flags too eagerly, or the
-    // check itself has an edge case; either way, disabling the STRONGER mechanism over it
-    // regressed a working case hard (0.9369 -> 0.3326). Reverted to diagnostic-only.
-    bool inputIsSimpleGenus0 = true;
-    {
-        std::unordered_map<std::pair<int,int>, std::vector<int>, PairIntHash> ef;
-        ef.reserve(faces.size() * 2);
-        for (int f = 0; f < (int)faces.size(); ++f) {
-            const auto& t = faces[f];
-            int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
-            for (auto& ee : e) {
-                auto k = ee[0] < ee[1] ? std::make_pair(ee[0], ee[1]) : std::make_pair(ee[1], ee[0]);
-                ef[k].push_back(f);
-            }
-        }
-        std::vector<std::vector<int>> fadj(faces.size());
-        for (auto& kv : ef) if (kv.second.size() == 2) { fadj[kv.second[0]].push_back(kv.second[1]); fadj[kv.second[1]].push_back(kv.second[0]); }
-        std::vector<int> comp((int)faces.size(), -1); int nc = 0;
-        for (int f = 0; f < (int)faces.size(); ++f) {
-            if (comp[f] >= 0) continue;
-            std::vector<int> stack = {f}; comp[f] = nc;
-            while (!stack.empty()) { int u = stack.back(); stack.pop_back(); for (int w : fadj[u]) if (comp[w] < 0) { comp[w] = nc; stack.push_back(w); } }
-            ++nc;
-        }
-        long eIn = (long)ef.size();
-        long chi = (long)pos.size() - eIn + (long)faces.size();
-        inputIsSimpleGenus0 = (nc == 1 && chi == 2);
-        if (getenv("V2_DBG"))
-            std::fprintf(stderr, "[v2] input topology: components=%d V-E+F=%ld simpleGenus0=%d\n", nc, chi, (int)inputIsSimpleGenus0);
-    }
-
     // ---- target vertex count ----
     // FinalSSIM >= 0.9 is a hard cliff (docs/PROBLEM-AND-JUDGE.md): below it the case is Wrong
     // Answer, not a low score. Calibrated live against 8 real judge submissions (full history:
@@ -1616,7 +1589,6 @@ int main(int argc, char** argv) {
     // fails its own manifold check (never assumed clean).
     std::vector<Vec3> curP; std::vector<std::array<int,3>> curF;
     bool usedCluster = false;
-    (void)inputIsSimpleGenus0;   // diagnostic only -- see note above the computation
     if (!getenv("V2_NOCLUSTER")) {
         // Reserving budget for SSIM polish on top of an under-filled cluster was tried and
         // reverted: monotonic regression as the reserved fraction grew (clustering is the
