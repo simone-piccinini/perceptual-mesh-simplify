@@ -1285,16 +1285,12 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
         if (pinchesFound == 0 && stripped == 0) break;   // stable, no more progress possible
     }
 
-    // Repair pass: none of the above (edge cap, ear-clipping, pinch-split, isolated-strip) can
-    // catch a mesh that got cut into multiple fully DISCONNECTED closed pieces -- a different
-    // signature (chi=4 = 2+2, two separate spheres, not chi=3's single-shared-point pinch).
-    // Measured at larger scale (K=20, ~2000-vertex budget on armadillo): 2 connected components,
-    // where the smaller size scale test never triggered it. A chain of dropped/rejected faces
-    // can, in principle, fully sever part of the surface once enough of them cluster together.
-    // Pragmatic fix: keep only the LARGEST component (by face count) and re-close whatever
-    // boundary holes that creates, then re-run the pinch/isolated repair once more -- discarding
-    // is safe only if the leash still holds afterward, checked by the caller's manifoldOk gate
-    // plus main()'s own Hausdorff sanity check either way.
+    // This USED TO keep only the single largest component and drop the rest -- correct for a
+    // repair-induced sliver but a real BUG for genuinely multi-part input (plausible for
+    // "mobile platform" assets -- detachable parts/props): validity is a purely local edge-
+    // manifold check, never single-connectedness. Confirmed reproducible locally: a synthetic
+    // multi-component test silently dropped an entire real piece this way. Fixed to only drop
+    // FRAGMENTS (small relative to the whole mesh), keeping any real-sized component.
     for (int compPass = 0; compPass < 3; ++compPass) {
         std::unordered_map<std::pair<int,int>, std::vector<int>, PairIntHash> ef2;
         for (int f = 0; f < (int)out.F.size(); ++f) {
@@ -1312,11 +1308,15 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
             compSize.push_back(sz); ++ncomp;
         }
         if (ncomp <= 1) break;   // single piece -- nothing to prune
-        int best = 0; for (int c = 1; c < ncomp; ++c) if (compSize[c] > compSize[best]) best = c;
+        long fragThresh = std::max((long)4, (long)out.F.size() / 200);
+        std::vector<char> keepComp(ncomp, 0);
+        int survivors = 0;
+        for (int c = 0; c < ncomp; ++c) if (compSize[c] >= fragThresh) { keepComp[c] = 1; ++survivors; }
+        if (survivors == 0) { int best = 0; for (int c = 1; c < ncomp; ++c) if (compSize[c] > compSize[best]) best = c; keepComp[best] = 1; }
         std::vector<std::array<int,3>> kept2;
-        for (int f = 0; f < (int)out.F.size(); ++f) if (fcomp[f] == best) kept2.push_back(out.F[f]);
+        for (int f = 0; f < (int)out.F.size(); ++f) if (keepComp[fcomp[f]]) kept2.push_back(out.F[f]);
         if (getenv("V2_DBG"))
-            std::fprintf(stderr, "[v2cluster] compPass %d: %d components, dropping %zu faces outside the largest\n",
+            std::fprintf(stderr, "[v2cluster] compPass %d: %d components, dropping %zu faces as fragments\n",
                          compPass, ncomp, out.F.size() - kept2.size());
         out.F = kept2;
 
@@ -1475,33 +1475,35 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
         if (kv.second > 2) { ++badEdges; worstCount = std::max(worstCount, kv.second); }
     }
     long eulerChar = (long)out.P.size() - (long)edgeCount.size() + (long)out.F.size();
-    // genus-0 sphere: V-E+F=2. A pinch vertex the fan-split above missed (or a different defect
-    // entirely) shows up as a wrong Euler characteristic even when every edge count is clean --
-    // gate on it explicitly rather than trusting edge counts alone.
-    out.manifoldOk = (badEdges == 0 && oneEdges == 0 && eulerChar == 2);
-    if (getenv("V2_DBG")) {
-        // chi=4 (off by exactly 2) is the signature of TWO fully disconnected closed components
-        // (2+2=4), distinct from a pinch (2+2-1=3) -- check directly rather than guess.
-        int nvOut = (int)out.P.size();
-        std::vector<std::vector<int>> fadj(out.F.size());
-        std::map<std::pair<int,int>, std::vector<int>> edgeFaces2;
+    // A genuinely multi-component input is legal output too -- validity is a purely LOCAL
+    // edge-manifold check, never single-connectedness. N disjoint genus-0 pieces give
+    // V-E+F=2N, not the hardcoded single-component 2 this used to assume -- count components
+    // directly instead (see compPass above, which used to wrongly drop legitimate ones).
+    std::vector<std::vector<int>> fadj(out.F.size());
+    {
+        std::unordered_map<std::pair<int,int>, std::array<int,2>, PairIntHash> ef3;
         for (int f = 0; f < (int)out.F.size(); ++f) {
             const auto& t = out.F[f];
             int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
-            for (auto& ee : e) edgeFaces2[keyOf(ee[0], ee[1])].push_back(f);
+            for (auto& ee : e) {
+                auto& slot = ef3.try_emplace(keyOf(ee[0], ee[1]), std::array<int,2>{-1,-1}).first->second;
+                if (slot[0] == -1) slot[0] = f; else if (slot[1] == -1) slot[1] = f;
+            }
         }
-        for (auto& kv : edgeFaces2) if (kv.second.size() == 2) { fadj[kv.second[0]].push_back(kv.second[1]); fadj[kv.second[1]].push_back(kv.second[0]); }
-        std::vector<int> fcomp(out.F.size(), -1); int ncomp = 0;
-        for (int f = 0; f < (int)out.F.size(); ++f) {
-            if (fcomp[f] >= 0) continue;
-            std::vector<int> stack = {f}; fcomp[f] = ncomp;
-            while (!stack.empty()) { int u = stack.back(); stack.pop_back(); for (int w : fadj[u]) if (fcomp[w] < 0) { fcomp[w] = ncomp; stack.push_back(w); } }
-            ++ncomp;
-        }
-        (void)nvOut;
+        for (auto& kv : ef3) if (kv.second[1] != -1) { fadj[kv.second[0]].push_back(kv.second[1]); fadj[kv.second[1]].push_back(kv.second[0]); }
+    }
+    std::vector<int> fcomp(out.F.size(), -1); int ncomp = 0;
+    for (int f = 0; f < (int)out.F.size(); ++f) {
+        if (fcomp[f] >= 0) continue;
+        std::vector<int> stack = {f}; fcomp[f] = ncomp;
+        while (!stack.empty()) { int u = stack.back(); stack.pop_back(); for (int w : fadj[u]) if (fcomp[w] < 0) { fcomp[w] = ncomp; stack.push_back(w); } }
+        ++ncomp;
+    }
+    out.manifoldOk = (badEdges == 0 && oneEdges == 0 && ncomp > 0 && eulerChar == 2 * (long)ncomp);
+    if (getenv("V2_DBG")) {
         std::fprintf(stderr, "[v2cluster] connected components (by face adjacency): %d\n", ncomp);
-        std::fprintf(stderr, "[v2cluster] edges=%zu badEdges(>2)=%ld boundaryEdges(=1)=%ld worstCount=%d V-E+F=%ld\n",
-                     edgeCount.size(), badEdges, oneEdges, worstCount, eulerChar);
+        std::fprintf(stderr, "[v2cluster] edges=%zu badEdges(>2)=%ld boundaryEdges(=1)=%ld worstCount=%d V-E+F=%ld (expect %d)\n",
+                     edgeCount.size(), badEdges, oneEdges, worstCount, eulerChar, 2 * ncomp);
     }
     return out;
 }
