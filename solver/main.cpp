@@ -30,7 +30,17 @@
 // Build: g++ -O2 -std=c++17 solver/main.cpp -o solver/main   (Eigen alongside)
 
 #include "Eigen/Dense"
+// The Sobolev/Laplacian gradient preconditioner in refine_positions() is an env-gated
+// experiment: it runs only when g_lapl>0, and g_lapl is set ONLY by getenv("G_LAPL").
+// The judge passes no env, so it is DEAD on every judged run -- yet Eigen's sparse
+// Cholesky (SimplicialLDLT<SparseMatrix>) costs ~109 MB of cc1plus memory just to
+// INSTANTIATE (front-end, not optimizer -- measured on the judge's g++-14), and the
+// judge's compile-memory limit sits right at this file's footprint. Compiled out by
+// default to reclaim that headroom; build with -DIMC_ENABLE_SOBOLEV to restore it.
+// See docs/postmortems/compile-headroom.md.
+#ifdef IMC_ENABLE_SOBOLEV
 #include "Eigen/Sparse"
+#endif
 #include <vector>
 #include <array>
 #include <queue>
@@ -775,9 +785,11 @@ static void refine_positions() {
     Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} double diag=(hi-lo).norm();
     const std::vector<Vec3> base=pos; double cap=0.02*diag; double step=0.02*diag;
     if (const char* e = getenv("G_CAPA")) cap = atof(e)*diag;   // arm-A test: widen the FULL-gradient cap
+    bool use_lapl = false;
+#ifdef IMC_ENABLE_SOBOLEV   // dead on the judge (g_lapl==0); see the note at the Eigen/Sparse include
     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt;
     std::vector<int> idx(pos.size(), -1), rev;
-    bool use_lapl = g_lapl > 0.0;
+    use_lapl = g_lapl > 0.0;
     if (use_lapl) {
         for (size_t v=0; v<pos.size(); ++v) if (alive[v]) { idx[v]=(int)rev.size(); rev.push_back((int)v); }
         const int n = (int)rev.size();
@@ -793,6 +805,7 @@ static void refine_positions() {
         ldlt.compute(M);
         if (ldlt.info()!=Eigen::Success) use_lapl=false;
     }
+#endif
     double cur=refine_score_grad(nullptr);
     // ===== Adam + basin-hop ascent (session 3, env G_ADAM) =====
     // The stock loop is normalized-gradient with step halving: "converged" = ITS plateau.
@@ -889,12 +902,14 @@ static void refine_positions() {
         for(int it=0; it<1000; ++it){
             if(r_elapsed() > g_refine_budget) break;                 // HARD CPU time-box -> never TLE
             if (fresh) {
+#ifdef IMC_ENABLE_SOBOLEV   // dead on the judge (use_lapl==false); see the note at the Eigen/Sparse include
                 if (use_lapl) {
                     Eigen::MatrixXd G((int)rev.size(), 3);
                     for (size_t r=0;r<rev.size();++r) G.row((int)r) = g[rev[r]].transpose();
                     Eigen::MatrixXd X = ldlt.solve(G);
                     for (size_t r=0;r<rev.size();++r) g[rev[r]] = X.row((int)r).transpose();
                 }
+#endif
                 if (g_tiltmode) {   // project the gradient onto current vertex normals: depth/silhouette-blind moves only
                     std::vector<Vec3> vn(pos.size(), Vec3::Zero());
                     for (int f = 0; f < (int)faces.size(); ++f) { if (!face_alive[f]) continue;
