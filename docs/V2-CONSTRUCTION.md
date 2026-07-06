@@ -478,3 +478,109 @@ today given the time already spent validating that lighter-weight integration do
 proxy, ~0.23 on a 50k-vertex proxy) are far below any competitive threshold and the gap is
 already fully visible from local measurement — a judge submission at this stage would burn a
 submission slot without producing information the local numbers don't already show.
+
+## Day 7 (2026-07-06 continued): vertex-clustering construction — the real lever
+
+User directive: keep pushing, this is exactly the "actual remeshing step" day 6 concluded was
+needed. Built it.
+
+**Mechanism** (`build_clustered_mesh`): a Rossignac & Borrel (1993) style vertex-clustering
+quotient — a ONE-SHOT algorithm, genuinely different from both days 1-6 (iteratively ADDS
+vertices to a hull) and main.cpp (iteratively REMOVES vertices via edge collapse). Choose a
+budget-capped KEPT vertex set anchored on day 6's segmentation feature points (corners by
+valence, then boundary points by dihedral sharpness, then one interior representative per
+region by area, largest first). Map every other original vertex to its nearest kept vertex via
+**graph (surface) distance**, not Euclidean — multi-source Dijkstra over the mesh's own edge
+graph, weighted by edge length. Quotient the original triangulation onto that map: a face whose
+3 corners land on 3 distinct kept vertices survives (relabeled); one that degenerates to <3 is
+dropped. Kept vertices keep their exact original positions (no repositioning needed).
+
+**Why graph distance, not Euclidean**: first attempt used raw 3D nearest-point clustering.
+Measured result: 125 of 1109 edges shared by >2 faces (pervasive non-manifold pinching from
+clustering merging two surface sheets that are close in 3D but far along the surface) plus 58
+orphaned boundary edges. Switching to Dijkstra-over-the-edge-graph dropped this to 6 bad edges /
+12 boundary edges — respecting connectivity instead of jumping through empty space fixes most,
+not all, of it.
+
+**Never assume a quotient is manifold — validate and repair, in this order**:
+1. Accept quotient faces GREEDILY with every edge capped at 2 uses BY CONSTRUCTION (not
+   detected after the fact) — an edge that would exceed 2 is never valid geometry, so there is
+   nothing to repair about a 3rd occurrence; it must be dropped at accept-time.
+2. The edge cap above creates boundary holes (dropped faces leave some edges at 1 use). Close
+   them via proper ear-clipping (try every consecutive triple in the loop, not a fixed fan
+   apex — a fixed apex fails identically on every retry if its own edges are already saturated,
+   even when other valid ears exist elsewhere in the same loop), respecting the same edge cap,
+   iterated until no more progress.
+3. An edge-manifold mesh (every edge shared by exactly 2 faces) can STILL have a non-manifold
+   VERTEX — two disconnected triangle fans touching only at one shared point, invisible to any
+   edge-count check. Caught this only because of step 4 below, not because it was expected:
+   detect via per-vertex fan connectivity (two incident faces sharing an edge THROUGH this
+   vertex are in the same fan) and split any multi-fan vertex into one copy per fan.
+4. **Gate on the Euler characteristic itself (V-E+F=2 for genus-0), not just edge counts.**
+   This caught a defect steps 1-3 all missed: a kept vertex whose entire cluster's faces all got
+   dropped survives in the output with ZERO incident faces — inflates V without touching E/F,
+   silently breaking genus. Measured: exactly 1 orphaned vertex on bunny, 2 on armadillo, in
+   both cases giving V-E+F=3 instead of 2 — an EXACT match to "one extra untethered vertex," not
+   a coincidence. Fixed by stripping any 0-face vertex and recompacting indices.
+Only after all four checks pass does the clustered mesh get used as the seed; otherwise it
+silently falls back to day 1's convex-hull seed (`V2_NOCLUSTER=1` forces the fallback for A/B
+testing).
+
+**Result — a real, substantial jump, not another marginal tuning win**:
+
+| mesh | V | day-5/6 baseline | day-7 clustered | decimator (matched V) |
+|---|---|---|---|---|
+| bunny | 351 | 0.4517 | **0.5981** | 0.7059 |
+| bunny | 522 | 0.4611 | **0.6455** | 0.7733 |
+| armadillo | ~350 | 0.2348 | **0.3404** | (not measured) |
+
+Unlike day 6's feature-candidate integration (helped bunny only, in a fragile K-dependent way,
+zero effect on armadillo), this generalizes: a clear, large gain on BOTH test meshes. The
+clustered seed alone reaches the vertex target directly (0-17 growth-loop splits needed on top)
+— essentially all of the gain comes from the construction mechanism itself, not from the
+existing SSIM-driven refinement, which barely runs.
+
+**Correctness bug found and fixed, orthogonal to the day-7 work itself**: the growth loop used
+to stop purely on `curP.size() < target`. Fine when every seed started tiny and grew for
+hundreds of iterations (days 1-6) — but the day-7 seed can already MEET target on its own, so if
+target is reached before the Hausdorff leash is satisfied, the OLD condition would exit
+immediately and silently ship an invalid mesh. Measured on armadillo: clustered seed hit target
+with the leash at 0.2112 against a 0.1229 limit — a real, live violation the old code would have
+missed. Fixed: keep looping past target, HAUS-ONLY (no further SSIM-driven growth once budget is
+met, to avoid silently growing past target for "nice to have" gains), until the leash is
+satisfied or a generous bounded safety cap is hit. Confirmed fix: armadillo now reads 0.1162,
+under the 0.1229 limit, with 17 extra splits.
+
+**A second, pre-existing correctness bug, found purely because today's Euler-characteristic
+check was written and then also applied to the OLD hull path out of general diligence**: the
+day-1 `convex_hull()` seed itself has never actually been genus-0. Classic incremental-hull
+defect: when a new point's visibility region fully surrounds an existing hull vertex (every one
+of its faces is visible, so none survive), that vertex has no horizon edge through it and is
+silently orphaned — faces removed, vertex never dropped. Measured on the bunny's 24-point
+farthest-point seed: exactly 3 orphaned (0-degree) vertices out of 20, giving V-E+F=5 instead of
+2 — despite every edge still being cleanly shared by exactly 2 faces (an edge-only check cannot
+see this class of defect at all). This means EVERY hull-and-grow result from days 1-6 was
+topologically invalid, silently, the whole time — the file's own header claim ("genus-0 by
+construction... verified genus-0 on the judge") was not actually true, though it never affected
+the SSIM SCORE measurements (rendering doesn't care about abstract Euler characteristic, only
+visual geometry) and main_v2 has never been submitted, so no real-world harm occurred. Fixed
+with the same strip-and-recompact repair as the day-7 clustering path. Confirmed: hull seed now
+reads V-E+F=2, and the full post-fix growth run also reads 2, with an unchanged score (0.4522 vs
+0.4517 — the 3-vertex seed-size difference is noise-level).
+
+**All three test runs now pass every validity check simultaneously**: 0 degenerate faces,
+Hausdorff under the limit, V-E+F=2 (bunny V=351/522, armadillo V=364) — not just "renders well,"
+genuinely valid.
+
+**Remaining gap**: bunny closed from ~0.25-0.31 behind the decimator to ~0.11-0.13 behind.
+Substantial, real progress — still short of parity, far short of the 90% target. The mechanism
+now has real headroom left unexplored: interior representative placement is currently one
+crude nearest-vertex-to-centroid pick per region (could use more points for large/high-curvature
+regions, proportional to local complexity rather than flat "one each"); the SSIM-driven
+refinement barely engages since clustering already fills the budget (worth deliberately
+UNDER-filling via clustering and reserving real budget for validated SSIM polish on top); ear-
+clipping triangle quality is unoptimized (whatever ear is found first, not the best-shaped one).
+None of these were tuned today given how much of the session went into getting a first correct,
+validated version working end-to-end. Not submitted to the judge — still below any competitive
+threshold, and today's numbers are stable enough locally that a submission would not add
+information.

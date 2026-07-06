@@ -285,7 +285,23 @@ static void convex_hull(const std::vector<Vec3>& pts, std::vector<Vec3>& hullV,
         F = std::move(nf);
         used[i] = 1;
     }
-    hullV = std::move(V); hullF = std::move(F);
+
+    // day 7 finding (bug present since day 1, never caught until the day-7 clustering path's
+    // Euler-characteristic sanity check exposed it): if a NEW point's visibility region fully
+    // SURROUNDS an existing hull vertex (every one of that vertex's faces is visible, so none
+    // survive), that vertex has no horizon edge through it and is silently orphaned -- all its
+    // faces removed, but the vertex itself is never dropped from V. Measured: exactly 3 orphaned
+    // (degree-0) vertices out of 20 on the bunny's 24-point farthest-sample seed, giving
+    // V-E+F=5 instead of the genus-0 sphere's 2 -- topologically invalid despite every edge
+    // still being cleanly shared by exactly 2 faces (that check alone can't see this). Strip any
+    // 0-degree vertex and recompact indices, same fix as the day-7 clustered-mesh repair.
+    std::vector<char> deg(V.size(), 0);
+    for (const auto& t : F) for (int k = 0; k < 3; ++k) deg[t[k]] = 1;
+    std::vector<int> remap(V.size(), -1);
+    std::vector<Vec3> newV;
+    for (size_t v = 0; v < V.size(); ++v) if (deg[v]) { remap[v] = (int)newV.size(); newV.push_back(V[v]); }
+    for (auto& t : F) for (int k = 0; k < 3; ++k) t[k] = remap[t[k]];
+    hullV = std::move(newV); hullF = std::move(F);
 }
 
 // ===================== adaptive refinement growth loop =====================
@@ -842,7 +858,7 @@ static Segmentation segment_by_normal(const std::vector<Vec3>& P, const std::vec
 // the dihedral angle between the two regions it separates) -- inserting all of them unranked
 // wastes budget on marginal points ahead of ones that actually matter (measured: unranked
 // insertion scored WORSE than the pure SSIM-driven baseline it was meant to beat).
-struct FeaturePoint { Vec3 p; double priority; };
+struct FeaturePoint { Vec3 p; double priority; int vIdx; };
 struct FeatureSet { std::vector<FeaturePoint> corners; std::vector<FeaturePoint> edgePts; };
 static FeatureSet extract_features(const std::vector<Vec3>& P, const std::vector<std::array<int,3>>& F,
                                     const std::vector<int>& regionOf, const std::vector<Vec3>& regionNormal) {
@@ -855,17 +871,280 @@ static FeatureSet extract_features(const std::vector<Vec3>& P, const std::vector
     FeatureSet fs;
     for (int v = 0; v < nv; ++v) {
         if (vertRegions[v].size() >= 3) {
-            fs.corners.push_back({P[v], (double)vertRegions[v].size()});
+            fs.corners.push_back({P[v], (double)vertRegions[v].size(), v});
         } else if (vertRegions[v].size() == 2) {
             auto it = vertRegions[v].begin();
             int r0 = *it; ++it; int r1 = *it;
             double dihedral = 1.0 - regionNormal[r0].dot(regionNormal[r1]);   // 0=coplanar, 2=fold back
-            fs.edgePts.push_back({P[v], dihedral});
+            fs.edgePts.push_back({P[v], dihedral, v});
         }
     }
     std::sort(fs.corners.begin(), fs.corners.end(), [](const FeaturePoint& a, const FeaturePoint& b) { return a.priority > b.priority; });
     std::sort(fs.edgePts.begin(), fs.edgePts.end(), [](const FeaturePoint& a, const FeaturePoint& b) { return a.priority > b.priority; });
     return fs;
+}
+
+// day 7: vertex-clustering construction (Rossignac & Borrel 1993 style) -- a genuinely
+// different, ONE-SHOT algorithm from both the hull-and-grow approach (days 1-6, iteratively
+// ADDS vertices) and from main.cpp's iterative edge-collapse decimation (iteratively REMOVES
+// them). Choose a KEPT vertex set anchored on the region-segmentation feature points (so
+// region boundaries are preserved exactly from the start, not discovered by slow greedy
+// per-pixel search), map every other original vertex to its nearest kept vertex, and quotient
+// the ORIGINAL triangulation onto that map in a single pass: a triangle whose 3 corners map to
+// 3 DISTINCT kept vertices survives (relabeled); one that collapses to <3 distinct vertices is
+// dropped. This inherits the original mesh's manifoldness almost automatically (it is a
+// topological quotient of a known-good mesh, not built from nothing) -- validated below, never
+// assumed: a clustering quotient CAN still pinch two well-separated parts of the surface
+// together into a non-manifold edge, so every result is checked before being trusted as a seed.
+struct ClusteredMesh { std::vector<Vec3> P; std::vector<std::array<int,3>> F; bool manifoldOk; };
+static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const std::vector<std::array<int,3>>& origF,
+                                           const Segmentation& seg, const FeatureSet& feat, int budget) {
+    const int nv = (int)origP.size();
+    std::vector<int> kept;
+    std::vector<char> isKept(nv, 0);
+    auto tryKeep = [&](int v) { if (!isKept[v]) { isKept[v] = 1; kept.push_back(v); } };
+    for (const auto& fp : feat.corners) { if ((int)kept.size() >= budget) break; tryKeep(fp.vIdx); }
+    for (const auto& fp : feat.edgePts) { if ((int)kept.size() >= budget) break; tryKeep(fp.vIdx); }
+
+    if ((int)kept.size() < budget) {
+        // interior representatives: one candidate per region (nearest ORIGINAL vertex to that
+        // region's own area-weighted centroid), largest region first -- a big flat region with
+        // no feature points on its interior still needs at least one vertex to be represented
+        // at all once its boundary is quotiented down.
+        int nr = (int)seg.regionNormal.size();
+        std::vector<Vec3> centroid(nr, Vec3::Zero()); std::vector<double> area(nr, 0.0);
+        for (int f = 0; f < (int)origF.size(); ++f) {
+            const auto& t = origF[f];
+            Vec3 c = (origP[t[0]]+origP[t[1]]+origP[t[2]])/3.0;
+            double a = 0.5*(origP[t[1]]-origP[t[0]]).cross(origP[t[2]]-origP[t[0]]).norm();
+            centroid[seg.regionOf[f]] += c*a; area[seg.regionOf[f]] += a;
+        }
+        std::vector<int> order(nr); for (int r = 0; r < nr; ++r) order[r] = r;
+        std::sort(order.begin(), order.end(), [&](int a, int b) { return area[a] > area[b]; });
+        for (int r : order) {
+            if ((int)kept.size() >= budget) break;
+            if (area[r] <= 0) continue;
+            Vec3 c = centroid[r] / area[r];
+            double bd = 1e300; int bv = -1;
+            for (int v = 0; v < nv; ++v) { double d = (origP[v]-c).squaredNorm(); if (d < bd) { bd = d; bv = v; } }
+            if (bv >= 0) tryKeep(bv);
+        }
+    }
+
+    // Map every original vertex to its nearest KEPT vertex via GRAPH (surface) distance, not
+    // raw Euclidean distance. Euclidean nearest-point can jump across a thin gap or fold to a
+    // point that's close in 3D but far along the surface, silently merging two unrelated
+    // sheets into one cluster -- measured: this produced 125 of 1109 edges shared by >2 faces
+    // (pervasive non-manifold pinching, not a rare edge case) plus 58 orphaned boundary edges.
+    // Multi-source Dijkstra over the mesh's own edge graph, weighted by edge length, respects
+    // connectivity instead of jumping through empty space.
+    std::vector<std::vector<int>> vAdj(nv);
+    {
+        std::set<std::pair<int,int>> seenEdge;
+        for (const auto& t : origF) {
+            int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
+            for (auto& ee : e) {
+                auto key = ee[0] < ee[1] ? std::make_pair(ee[0], ee[1]) : std::make_pair(ee[1], ee[0]);
+                if (seenEdge.insert(key).second) { vAdj[ee[0]].push_back(ee[1]); vAdj[ee[1]].push_back(ee[0]); }
+            }
+        }
+    }
+    std::vector<int> nearestKept(nv, -1);
+    std::vector<double> distTo(nv, 1e300);
+    struct DE { double d; int v; };
+    struct DCmp { bool operator()(const DE& a, const DE& b) const { return a.d > b.d; } };
+    std::priority_queue<DE, std::vector<DE>, DCmp> dpq;
+    for (int k : kept) { distTo[k] = 0.0; nearestKept[k] = k; dpq.push({0.0, k}); }
+    while (!dpq.empty()) {
+        DE e = dpq.top(); dpq.pop();
+        if (e.d > distTo[e.v]) continue;
+        for (int u : vAdj[e.v]) {
+            double nd = e.d + (origP[u]-origP[e.v]).norm();
+            if (nd < distTo[u]) { distTo[u] = nd; nearestKept[u] = nearestKept[e.v]; dpq.push({nd, u}); }
+        }
+    }
+    // any vertex unreached (disconnected component -- shouldn't happen on a closed manifold,
+    // but guard) falls back to Euclidean-nearest kept vertex rather than leaving it unmapped.
+    for (int v = 0; v < nv; ++v) if (nearestKept[v] < 0) {
+        double bd = 1e300; int bk = kept[0];
+        for (int k : kept) { double d = (origP[v]-origP[k]).squaredNorm(); if (d < bd) { bd = d; bk = k; } }
+        nearestKept[v] = bk;
+    }
+
+    std::vector<int> compact(nv, -1);
+    ClusteredMesh out;
+    for (int k : kept) { compact[k] = (int)out.P.size(); out.P.push_back(origP[k]); }
+    auto keyOf = [](int a, int b) { return a < b ? std::make_pair(a, b) : std::make_pair(b, a); };
+
+    // Accept quotient faces GREEDILY, capping every edge at 2 uses by construction (not just
+    // detecting the violation afterward) -- an edge shared by >2 faces is never actually valid
+    // geometry, so there is nothing to "repair" about a 3rd occurrence; it must be dropped.
+    std::set<std::array<int,3>> seen;
+    std::map<std::pair<int,int>, int> edgeCount;
+    for (const auto& t : origF) {
+        int a = compact[nearestKept[t[0]]], b = compact[nearestKept[t[1]]], c = compact[nearestKept[t[2]]];
+        if (a == b || b == c || c == a) continue;
+        std::array<int,3> key = {a, b, c};
+        std::array<int,3> sortedKey = key; std::sort(sortedKey.begin(), sortedKey.end());
+        if (!seen.insert(sortedKey).second) continue;   // dedup: many original faces in a flat
+                                                          // region can quotient onto the same 3 points
+        int e[3][2] = {{a,b}, {b,c}, {c,a}};
+        bool ok = true;
+        for (auto& ee : e) if (edgeCount[keyOf(ee[0], ee[1])] >= 2) { ok = false; break; }
+        if (!ok) continue;
+        for (auto& ee : e) ++edgeCount[keyOf(ee[0], ee[1])];
+        out.F.push_back(key);
+    }
+
+    // Repair pass: dropping faces above (either the degenerate/dedup skips or the edge-cap
+    // above) can leave boundary edges (shared by only 1 face) -- an actual hole, which the
+    // growth loop below can only ever SUBDIVIDE, never span. Close small boundary loops via
+    // simple fan triangulation rather than discarding an otherwise-good seed over a few holes.
+    // Iterative: a fan triangle can itself be rejected by the edge cap (its edge is already
+    // shared by unrelated accepted geometry), leaving a smaller residual loop behind -- re-scan
+    // and retry until no more progress is made, rather than accepting whatever the first pass
+    // alone could close.
+    for (int pass = 0; pass < 8; ++pass) {
+        std::map<int, std::vector<int>> boundaryNext;
+        for (const auto& kv : edgeCount) if (kv.second == 1) {
+            boundaryNext[kv.first.first].push_back(kv.first.second);
+            boundaryNext[kv.first.second].push_back(kv.first.first);
+        }
+        if (boundaryNext.empty()) break;
+        size_t addedThisPass = 0;
+        std::set<int> visited;
+        for (auto& kv : boundaryNext) {
+            int start = kv.first;
+            if (visited.count(start)) continue;
+            std::vector<int> loop;
+            int prev = -1, cur = start;
+            bool ok = true;
+            while (true) {
+                loop.push_back(cur); visited.insert(cur);
+                int next = -1;
+                for (int n : boundaryNext[cur]) if (n != prev) { next = n; break; }
+                if (next < 0) { ok = false; break; }
+                prev = cur; cur = next;
+                if (cur == start) break;
+                if ((int)loop.size() > (int)out.P.size()) { ok = false; break; }   // malformed graph guard
+            }
+            if (!ok || loop.size() < 3) continue;
+            // Proper ear-clipping, not a fixed fan apex: a fixed apex (e.g. always loop[0]) can
+            // fail identically on every retry if ITS edges happen to already be at capacity,
+            // even when plenty of OTHER valid ears exist elsewhere in the same loop. Repeatedly
+            // take any consecutive triple whose ear respects the shared edge cap, shrinking the
+            // ring by one vertex each time, until no ear in the current ring is acceptable.
+            std::vector<int> ring = loop;
+            while (ring.size() >= 3) {
+                bool progressed = false;
+                for (size_t i = 0; i < ring.size(); ++i) {
+                    int a = ring[(i + ring.size() - 1) % ring.size()];
+                    int b = ring[i];
+                    int c = ring[(i + 1) % ring.size()];
+                    if (a == c) continue;
+                    int e[3][2] = {{a,b}, {b,c}, {c,a}};
+                    bool okTri = true;
+                    for (auto& ee : e) if (edgeCount[keyOf(ee[0], ee[1])] >= 2) { okTri = false; break; }
+                    if (!okTri) continue;
+                    for (auto& ee : e) ++edgeCount[keyOf(ee[0], ee[1])];
+                    out.F.push_back({a, b, c});
+                    ring.erase(ring.begin() + (long)i);
+                    progressed = true; ++addedThisPass;
+                    break;
+                }
+                if (!progressed) break;   // no ear in the current ring works -- leave the rest
+            }
+        }
+        if (addedThisPass == 0) break;   // no progress -- further passes would just repeat this
+    }
+
+    // Repair pass: an edge-manifold mesh (every edge shared by <=2 faces, guaranteed above) can
+    // still have a NON-MANIFOLD VERTEX -- two otherwise-disconnected fans of triangles touching
+    // only at one shared point (a "pinch"), a classic vertex-clustering artifact a pure edge
+    // count can't catch. Detect via per-vertex fan connectivity (two faces sharing an edge
+    // THROUGH this vertex are in the same fan) and split any pinch vertex into one duplicate per
+    // disconnected fan -- the standard, minimal fix (never assume clustering avoided this).
+    {
+        int nvOut = (int)out.P.size();
+        std::vector<std::vector<int>> incident(nvOut);
+        for (int f = 0; f < (int)out.F.size(); ++f) for (int k = 0; k < 3; ++k) incident[out.F[f][k]].push_back(f);
+        int pinchesFound = 0;
+        for (int v = 0; v < nvOut; ++v) {
+            auto& facesV = incident[v];
+            if (facesV.size() <= 1) continue;
+            std::vector<std::vector<int>> adjF(facesV.size());
+            for (size_t i = 0; i < facesV.size(); ++i) {
+                const auto& fi = out.F[facesV[i]];
+                std::vector<int> oi; for (int k = 0; k < 3; ++k) if (fi[k] != v) oi.push_back(fi[k]);
+                for (size_t j = i + 1; j < facesV.size(); ++j) {
+                    const auto& fj = out.F[facesV[j]];
+                    std::vector<int> oj; for (int k = 0; k < 3; ++k) if (fj[k] != v) oj.push_back(fj[k]);
+                    bool shareEdge = false;
+                    for (int a : oi) for (int b : oj) if (a == b) shareEdge = true;
+                    if (shareEdge) { adjF[i].push_back((int)j); adjF[j].push_back((int)i); }
+                }
+            }
+            std::vector<int> comp(facesV.size(), -1); int nc = 0;
+            for (size_t i = 0; i < facesV.size(); ++i) {
+                if (comp[i] >= 0) continue;
+                std::vector<size_t> stack = {i}; comp[i] = nc;
+                while (!stack.empty()) {
+                    size_t u = stack.back(); stack.pop_back();
+                    for (int w : adjF[u]) if (comp[w] < 0) { comp[w] = nc; stack.push_back((size_t)w); }
+                }
+                ++nc;
+            }
+            if (nc <= 1) continue;   // manifold vertex, nothing to do
+            ++pinchesFound;
+            std::vector<int> newIdxForComp(nc, v);
+            for (int c = 1; c < nc; ++c) { newIdxForComp[c] = (int)out.P.size(); out.P.push_back(out.P[v]); }
+            for (size_t i = 0; i < facesV.size(); ++i) {
+                int c = comp[i]; if (c == 0) continue;
+                auto& f = out.F[facesV[i]];
+                for (int k = 0; k < 3; ++k) if (f[k] == v) f[k] = newIdxForComp[c];
+            }
+        }
+        if (getenv("V2_DBG")) std::fprintf(stderr, "[v2cluster] pinch vertices split: %d\n", pinchesFound);
+    }
+
+    // Repair pass: a KEPT vertex whose entire cluster's faces all got dropped (degenerate
+    // quotient or edge-cap rejection) survives in out.P with ZERO incident faces -- inflating
+    // vertex count without touching edge/face count, which silently breaks the genus-0 Euler
+    // invariant (measured: exactly 1 isolated vertex, V-E+F=3 instead of 2 -- an exact match,
+    // not a coincidence). Strip any 0-face vertex and recompact indices.
+    {
+        std::vector<char> used(out.P.size(), 0);
+        for (const auto& t : out.F) for (int k = 0; k < 3; ++k) used[t[k]] = 1;
+        std::vector<int> remap(out.P.size(), -1);
+        std::vector<Vec3> newP;
+        for (size_t v = 0; v < out.P.size(); ++v) if (used[v]) { remap[v] = (int)newP.size(); newP.push_back(out.P[v]); }
+        int stripped = (int)out.P.size() - (int)newP.size();
+        out.P = newP;
+        for (auto& t : out.F) for (int k = 0; k < 3; ++k) t[k] = remap[t[k]];
+        if (getenv("V2_DBG") && stripped) std::fprintf(stderr, "[v2cluster] stripped %d isolated (0-face) vertices\n", stripped);
+    }
+
+    // Final check: after the edge-cap + repair pass, require a properly CLOSED 2-manifold
+    // (every edge shared by exactly 2 faces) -- never assume the repair pass succeeded.
+    edgeCount.clear();
+    for (const auto& t : out.F) {
+        int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
+        for (auto& ee : e) ++edgeCount[keyOf(ee[0], ee[1])];
+    }
+    long badEdges = 0, oneEdges = 0; int worstCount = 0;
+    for (const auto& kv : edgeCount) {
+        if (kv.second == 1) ++oneEdges;
+        if (kv.second > 2) { ++badEdges; worstCount = std::max(worstCount, kv.second); }
+    }
+    long eulerChar = (long)out.P.size() - (long)edgeCount.size() + (long)out.F.size();
+    // genus-0 sphere: V-E+F=2. A pinch vertex the fan-split above missed (or a different defect
+    // entirely) shows up as a wrong Euler characteristic even when every edge count is clean --
+    // gate on it explicitly rather than trusting edge counts alone.
+    out.manifoldOk = (badEdges == 0 && oneEdges == 0 && eulerChar == 2);
+    if (getenv("V2_DBG"))
+        std::fprintf(stderr, "[v2cluster] edges=%zu badEdges(>2)=%ld boundaryEdges(=1)=%ld worstCount=%d V-E+F=%ld\n",
+                     edgeCount.size(), badEdges, oneEdges, worstCount, eulerChar);
+    return out;
 }
 
 static std::vector<Vec3> farthest_point_sample(const std::vector<Vec3>& P, int K) {
@@ -891,14 +1170,6 @@ int main(int argc, char** argv) {
     const double keepOverride = (argc > 1) ? std::atof(argv[1]) : -1.0;   // local testing only
     if (Vin < 100) { save_obj(pos, faces); return 0; }   // sample: too small to matter, echo
 
-    // ---- seed: convex hull of a small farthest-point sample (hard cap on seed size) ----
-    const int SEED_K = 24;
-    std::vector<Vec3> hullPts = farthest_point_sample(pos, SEED_K);
-    std::vector<Vec3> curP; std::vector<std::array<int,3>> curF;
-    convex_hull(hullPts, curP, curF);
-    std::fprintf(stderr, "[v2] hull seed V=%zu F=%zu (from %d farthest-point samples of %d)\n",
-                 curP.size(), curF.size(), SEED_K, Vin);
-
     // ---- target vertex count: same per-case dispatch table as main.cpp (judge-measured
     // sizes), but the KEEP fractions here are placeholders — this file has not been tuned. ----
     auto keep_for = [](int V) -> double {
@@ -910,7 +1181,60 @@ int main(int argc, char** argv) {
         return 0.029;
     };
     double kf = (keepOverride > 0) ? keepOverride : keep_for(Vin);
-    int target = std::max((int)curP.size(), (int)(kf * Vin));
+    int target = std::max(4, (int)(kf * Vin));
+
+    // ---- day 6/7: normal-based region segmentation (independent of main.cpp's decimation) ----
+    // Diagnosed the gap to the decimator at matched V: normal SSIM ~0.21 (hull-and-grow) vs
+    // ~0.56 (decimator, back-derived), depth comparable. The decimator starts from the full
+    // mesh, so it inherits every correct normal and just has to not lose them; hull-and-grow
+    // starts from nothing and discovers shape purely from a per-pixel error signal with no
+    // notion of "this triangle straddles a real fold." Segment the ORIGINAL mesh into
+    // normal-coherent regions (independent implementation: best-first/Dijkstra-like region
+    // growing, not main.cpp's QEM/VSA-lite collapse order) and extract where regions meet
+    // (boundary points, corners) -- both the day-7 clustered seed below AND any leftover
+    // SSIM-driven growth (`g_featurePoints`, consumed inside `generate_split_candidates`) use
+    // this same segmentation.
+    auto adj = build_face_adjacency(faces);
+    // K swept 1-350 on the bunny proxy (day 6): K~15-20 gave a small, NOT robust gain when used
+    // only as extra SSIM-search candidates; the same sweep on armadillo showed no effect at any
+    // K. Kept modest and non-cherry-picked rather than re-tuned for day 7's different use.
+    int K = std::max(8, std::min((int)faces.size(), 20));
+    if (getenv("V2_SEGK")) K = atoi(getenv("V2_SEGK"));   // local testing only
+    Segmentation seg = segment_by_normal(pos, faces, adj, K);
+    FeatureSet feat = extract_features(pos, faces, seg.regionOf, seg.regionNormal);
+    for (const auto& fp : feat.corners) g_featurePoints.push_back(fp.p);
+    for (const auto& fp : feat.edgePts) g_featurePoints.push_back(fp.p);
+    std::fprintf(stderr, "[v2feat] K=%d corners=%zu edgePts=%zu\n", K, feat.corners.size(), feat.edgePts.size());
+
+    // ---- day 7: seed = vertex-clustering construction anchored on the segmentation features
+    // above (see build_clustered_mesh) -- falls back to day 1's convex-hull-of-farthest-points
+    // seed if the clustering quotient fails its own manifold check (never assumed clean).
+    std::vector<Vec3> curP; std::vector<std::array<int,3>> curF;
+    bool usedCluster = false;
+    if (!getenv("V2_NOCLUSTER")) {
+        ClusteredMesh cm = build_clustered_mesh(pos, faces, seg, feat, target);
+        std::fprintf(stderr, "[v2cluster] kept=%zu faces=%zu manifoldOk=%d\n",
+                     cm.P.size(), cm.F.size(), (int)cm.manifoldOk);
+        if (cm.manifoldOk && cm.P.size() >= 4 && !cm.F.empty()) {
+            curP = cm.P; curF = cm.F; usedCluster = true;
+        }
+    }
+    if (!usedCluster) {
+        const int SEED_K = 24;
+        std::vector<Vec3> hullPts = farthest_point_sample(pos, SEED_K);
+        convex_hull(hullPts, curP, curF);
+        std::fprintf(stderr, "[v2] hull seed V=%zu F=%zu (from %d farthest-point samples of %d)\n",
+                     curP.size(), curF.size(), SEED_K, Vin);
+        if (getenv("V2_DBG")) {
+            long Eh = 0; std::map<std::pair<int,int>,int> ech;
+            auto koh = [](int a,int b){return a<b?std::make_pair(a,b):std::make_pair(b,a);};
+            for (const auto& t : curF) { int e[3][2]={{t[0],t[1]},{t[1],t[2]},{t[2],t[0]}}; for (auto& ee: e) ech[koh(ee[0],ee[1])]=1; }
+            Eh = (long)ech.size();
+            std::fprintf(stderr, "[v2] hull seed sanity: V-E+F=%ld (genus-0 expects 2)\n",
+                         (long)curP.size() - Eh + (long)curF.size());
+        }
+    }
+    target = std::max((int)curP.size(), target);   // never target fewer than the seed itself
 
     int RES = 256;   // day-1 steering resolution (cheap iteration; judge-res validation separately)
     if (getenv("V2_RES")) RES = atoi(getenv("V2_RES"));   // local testing only
@@ -1042,38 +1366,6 @@ int main(int argc, char** argv) {
     const double LEASH = 0.05 * diag;
     std::vector<Vec3> hausSample = farthest_point_sample(pos, 400);
 
-    // ---- day 6: normal-based region-segmentation feature points ----
-    // Days 1-5's pixel-SSIM-driven greedy insertion plateaus around FinalSSIM~0.45 (normal
-    // channel ~0.21) while the decimator reaches ~0.56 normal SSIM at the SAME vertex count --
-    // it starts from the full mesh, so its VSA-lite collapse order preserves flat-region
-    // boundaries by construction; this construction approach starts from a convex hull and has
-    // no equivalent mechanism, discovering shape purely from a per-pixel error signal that has
-    // no notion of "this triangle straddles a real fold." Segment the ORIGINAL mesh into
-    // normal-coherent regions up front (independent implementation, not shared with main.cpp's
-    // decimation code) and expose the region BOUNDARIES/corners as extra candidate points for
-    // the SSIM-driven search below (`g_featurePoints`, consumed inside
-    // `generate_split_candidates`). Tried committing these directly (blindly, unscored, either
-    // all of them or a ranked+capped subset): BOTH scored WORSE than pure SSIM-driven growth
-    // (0.39-0.43 vs 0.4507) -- an unvalidated geometric proxy misdirecting budget, the same
-    // lesson days 1-3 already learned once this session. Feeding them into the EXISTING
-    // exact-delta-scored candidate pool instead means they only win when they demonstrably
-    // beat every other option on the real rendered metric.
-    {
-        auto adj = build_face_adjacency(faces);
-        // K swept 1-350 on the bunny proxy: K~15-20 gave a real (+0.005 to +0.011) FinalSSIM
-        // gain over no feature points; the SAME sweep on armadillo (harder, no clean large flat
-        // regions) showed no measurable difference at any K tested. Picked a modest, non-overfit
-        // default in the "helps on bunny, harmless on armadillo" zone rather than the single
-        // best bunny-only point (day 6 finding: this mechanism is not a general win yet).
-        int K = std::max(8, std::min((int)faces.size(), 20));
-        if (getenv("V2_SEGK")) K = atoi(getenv("V2_SEGK"));   // local testing only
-        Segmentation seg = segment_by_normal(pos, faces, adj, K);
-        FeatureSet feat = extract_features(pos, faces, seg.regionOf, seg.regionNormal);
-        for (const auto& fp : feat.corners) g_featurePoints.push_back(fp.p);
-        for (const auto& fp : feat.edgePts) g_featurePoints.push_back(fp.p);
-        std::fprintf(stderr, "[v2feat] K=%d corners=%zu edgePts=%zu\n", K, feat.corners.size(), feat.edgePts.size());
-    }
-
     // day 5 perf: exact_insertion_delta was being recomputed for EVERY tried face EVERY
     // iteration, even for faces whose local neighborhood is untouched since the last split --
     // measured as the dominant, growing cost (tried 15->110 faces/iter over the run, ~90% of
@@ -1103,7 +1395,16 @@ int main(int argc, char** argv) {
     long cacheHits = 0, cacheMiss = 0;
 
     int iters = 0;
-    while ((int)curP.size() < target && elapsed() < BUDGET) {
+    // day 7: the loop used to stop purely on vertex COUNT (curP.size() < target), which was fine
+    // when every seed started tiny and grew -- but the day-7 clustered seed can already MEET
+    // target on its own, and Hausdorff satisfaction is a hard judge requirement, not a nice-to-
+    // have tied to budget. Measured on armadillo: clustered seed hit target with the leash still
+    // violated (0.2112 vs a 0.1229 limit) and the OLD condition would have exited immediately,
+    // silently shipping an invalid mesh. Now: keep looping past target, HAUS-ONLY (no further
+    // SSIM-driven growth once budget is met), until the leash is satisfied or a generous safety
+    // cap is hit -- bounded, not unconditional, in case some mesh can never fully satisfy it.
+    const int HAUS_HARD_CAP = target + std::max(200, target / 2);
+    while (elapsed() < BUDGET && (int)curP.size() < HAUS_HARD_CAP) {
         const double t_iterStart = elapsed();
         // day 5 perf: build the view cache ONCE at the top of the iteration and have both the
         // deficit scan below AND the candidate scorer (exact_insertion_delta) read from it --
@@ -1222,8 +1523,17 @@ int main(int argc, char** argv) {
                   [&](int a, int b) { return faceDeficit[a] > faceDeficit[b]; });
 
         int splitFace = -1; Vec3 newPos; int tried = 0; bool haus = false;
+        bool overBudget = (int)curP.size() >= target;
         if (worstGeom > LEASH && split_areas_ok(curF[worstFace], worstPt)) {
             splitFace = worstFace; newPos = worstPt; haus = true;
+        } else if (overBudget) {
+            // Budget met AND the leash is satisfied (or the only remaining violation can't be
+            // fixed by a valid split) -- nothing left to do. Never fall through to the
+            // SSIM-driven search once over budget; that would silently keep growing past target.
+            if (getenv("V2_DBG"))
+                std::fprintf(stderr, "[v2] target reached, worstGeom=%.4f leash=%.4f at V=%zu -- stopping\n",
+                             worstGeom, LEASH, curP.size());
+            break;
         } else {
             // day 4: score candidates by the EXACT local-delta rendered SSIM change (validated
             // against a bit-exact full rescore, docs/V2-CONSTRUCTION.md day 4), not the day 1-3
@@ -1348,6 +1658,25 @@ int main(int argc, char** argv) {
         }
         double meanN = nn ? sn/nn : 1.0, meanD = dn ? sd_/dn : 1.0;
         std::fprintf(stderr, "[v2] FinalSSIM=%.4f (normal=%.4f depth=%.4f)\n", 0.5*meanN+0.5*meanD, meanN, meanD);
+
+        // day 7 sanity check: the clustered seed is a NEW code path (days 1-6 always started
+        // from a convex hull, which is degenerate-face-free and genus-0 by construction) --
+        // verify those same properties are not silently violated here, don't just trust it
+        // because it rendered well.
+        long degenerate = 0;
+        const double MIN_AREA_CHK = 1e-10 * diag * diag;
+        for (const auto& t : curF) {
+            double a = 0.5*(curP[t[1]]-curP[t[0]]).cross(curP[t[2]]-curP[t[0]]).norm();
+            if (a <= MIN_AREA_CHK) ++degenerate;
+        }
+        double worstHaus = -1;
+        g_curGrid.build(curP, curF);
+        for (const Vec3& s : hausSample) { int fi; Vec3 cp = g_curGrid.query(s, &fi); worstHaus = std::max(worstHaus, (cp-s).norm()); }
+        long E = 0; { std::map<std::pair<int,int>,int> ec; auto ko=[](int a,int b){return a<b?std::make_pair(a,b):std::make_pair(b,a);};
+            for (const auto& t : curF) { int e[3][2]={{t[0],t[1]},{t[1],t[2]},{t[2],t[0]}}; for (auto& ee: e) ec[ko(ee[0],ee[1])]=1; } E = (long)ec.size(); }
+        long eulerChar = (long)curP.size() - E + (long)curF.size();
+        std::fprintf(stderr, "[v2] sanity: degenerateFaces=%ld worstHausdorff=%.4f (limit %.4f) V-E+F=%ld (genus-0 expects 2)\n",
+                     degenerate, worstHaus, LEASH, eulerChar);
     }
 
     save_obj(curP, curF);
