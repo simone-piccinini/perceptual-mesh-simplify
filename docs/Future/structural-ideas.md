@@ -6,8 +6,12 @@ point gained since 88.67 came from these two. This document is about **(b)** —
 mechanisms that lower `V'_min` (the smallest vertex count at which a case still
 passes `FinalSSIM ≥ 0.9`).
 
-The binding wall everywhere is the **contrast/variance term of the flat-shaded
-normal-map SSIM** (depth is ≈free) — see [../theory/wang-ssim.md](../theory/wang-ssim.md).
+The binding wall everywhere is the **structure (σxy correlation) term of the
+flat-shaded normal-map SSIM** — the σxy correlation between the original and the
+simplified normal map, *not* luminance or contrast (JUDGE-ENVELOPE §7;
+SOLVER-INTERNALS §4.5 / §11 `sdef_map`, "the measured true deficit"). Depth is ≈free
+only on the mechanical case; on organic cases it can drop (see D0) — see
+[../theory/wang-ssim.md](../theory/wang-ssim.md).
 So every idea below is judged by one question: *does it make the simplified mesh
 render a better normal map at fixed face budget, while staying a valid closed
 2-manifold within 5% Hausdorff?*
@@ -94,7 +98,14 @@ Three redirects fall out (verify on the judge; proxies over-decimate vs our tune
 **D1. Widen the optimizer's displacement cap.** It is `0.02·diag`, but the
 Hausdorff budget is 5% of the diagonal — you are using under half your room for the
 one lever that provably improves the metric. Sweep the cap up (0.03, 0.04) on cases
-3/4. Monotonic-accept protects you; best-counts makes it a free-roll.
+3/4. The **room is confirmed huge** (JUDGE-ENVELOPE §5: the judge's Hausdorff is
+vertex-to-vertex with large slack — our oracle's point-to-surface leash is strictly
+stricter), so 0.03–0.04·diag is safely legal. **But** this is a position-only
+optimizer change, and both the D3 null result and JUDGE-ENVELOPE §7.2 warn that (a)
+position-only optimizer moves are net-neutral on the judge *unless paired with a
+lower `keep`*, and (b) local position-space gains are KNOWN-BIASED (over-rewarded on
+proxies, do not transfer). So widen the cap *together with* a lower keep, and read
+the outcome on the judge — monotonic-accept protects validity, not transfer.
 
 **D2. Better optimizer than vanilla gradient ascent.** Lever 4 is plain gradient
 ascent with step-halving. Swap in **momentum/Adam** and/or **coarse-to-fine
@@ -143,14 +154,65 @@ kill-shot says governs appearance. One knob (σ), ~50× cheaper than SVD (safe e
 for cases 6/7), a drop-in swap of the placement in `Evaluate`. Candidate across
 **all** cases, including the large ones where nothing else has moved.
 
+*Status: IMPLEMENTED + LOCALLY SCREENED (2026-07-05) — ready for the judge family
+test.* Implemented per the corrected recipe in
+[../theory/paper-notes.md](../theory/paper-notes.md) (the notes' σ-powers were
+dimensionally wrong; re-derived from Q(x)=E[(s̃·x−det̃)²] and verified: σ=0 ⇒ exact
+GH triangle quadric @2e-14, Monte-Carlo match @5e-4, flat-patch minimizer exactly
+on-plane). Integration follows the judge-proven **aniso pattern**: the PQ minimizer
+(x* = A⁻¹b of the merged {A,b,c} triple) joins the placement **candidate set** in
+`Evaluate`; `incident_ndist` arbitrates; heap ordering untouched. **Isolated to
+case 5** (`pqs_for`: V ∈ (40k,100k]; 0 elsewhere; byte-identity of every off-band
+proxy + the `G_PQS=0` kill-switch verified against the pre-D4 binary).
+
+**Screen #1 (raw PQ, σ ∈ {0.5,1,2} × mean edge) — NEGATIVE, and diagnostic.** All σ
+read below control on armadillo @ banked case-5 keep (best −0.0009 @ σ=2, worst
+−0.0027 @ σ=0.5, all in the normal channel). The σ-trend exposed the cause: at σ→0
+the raw PQ triangle quadric is exactly the **area²-weighted** GH quadric
+(Q = 4·Area²·dist²) — and area-weighting is judged-dead in this engine (`Initialize`
+comment: hurt cases 4/6). The active harmful ingredient was the implicit weighting,
+not the regularization.
+
+**Screen #2 (normalized PQ: each face triple ÷ (2·Area)², so σ=0 ⇒ the engine's own
+UNWEIGHTED quadric) — POSITIVE at σ=0.25.** Armadillo @ keep 0.08453125, oracle @320,
+control = 0.9267 (n 0.8758 / d 0.9775), V′=4212 all runs, all valid:
+
+| σ (× mean edge) | FinalSSIM | normal | depth | Δ |
+|---|---|---|---|---|
+| 0.10 | 0.9256 | 0.8739 | 0.9772 | −0.0011 |
+| **0.25** | **0.9276** | **0.8767** | **0.9786** | **+0.0009** |
+| 0.50 | 0.9269 | 0.8749 | 0.9789 | +0.0002 |
+| 1.00 | 0.9256 | 0.8742 | 0.9769 | −0.0011 |
+
+Clean unimodal response peaking at 0.25, both channels up — a real knob, not noise.
+Operating point shipped in `pqs_for` = **0.25, normalized** (`g_pqnorm=1` default;
+`G_PQS`/`G_PQNORM` env overrides for local tests; no-env path verified byte-identical
+to the sweep winner).
+
+**Honest transfer framing (ENVELOPE §7.2):** +0.0009 local is in the range where
+decimation-trajectory gains have both transferred (aniso) and not (R1: +0.002 local →
+3/3 judge-negative). The proxies over-reward position-space changes. So the judge
+family test is the only read that counts: **submit at the banked case-5 rung
+(V′=4226) with PQnorm σ=0.25 on — one submission, one question: does case 5 still
+pass?** If yes, descend one rung (~4200, using the 3.5e-5 S/vertex slope as the
+sizing guide). If the family test WAs the banked rung, revert `pqs_for` to 0 (one
+constant) and D4 is closed judge-negative. Expected value if it transfers: ~+0.004
+total (small); the larger prize is that a validated PQ placement then becomes a
+candidate for the *other* cases (3, 6, 7) where placement has never moved.
+
 **D5. Connectivity in the optimizer loop.** Lever 4 freezes topology and only moves
 vertices — stuck in the given triangulation's basin. Extend it: between
 position-ascent steps allow a few **manifold-safe edge flips** (link condition,
 trivially watertight) chosen by their measured effect on rendered SSIM, plus
 occasional re-collapses of now-redundant edges. The one move that lets the
 post-decimation mesh change its *face pattern* to fit the normal map, short of full
-remeshing. Novel; cases 3, 4. Must use the periodic/coarse render (never per-flip)
-to stay in budget.
+remeshing. Cases 3, 4. Must use the periodic/coarse render (never per-flip) to stay
+in budget. **Prior art (SOLVER-INTERNALS §5.5 / §9 / §11): the flip component is
+already tried and judge-inert** — `flip_pass` / `G_FLIP` (normal-match proxy,
++0.0005 local, zero judge) and "edge flips by real SSIM" is a listed dead optimizer
+variant. So D5 is *not* genuinely-novel; its only untried part is the **interleave
+with position ascent + re-collapse of redundant edges**. Treat it as a variation on
+inert work — medium-low confidence.
 
 **D6. Silhouette-coverage guarantee for the normal map.** At high compression the
 simplified silhouette erodes *inside* the original's footprint; there a window is
@@ -187,8 +249,11 @@ captures part of its intuition.
 
 1. **D0 — diagnose.** Aim before firing.
 2. **D1 + D4.** Cheapest high-EV: widen the cap, and swap in Probabilistic Quadrics
-   placement. Small changes, plausibly help *every* case including 6/7, neither
-   risks validity.
+   placement. Small changes, plausibly help *every* case including 6/7. Not a
+   "free-roll", though: any placement/cap change reshuffles every case's mesh ±0.013
+   SSIM and can WA a banked razor rung (§9.3 operating rule; the placement graveyard
+   already has WA'd siblings — `G_TCAND`, `G_NPLACE2`), so run the mandatory judge
+   family-test at the banked rung *before* descending.
 3. **D2 / D3.** Optimizer upgrades on cases 3/4, guided by D0.
 4. **D5.** Connectivity-in-loop, if D2/D3 show the position-only optimizer saturating.
 5. **D6 / D8.** Only if D0 fingers contour/crease loss, isolated to one case.
@@ -197,12 +262,21 @@ captures part of its intuition.
 ### Confidence for *lowering `V'_min`*
 
 - **D4 (probabilistic quadrics)** and **D1 (cap widening)** are the best
-  risk-adjusted bets — untried, cheap, aligned with our own finding that triangle
-  quality drives the normal map, and (unlike the graveyard) they change
-  *placement/geometry*, not the dead *cost-weight* dimension.
-- **D5** is the most interesting genuinely-novel idea.
-- **D7 (VSA)** is the only route that changes the representation class — but it is a
-  project, not an experiment.
+  risk-adjusted bets — cheap, aligned with our finding that triangle quality drives
+  the normal-map *structure* term, and (unlike the graveyard) they change
+  *placement/geometry*, not the dead *cost-weight* dimension. But they are
+  **ceiling-limited**: JUDGE-ENVELOPE §6.1 says the only door to 91+ is a *globally
+  better optimizer* (joint decimation+refinement, Road B) — D4/D1 buy tenths inside
+  the current decimate-then-refine family, not the next wall. (D4 is a decimation-
+  side placement change, so it is *less* exposed to §7.2's position-space transfer
+  bias than D1, which is a refine-optimizer knob.)
+- **D5** — its edge-flip core is already tried and judge-inert (see D5 above); only
+  the interleave + re-collapse is new. The most interesting idea *in principle* (it
+  is the closest thing here to Road B's joint optimizer), but medium-low confidence
+  given that flip prior art.
+- **D7 (VSA)** is the only route that changes the representation class — a project,
+  not an experiment. It is well-aimed: it targets the *diagnosed* case-4 wall
+  (crease gate-exhaustion, ENVELOPE §6.1); the manifold re-triangulation is the risk.
 
 Protocol for all of the above (from the strategic directive): **isolate every
 experiment to one case** (others byte-identical), a red dot is *data not a verdict*,
