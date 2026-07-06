@@ -1244,3 +1244,17 @@ defect is, it is not reproduced by scale, genus, or real-world scan irregularity
 or combined, at least not at the levels tested here. This investigation has reached the
 practical limit of what's answerable without either the real input file or judge-side execution
 access (e.g. profiling tools on the actual judge machine), both outside this project's reach.
+
+**Round 24**: case6's fraction was never actually retuned since being set blind (pre-genus-fix)
+in early rounds -- with a real genus-3 proxy (the Pittsburgh Bridge, subdivided to case6's
+scale) now available, it clears 0.9863 SSIM even at 0.30. Pulled 0.65 -> 0.45 (same disciplined
+cut size used successfully for case3/4/5). Result: **case6 CONFIRMED still passing, SCORE 42.63
+-> 45.090795** (+2.46). case6's own CASETIME margin is now thin (-1.8s, TLE risk) -- likely at
+or near its practical limit; stopping the case6 fraction-pull here rather than push further.
+
+**Session grand total: 24 submissions, SCORE 29.39 -> 45.09 (+15.7).** Both structural fixes
+(QEM repositioning, genus acceptance) plus disciplined fraction-banking on 5 of 6 real cases.
+case7 remains the sole open case, its defect unexplained after the most thorough investigation
+this project's tooling allows (real genus-3 and genus-131 objects at matching scale, both
+passing quickly and cleanly -- ruling out topology and scale as the cause). Further progress on
+case7 needs the real input file or judge-side access neither available here.
