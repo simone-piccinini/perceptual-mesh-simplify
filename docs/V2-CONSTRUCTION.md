@@ -1119,6 +1119,32 @@ wrong, incorrectly rejecting a valid answer and triggering the destructive hull 
 
 **Verified**: torus FinalSSIM 0.19 -> 0.86 at the seed fraction, 0.92 at 0.90 (clears the 0.9
 cliff). All 4 genus-0 proxies and the multi-component test unchanged (purely additive fix --
-accepts more valid topologies, never rejects anything that used to pass). Submitting as round
-22 -- this is the most mechanistically complete explanation found all session for case6/7's
-fraction-independent, timing-independent Wrong Answer.
+accepts more valid topologies, never rejects anything that used to pass).
+
+**ROUND 22 RESULT: CASE6 PASSES.** `CASES ......x` -- every real case except case7 now passes.
+**SCORE 35.42 -> 42.631783 (+7.21), the single biggest jump of the entire session.** This
+confirms the genus hypothesis was exactly right for case6: it has a genuine handle/hole,
+`build_clustered_mesh` was correctly computing a topologically valid quotient the whole time,
+and the ONLY thing standing between "confirmed passing" and 20 rounds of blind fraction-tuning
+was a validation gate that rejected a correct answer for the wrong reason.
+
+case7 still fails (Wrong Answer, CASETIME margin -2.0s). Round 23 pulled its fraction down
+further (0.12 -> 0.08) to test whether timing was the binding constraint -- result: still Wrong
+Answer, essentially the same margin (-2.4s). Fraction is not the lever.
+
+**Built a real 1M-vertex genus-1 torus (case7's exact scale) to get real local data instead of
+guessing further.** Result: FinalSSIM 0.997+ even at 0.08 fraction, total runtime ~3s -- nowhere
+close to a timing or quality problem. Also re-tested fandisk_huge (1.66M vertices, bigger than
+case7's real 1,009,118) with the current post-genus-fix binary: ~10s total (4.8s setup + 5.1s
+growth), comfortably under budget. **Real case7 takes 23+ seconds on the judge -- a 2-3x gap
+over any local proxy at matching or larger scale**, a discrepancy first noted early this session
+(round 9 era) that neither the round-11 setup-phase perf fix nor anything since has closed.
+Whatever real case7's geometry actually is, it drives meaningfully more computational work than
+either a smooth genus-1 torus or a subdivided organic/CAD mesh at the same vertex count -- and
+without the real file, this specific gap can't be further localized locally.
+
+**Session final tally**: SCORE 29.39 -> 42.632116 across 23 submissions. The genus fix (round
+22) alone accounts for +7.2, the single largest jump, and is a genuine root-cause fix (not a
+tuned parameter) -- case6 now passes with margin to spare, not by luck. case7 remains the one
+open case, blocked on a timing gap that has resisted explanation since round 9 and needs either
+the real input file or further profiling access this project doesn't have.
