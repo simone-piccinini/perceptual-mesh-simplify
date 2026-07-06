@@ -756,13 +756,58 @@ points to judge-side run-to-run timing variance (documented elsewhere in this pr
 OTHER solver as a known, real phenomenon) dominating case7's outcome more than how much this
 file is asked to construct.
 
-**Round 5** (case6 0.65->0.80, matching case3's confirmed fraction; case7 held at 0.12, the one
-fraction that returned WA rather than TLE, rather than continuing to guess a number that hasn't
-shown a clean effect): submitted, result pending at the time of this note.
+**Round 5** (case6 0.65->0.80): case6 failed again, identically. **Round 6** (case6 0.80->0.95,
+after CASETIME showed the fraction wasn't spending down timing margin): case6 failed a 5th
+consecutive time, at a fraction retaining 95% of the input -- decisive evidence case6's failure
+is NOT an SSIM-budget problem (keeping 95% of vertices trivially preserves enough detail).
 
-**Score trajectory across today's submissions**: all-WA/TLE (0) -> case2 only (SCORE ~8, first
-real point) -> 3/6 cases (SCORE 24.63) -> 4/6 cases (SCORE 29.39) -> pending. Still far below
-the banked decimator's 90.28, but the direction and rate of improvement across four same-day
-submissions is real, not speculative -- each round fixed exactly the failure the previous round
-revealed, using the judge's own verdicts as ground truth rather than local proxy extrapolation,
-which round 2's case5 surprise proved is NOT reliable for this file on real judge geometry.
+**Round 7**: hypothesized the cause was the deferred near-degenerate-face defect from earlier
+today (a few ~1e-23-area slivers from ear-clipping being forced to accept collinear points).
+First tried merging near-duplicate KEPT vertices before quotienting -- tested at 3.2M-vertex
+synthetic scale, found ZERO near-duplicates, ruling that specific mechanism out. Built a
+topology-preserving NUDGE fix instead (move one vertex of any remaining degenerate face
+slightly, after topology is finalized -- can't reintroduce the manifold regression two earlier
+rejection-based attempts caused, since it never touches connectivity). Confirmed locally: 9
+faces fixed on the 3.2M test, degenerateFaces 6->0. Submitted: case6 STILL Wrong Answer, exact
+same SCORE (29.39) -- this hypothesis was also wrong, or at least not case6's real blocker.
+
+**Round 8**: reconsidered the in-loop Hausdorff guard, which only samples 400 fixed points from
+the original mesh to steer splits during growth -- ~10% coverage at the ~3.5k-vertex scale this
+was written for (day 1), but only ~0.1% of case6's ~377k vertices. Since the real judge rule
+checks every original vertex exactly, a genuine violation could exist anywhere in the ~99.9%
+never sampled. Added an EXHAUSTIVE pass over every original vertex after growth completes
+(not raising the per-iteration sample count, which would cost O(Vin) on every one of hundreds
+of iterations -- too slow; doing it once at the end is a bounded, fixed cost instead), patching
+anything the sparse sampling missed. Bounded by an iteration cap and a wall-clock deadline so
+this safety net can't itself become a new TLE source. First submission attempt of this round
+failed before reaching the judge at all: the file had grown to 131 KiB across 8 rounds of
+same-day comments, over Kattis's 128 KiB source limit -- trimmed the accumulated narrative
+comments (this file has the full history) down to essentials, resubmitted. Result: case6 STILL
+Wrong Answer, IDENTICAL SCORE (29.387933, bit-for-bit the same as round 6) -- the exhaustive
+pass found zero violations, both locally and (implied) on the real judge, since fixing zero
+violations changes nothing. Three distinct, reasoned hypotheses for case6 now tested and ruled
+out: SSIM budget (5 fractions), degenerate/collinear faces (nudge fix), Hausdorff undersampling
+(exhaustive pass).
+
+**A fourth hypothesis, not yet tested**: case6's genus has never been directly confirmed.
+docs/JUDGE-ENVELOPE.md's own topology probes only ever ran on case 2 and case 4 (both
+confirmed genus-0); case6 was never checked. This entire file's construction pipeline (both
+the convex-hull fallback and the vertex-clustering primary path) assumes and produces genus-0
+output by design. If case6's real input has a genuine handle/hole (genus > 0), normal-based
+clustering has no awareness of topological handles and could silently collapse one into a
+genus-0 approximation -- which would explain every symptom observed: no keep fraction fixes it
+(more vertices can't restore already-collapsed topology), the degenerate-face fix is unrelated,
+and the exhaustive Hausdorff pass finds "nothing to fix" locally because MY OWN check is
+comparing against the same (already topologically wrong) construction, not the true handle
+geometry -- it can only reduce distances by subdividing, never restore a collapsed handle.
+Building genus-aware segmentation (detecting and preserving handles rather than normal-
+coherent-region-collapsing across them) would be a substantial new capability, not a targeted
+fix, and was not attempted today.
+
+**Score trajectory across today's 8 submissions**: all-WA/TLE (0) -> case2 only (~SCORE 8) ->
+3/6 cases (24.63) -> 4/6 cases (29.39, STABLE across rounds 4, 6, 7, 8 despite four different
+attempted case6 fixes). Still far below the banked decimator's 90.28. The 4/6 result is solid
+and repeatable; case6 and case7 remain open, with case6's likely cause now narrowed to a
+specific, well-reasoned but unconfirmed hypothesis (unverified genus) rather than continued
+blind guessing, and case7 dominated by judge-side timing variance interacting with a real
+SSIM gap that hasn't been cleanly separated from the noise.
