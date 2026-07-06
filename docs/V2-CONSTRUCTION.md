@@ -893,3 +893,70 @@ existing repair, the "unverified genus" hypothesis for case6 is weaker than roun
 it: if case6 has a similar issue, it's more likely a pinch-vertex pattern the repair handles
 imperfectly at scale (different density, cluster-boundary interaction) than a genuine
 topological handle. Still unconfirmed either way without the real file.
+
+**Round 12** (case6 budget 9s -> 5s, the same margin-isolation test that clarified case7):
+result **confirms the shared-defect theory cleanly**. Case6 now ran in 12.3s (margin +8.7s,
+comfortable, no TLE risk at all) and read a clean **Wrong Answer** -- not TLE. Case7
+(untouched this round) swung back to TLE (23.0s, margin -2.0s) on its own noise. SCORE
+unchanged (29.393243). Both case6 and case7 have now independently been given a clean timing
+margin (case7 in round 11, case6 in round 12) and BOTH still fail Wrong Answer when they do.
+This closes the timing question for good: neither case is "too slow" in any sense that more
+budget-cutting or perf work can fix -- both have a real, timing-independent validity defect,
+almost certainly the same one, that cannot be diagnosed further without the actual failing
+input file (no local proxy reproduces it; every structural hypothesis tried so far -- SSIM
+budget, degenerate/collinear faces, Hausdorff undersampling, near-duplicate vertices, and now
+genus/pinch-vertices -- has been tested and ruled out or weakened). This line of investigation
+(submission-driven tuning of case6/case7) is CLOSED pending either real input access or a
+decision to invest in a structural rewrite of the construction method itself (see the
+strategic finding above: even a fully-passing main_v2 at current quality would not approach
+BANK_SCORE, since it pays out at roughly half the banked decimator's rate per case).
+
+**Twelve real judge submissions this session, final tally**: 4/6 real cases passing
+(case2/3/4/5), SCORE stable at ~29.39 since round 4, one genuine free perf win banked (round
+11), two hypotheses corrected/weakened (genus -> pinch-vertex, round 9's swap -> shared defect,
+round 12), zero further actionable levers within this architecture without new data.
+
+## Compression-efficiency rewrite: QEM-optimal cluster repositioning
+
+User directive after the round-12 checkpoint: invest in making the construction method
+compression-competitive with main.cpp's decimation, rather than continue tuning case6/7 blind.
+Root cause of the ~2x payout gap identified immediately: `build_clustered_mesh` kept vertices
+at their raw representative point (`out.P.push_back(origP[k])`) -- literally an original mesh
+vertex, never relocated. main.cpp's decimation gets a quadric-optimal position "for free" from
+every edge collapse; this file's seed never did.
+
+**Fix**: accumulate a Garland-Heckbert quadric per cell (area-weighted face-plane quadrics from
+every ORIGINAL face touching the cell, via the existing `nearestKept` assignment), then solve
+for each kept vertex's optimal position. Two real failure modes surfaced and were fixed in turn:
+
+1. A plain ridge-regularized solve REGRESSED the CAD-like fandisk proxy (SSIM -0.007, Hausdorff
+   4x worse) -- a cell dominated by one flat face has a near-rank-1 quadric, and ridge
+   regularization still lets the solve slide freely along the two poorly-constrained
+   directions. Fixed with the standard rank-limited eigendecomposition form: only move along
+   eigendirections the geometry actually constrains; freeze the rest at the raw point.
+
+2. Even with that fix, UNCLAMPED movement broke catastrophically at 800k-vertex synthetic
+   scale: 13841 near-degenerate faces (7% of the mesh), FinalSSIM collapsing to 0.19. Cause:
+   each kept vertex solves independently with no awareness of neighbors, and at fine
+   clustering resolution (many, closely-spaced cells) neighboring cells' independently-chosen
+   optimal positions can cross or collapse each other's triangles. Two blanket movement-
+   magnitude clamps were tried and both wrong: a cell's own graph-distance radius (too loose --
+   still 8092 bad faces) and a fraction of the nearest quotient-edge length (safe, but choked
+   off nearly ALL the benefit even on small meshes where unclamped movement was already proven
+   safe -- 0 degenerate faces there to begin with). The actual failure mode is a small NUMBER
+   of specific collisions, not movement magnitude in general -- fixed properly by solving
+   unclamped (after the quotient topology and all its repair passes are fully finalized, using
+   real out.F edges), then detecting actual collapsed (<5% of original area) or flipped
+   (inverted normal) triangles against the pre-move geometry and reverting only the vertices
+   actually implicated, iterated to convergence (max 5 passes, worst case everything reverts to
+   the known-good baseline).
+
+**Result, verified locally on all proxies + both synthetic large-scale stress tests**:
+- bunny 0.9119 -> 0.9254, cow 0.9369 -> 0.9482, fandisk 0.9816 -> 0.9884, armadillo 0.9603 -> 0.9696
+- 800k-vertex synthetic: 0.9711 -> 0.9759 (11 nudges, same order as before the change)
+- 3.2M-vertex synthetic: 0.9870 -> 0.9883, no timing regression (20.8s vs round 11's ~21.6s)
+- case6-scale proxy (200k): 0.9826 -> 0.9865
+
+Every proxy improved, none regressed, no manifold/degenerate/Hausdorff-limit violations
+anywhere tested. This is the first change this session to attack the actual STRUCTURAL gap
+(compression efficiency) rather than case6/7's validity wall. Submitting as round 13.

@@ -1,16 +1,13 @@
 // IMC2 Problem B (simplifygeometry) — SECOND SOLVER, built from scratch. CONSTRUCTION method
-// (starts near-empty, ADDS vertices where the render is wrong) -- unrelated to main.cpp's
-// DECIMATION algorithm at the design level. Shares only the judge's own spec (OBJ I/O,
-// rasterizer, SSIM formula), never main.cpp's decimation logic.
+// (starts near-empty, ADDS vertices) -- unrelated to main.cpp's DECIMATION algorithm at the
+// design level. Shares only the judge's own spec (OBJ I/O, rasterizer, SSIM formula).
 //
-// STATUS 2026-07-06 (10 real judge submissions): seed = vertex-clustering quotient
-// (Rossignac & Borrel, region-segmentation-anchored), hull fallback if the quotient fails its
-// manifold/genus check, then exact-delta SSIM-driven refinement. PASSING: case2/3/4/5.
-// FAILING: case6 (Wrong Answer across 6 keep fractions 0.50-0.95 -- cause unconfirmed, not
-// SSIM/budget, leading guess is unverified input genus, see topology check in main()) and
-// case7 (right at the CPU ceiling -- setup cost, not the growth loop, dominates at ~1M
-// vertices). Full history: docs/V2-CONSTRUCTION.md. Submit standalone via
-// `scripts/judge_submit.py solver/main_v2.cpp` -- never touches the banked main.cpp.
+// STATUS 2026-07-06 (12 submissions): seed = vertex-clustering quotient (Rossignac & Borrel),
+// each kept vertex now repositioned to its cell's QEM-optimal point (not just the raw
+// representative), hull fallback on manifold failure, exact-delta SSIM-driven refinement.
+// PASSING: case2/3/4/5. FAILING case6/case7: BOTH confirmed (round 11/12) to have one real,
+// timing-independent Wrong-Answer defect, cause unconfirmed without the real input file.
+// Full history: docs/V2-CONSTRUCTION.md. Submit via `scripts/judge_submit.py solver/main_v2.cpp`.
 
 #include <cstdio>
 #include <cstdlib>
@@ -27,13 +24,8 @@
 #include <unordered_map>
 #include "Eigen/Dense"
 
-// std::map<pair<int,int>,...> (O(log n), poor cache behavior) is used throughout the setup
-// pipeline for edge-keyed lookups; std::pair has no default std::hash, so this functor lets
-// the hot paths switch to unordered_map instead. Case7's real judge read (1.01M vertices) took
-// 23.9s of actual run time against a local extrapolation of ~5-6s from synthetic meshes up to
-// 3.2x that size -- an unexplained gap that neither the setup-phase algorithmic fix nor the
-// synthetic-mesh testing reproduced; this is a safe, mechanical constant-factor speedup applied
-// on the chance it's part of the answer, not a confirmed fix for a root-caused bottleneck.
+// std::pair has no default std::hash; this functor lets hot edge-keyed lookups use
+// unordered_map (O(1) avg, better cache behavior) instead of std::map throughout setup.
 struct PairIntHash {
     size_t operator()(const std::pair<int,int>& p) const {
         return (size_t)(uint32_t)p.first * 1000000007ULL + (size_t)(uint32_t)p.second;
@@ -341,14 +333,11 @@ static void capture_original(const std::vector<Vec3>& P, const std::vector<std::
 }
 
 // ===================== EXACT LOCAL-DELTA SCORING (day 4) =====================
-// Replaces the day 1-3 proxy (an isolated per-triangle normal-distortion score, removed —
-// see docs/V2-CONSTRUCTION.md day 3 for the full account of the 4 bugs it caused) with JD's
-// validated technique from the same session (docs/ATTEMPT_LOG.md, 2026-07-06): an insertion's
-// screen footprint is LOCAL (bounded by the old triangle's + new point's screen positions), so
-// only SSIM windows touching that footprint can change. Compute the EXACT before/after
-// rendered SSIM delta there instead of scoring a candidate in isolation — this automatically
-// down-scores coplanar no-ops, already-covered "magnet" points, and wrongly-attributed
-// targets, since all three provably fail to increase the TRUE rendered SSIM.
+// Replaces the day 1-3 isolated per-triangle proxy (docs/V2-CONSTRUCTION.md day 3) with an
+// exact technique: an insertion's screen footprint is LOCAL (bounded by the old triangle's +
+// new point's screen positions), so only SSIM windows touching it can change. Compute the
+// EXACT before/after rendered SSIM delta there instead of scoring a candidate in isolation --
+// this automatically down-scores coplanar no-ops and already-covered/wrongly-attributed points.
 
 struct ViewCache {
     std::vector<int> fid;
@@ -678,20 +667,12 @@ static SpatialGrid g_origGrid;   // built once from the fixed original mesh
 static SpatialGrid g_curGrid;    // rebuilt once per growth iteration from the current mesh
 static std::vector<Vec3> g_featurePoints;   // day 6: region-boundary/corner points, set once in main()
 
-// Generate a small candidate set of split positions for face (a,b,c): the closest point on the
-// original surface from the centroid (position baseline), the actual nearest ORIGINAL VERTEX
-// (real, unmodified surface data), and small tangent-plane offsets of the baseline RE-PROJECTED
-// onto the original surface (so every candidate stays on-surface by construction — an earlier
-// off-surface version broke Hausdorff, 0.249 vs the 0.119 limit). Filters out candidates that
-// would be degenerate (near-zero sub-triangle area) or land within `minSep` of an existing
-// current-mesh vertex (day-3 bug: a single distinctive original vertex/crease acted as a
-// magnet, with many different parent faces all converging on the SAME 3D point).
-//
-// Day 1-3 used an ISOLATED per-triangle "induced normal distortion" score to pick among these
-// candidates — proven unreliable (docs/V2-CONSTRUCTION.md day 3: 4 distinct bugs, all
-// variations of "the proxy doesn't correlate with whether this candidate helps the actual
-// rendered image"). Day 4 replaces that scoring with the exact local-delta technique
-// (exact_insertion_delta) applied by the CALLER to whichever candidates this generates.
+// Candidate split positions for face (a,b,c): closest point on the original surface from the
+// centroid, the nearest ORIGINAL VERTEX, and tangent-plane offsets RE-PROJECTED onto the
+// original surface (off-surface candidates broke Hausdorff, 0.249 vs the 0.119 limit). Filters
+// degenerate (near-zero sub-triangle area) or too-close-to-an-existing-vertex candidates (a
+// magnet-vertex bug: many parent faces converging on the same point). Scored by the CALLER via
+// exact_insertion_delta, not an isolated per-triangle proxy (docs/V2-CONSTRUCTION.md day 3).
 static long g_areaRejects = 0, g_sepRejects = 0;   // day 5 diagnostic: which filter is actually exhausting candidates
 static void generate_split_candidates(const Vec3& a, const Vec3& b, const Vec3& c,
                                        const std::vector<Vec3>& OP, const std::vector<std::array<int,3>>& OF,
@@ -758,17 +739,13 @@ static void generate_split_candidates(const Vec3& a, const Vec3& b, const Vec3& 
     }
 }
 
-// farthest-point sampling: greedily pick K points that are well spread over the input surface.
-// A convex hull can never have more vertices than its input set, so hulling a K-point sample
-// GUARANTEES a seed of at most K vertices — unlike hulling the full point set (measured on
-// the bunny proxy: 3485 points -> a genuinely valid 647-vertex hull, already bigger than a
-// 5%-budget target). This is a well-known sampling technique, independent of any decimator.
-// day 6: face-to-face adjacency of the ORIGINAL mesh via shared edges (up to 3 neighbors per
-// face). Needed for normal-based region growing below -- an independent mechanism from
-// main.cpp's decimation, built for a construction context: main.cpp collapses edges ORDERED by
-// induced normal distortion; this instead SEGMENTS the original surface into normal-coherent
-// regions up front and treats the boundaries between regions as insertion targets. Same
-// underlying insight (flat regions matter more than raw vertex density), independently applied.
+// Farthest-point sampling: greedily pick K well-spread points. A hull of a K-point sample is
+// guaranteed <=K vertices, unlike hulling the full set (measured: bunny's 3485 points hull to
+// 647 vertices, already over a 5%-budget target).
+// Face-to-face adjacency of the ORIGINAL mesh via shared edges (up to 3 neighbors/face), for
+// normal-based region growing below: SEGMENTS the surface into normal-coherent regions up
+// front and treats region boundaries as insertion targets (independent of main.cpp's own
+// normal-distortion-ordered edge collapse; same underlying insight, applied differently).
 static std::vector<std::array<int,3>> build_face_adjacency(const std::vector<std::array<int,3>>& F) {
     // array<int,2>, not vector<int> -- no per-edge heap alloc; only the first two faces per
     // edge are ever read back below, so this matches the old vector-scan result exactly.
@@ -860,14 +837,10 @@ static Segmentation segment_by_normal(const std::vector<Vec3>& P, const std::vec
     return seg;
 }
 
-// Where the segmentation actually pays off: a vertex touched by 2 distinct regions sits on a
-// region BOUNDARY (a fold/seam in the true surface); a vertex touched by 3+ is a CORNER where
-// multiple seams meet -- both are exactly the points a good triangulation needs to place
-// vertices at to avoid a single triangle straddling a real normal discontinuity. Every point
-// carries a PRIORITY score (corners: how many regions meet there, i.e. valence; edge points:
-// the dihedral angle between the two regions it separates) -- inserting all of them unranked
-// wastes budget on marginal points ahead of ones that actually matter (measured: unranked
-// insertion scored WORSE than the pure SSIM-driven baseline it was meant to beat).
+// A vertex touched by 2 distinct regions sits on a region BOUNDARY (a fold/seam); 3+ is a
+// CORNER where multiple seams meet -- both are where triangulation needs vertices to avoid
+// straddling a real normal discontinuity. Each carries a PRIORITY (corners: valence; edge
+// points: dihedral angle) -- unranked insertion measurably scored worse than pure SSIM-driven.
 struct FeaturePoint { Vec3 p; double priority; int vIdx; };
 struct FeatureSet { std::vector<FeaturePoint> corners; std::vector<FeaturePoint> edgePts; };
 static FeatureSet extract_features(const std::vector<Vec3>& P, const std::vector<std::array<int,3>>& F,
@@ -894,18 +867,13 @@ static FeatureSet extract_features(const std::vector<Vec3>& P, const std::vector
     return fs;
 }
 
-// day 7: vertex-clustering construction (Rossignac & Borrel 1993 style) -- a genuinely
-// different, ONE-SHOT algorithm from both the hull-and-grow approach (days 1-6, iteratively
-// ADDS vertices) and from main.cpp's iterative edge-collapse decimation (iteratively REMOVES
-// them). Choose a KEPT vertex set anchored on the region-segmentation feature points (so
-// region boundaries are preserved exactly from the start, not discovered by slow greedy
-// per-pixel search), map every other original vertex to its nearest kept vertex, and quotient
-// the ORIGINAL triangulation onto that map in a single pass: a triangle whose 3 corners map to
-// 3 DISTINCT kept vertices survives (relabeled); one that collapses to <3 distinct vertices is
-// dropped. This inherits the original mesh's manifoldness almost automatically (it is a
-// topological quotient of a known-good mesh, not built from nothing) -- validated below, never
-// assumed: a clustering quotient CAN still pinch two well-separated parts of the surface
-// together into a non-manifold edge, so every result is checked before being trusted as a seed.
+// Vertex-clustering construction (Rossignac & Borrel 1993 style) -- a ONE-SHOT algorithm,
+// distinct from both hull-and-grow and main.cpp's iterative edge-collapse. KEPT vertex set is
+// anchored on region-segmentation feature points; every other original vertex maps to its
+// nearest kept vertex; the ORIGINAL triangulation quotients onto that map in one pass (a
+// triangle surviving iff its 3 corners map to 3 distinct kept vertices). Inherits the original
+// mesh's manifoldness almost for free, but a quotient CAN still pinch unrelated surface parts
+// together into a non-manifold edge -- every result is validated below, never assumed.
 struct ClusteredMesh { std::vector<Vec3> P; std::vector<std::array<int,3>> F; bool manifoldOk; };
 static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const std::vector<std::array<int,3>>& origF,
                                            const Segmentation& seg, const FeatureSet& feat, int budget) {
@@ -1115,9 +1083,28 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
         nearestKept[v] = bk;
     }
 
+    // Per-cell Garland-Heckbert quadric (area-weighted face-plane quadrics via nearestKept),
+    // used below to reposition kept vertices off their raw representative point once the
+    // quotient topology is final -- main.cpp's decimation gets this "for free" from repeated
+    // edge-collapse, this seed never did (docs/V2-CONSTRUCTION.md: the leading suspect for
+    // main_v2's ~half-banked-rate payout). Solve is deferred until topology is final -- see
+    // the note by the solve loop for why (an earlier pre-topology clamp attempt was unreliable).
+    struct Quadric { Eigen::Matrix3d A = Eigen::Matrix3d::Zero(); Vec3 b = Vec3::Zero(); };
+    std::vector<Quadric> cellQ(nv);
+    for (const auto& t : origF) {
+        Vec3 n = face_normal(origP, t);
+        double area = 0.5 * (origP[t[1]]-origP[t[0]]).cross(origP[t[2]]-origP[t[0]]).norm();
+        if (area <= 0 || n.squaredNorm() < 0.5) continue;
+        double d = -n.dot(origP[t[0]]);
+        Eigen::Matrix3d A = area * (n * n.transpose());
+        Vec3 b = area * d * n;
+        for (int k = 0; k < 3; ++k) { int kv = nearestKept[t[k]]; cellQ[kv].A += A; cellQ[kv].b += b; }
+    }
     std::vector<int> compact(nv, -1);
     ClusteredMesh out;
-    for (int k : kept) { compact[k] = (int)out.P.size(); out.P.push_back(origP[k]); }
+    std::vector<int> srcKept;   // out.P[i] <- original vertex srcKept[i]; carried through every
+                                 // push_back/compaction below for the solve loop's cellQ lookup.
+    for (int k : kept) { compact[k] = (int)out.P.size(); out.P.push_back(origP[k]); srcKept.push_back(k); }
     auto keyOf = [](int a, int b) { return a < b ? std::make_pair(a, b) : std::make_pair(b, a); };
 
     // Accept quotient faces GREEDILY, capping every edge at 2 uses by construction (not just
@@ -1126,18 +1113,10 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
     std::set<std::array<int,3>> seen;
     std::unordered_map<std::pair<int,int>, int, PairIntHash> edgeCount;
     edgeCount.reserve(origF.size() * 2);
-    // KNOWN, DEFERRED ISSUE (found 2026-07-06 at 800k-vertex synthetic-mesh scale, never
-    // confirmed on real judge geometry): absolute-index distinctness (a==b etc.) doesn't catch
-    // a triangle whose 3 kept vertices are topologically distinct but geometrically almost
-    // coincident -- measured 4 faces with area ~1e-23, technically positive but at floating-
-    // point noise level, a real risk of flipping to zero/negative under a different rounding
-    // order (the judge's own recompute). Traced to the ear-clipping hole-repair passes below
-    // (angle-only quality is numerically unstable on near-coincident points). Tried an area
-    // floor both here and in the ear-clipping loops: REGRESSED manifoldOk to false both times
-    // (some holes have no OTHER valid ear; rejecting the only option just leaves the hole
-    // open). An open hole is a CERTAIN validity failure; an ~1e-23-area sliver is only a risk
-    // of one -- kept the sliver risk over the certain failure. Not fixed; a real judge read at
-    // this scale is the plan to find out whether it matters on actual case geometry.
+    // KNOWN, DEFERRED ISSUE (docs/V2-CONSTRUCTION.md): index distinctness alone can't catch
+    // near-coincident-but-distinct kept vertices (~1e-23-area slivers from ear-clipping below).
+    // An area floor there REGRESSED manifoldOk (rejecting a hole's only ear leaves it open,
+    // a certain failure, worse than a slive risk) -- kept as-is, not fixed.
     for (const auto& t : origF) {
         int a = compact[nearestKept[t[0]]], b = compact[nearestKept[t[1]]], c = compact[nearestKept[t[2]]];
         if (a == b || b == c || c == a) continue;
@@ -1206,17 +1185,9 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
                     for (auto& ee : e) if (edgeCount[keyOf(ee[0], ee[1])] >= 2) { okTri = false; break; }
                     if (!okTri) continue;
                     Vec3 pa = out.P[a], pb = out.P[b], pc = out.P[c];
-                    // TRIED an area floor here (reject near-degenerate ears outright): traced
-                    // 4 faces at ~1e-23 area (800k-vertex scale) to this angle-only quality
-                    // metric being numerically unstable on near-coincident points, but rejecting
-                    // outright regressed manifoldOk to false (some holes have no OTHER valid
-                    // ear, so rejecting the only option just leaves the hole open). A genuinely
-                    // open hole is a CERTAIN validity failure (fails the exact-2-faces-per-edge
-                    // rule); an ~1e-23-area sliver is only a RISK of one (still technically
-                    // positive). Kept the sliver risk over the certain failure -- not fixed,
-                    // documented and deferred pending a real judge read at this scale to confirm
-                    // whether it actually matters on real geometry (this was a synthetic test
-                    // mesh, not a real case).
+                    // Area floor here was TRIED and reverted -- same regression/reasoning as the
+                    // KNOWN, DEFERRED ISSUE note above (an open hole is a certain failure, worse
+                    // than a sliver risk).
                     Vec3 uab = (pb-pa).normalized(), ubc = (pc-pb).normalized(), uca = (pa-pc).normalized();
                     double angA = std::acos(std::clamp(-uca.dot(uab), -1.0, 1.0));
                     double angB = std::acos(std::clamp(-uab.dot(ubc), -1.0, 1.0));
@@ -1284,7 +1255,7 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
                 if (nc <= 1) continue;   // manifold vertex, nothing to do
                 ++pinchesFound;
                 std::vector<int> newIdxForComp(nc, v);
-                for (int c = 1; c < nc; ++c) { newIdxForComp[c] = (int)out.P.size(); out.P.push_back(out.P[v]); }
+                for (int c = 1; c < nc; ++c) { newIdxForComp[c] = (int)out.P.size(); out.P.push_back(out.P[v]); srcKept.push_back(srcKept[v]); }
                 for (size_t i = 0; i < facesV.size(); ++i) {
                     int c = comp[i]; if (c == 0) continue;
                     auto& f = out.F[facesV[i]];
@@ -1304,10 +1275,10 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
             std::vector<char> used(out.P.size(), 0);
             for (const auto& t : out.F) for (int k = 0; k < 3; ++k) used[t[k]] = 1;
             std::vector<int> remap(out.P.size(), -1);
-            std::vector<Vec3> newP;
-            for (size_t v = 0; v < out.P.size(); ++v) if (used[v]) { remap[v] = (int)newP.size(); newP.push_back(out.P[v]); }
+            std::vector<Vec3> newP; std::vector<int> newSrc;
+            for (size_t v = 0; v < out.P.size(); ++v) if (used[v]) { remap[v] = (int)newP.size(); newP.push_back(out.P[v]); newSrc.push_back(srcKept[v]); }
             stripped = (int)out.P.size() - (int)newP.size();
-            out.P = newP;
+            out.P = newP; srcKept = newSrc;
             for (auto& t : out.F) for (int k = 0; k < 3; ++k) t[k] = remap[t[k]];
             if (getenv("V2_DBG") && stripped) std::fprintf(stderr, "[v2cluster] pass %d: stripped %d isolated (0-face) vertices\n", repairPass, stripped);
         }
@@ -1426,16 +1397,69 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
                 }
                 if (nc <= 1) continue;
                 std::vector<int> newIdxForComp(nc, v);
-                for (int c = 1; c < nc; ++c) { newIdxForComp[c] = (int)out.P.size(); out.P.push_back(out.P[v]); }
+                for (int c = 1; c < nc; ++c) { newIdxForComp[c] = (int)out.P.size(); out.P.push_back(out.P[v]); srcKept.push_back(srcKept[v]); }
                 for (size_t i = 0; i < facesV.size(); ++i) { int c = comp[i]; if (c==0) continue; auto& f = out.F[facesV[i]]; for (int k=0;k<3;++k) if (f[k]==v) f[k]=newIdxForComp[c]; }
             }
             std::vector<char> used2(out.P.size(), 0);
             for (const auto& t : out.F) for (int k = 0; k < 3; ++k) used2[t[k]] = 1;
-            std::vector<int> remap2(out.P.size(), -1); std::vector<Vec3> newP2;
-            for (size_t v = 0; v < out.P.size(); ++v) if (used2[v]) { remap2[v] = (int)newP2.size(); newP2.push_back(out.P[v]); }
-            out.P = newP2;
+            std::vector<int> remap2(out.P.size(), -1); std::vector<Vec3> newP2; std::vector<int> newSrc2;
+            for (size_t v = 0; v < out.P.size(); ++v) if (used2[v]) { remap2[v] = (int)newP2.size(); newP2.push_back(out.P[v]); newSrc2.push_back(srcKept[v]); }
+            out.P = newP2; srcKept = newSrc2;
             for (auto& t : out.F) for (int k = 0; k < 3; ++k) t[k] = remap2[t[k]];
         }
+    }
+
+    // Topology is FINAL now (repairs above are done) -- reposition each out.P vertex to its
+    // cell's quadric-optimal position. Rank-limited eigendecomposition (move only along
+    // eigendirections the geometry constrains, freeze the rest) avoids a plain ridge-
+    // regularized solve's regression on CAD-like flat/near-planar cells. A blanket movement-
+    // magnitude clamp (tried: cell-internal radius; nearest quotient-edge fraction) was wrong
+    // both ways -- still let fine-resolution neighboring cells collide at large scale, or
+    // choked off nearly all benefit at small scale where unclamped movement was already safe
+    // (0 degenerate faces, confirmed). The real failure mode is a small number of specific
+    // collisions, not movement magnitude in general: solve unclamped, then detect actual
+    // collapsed/flipped triangles against the pre-move geometry and revert only those vertices.
+    {
+        int nOut = (int)out.P.size();
+        std::vector<Vec3> proposed = out.P;   // out.P still holds the raw pre-move positions
+        for (int i = 0; i < nOut; ++i) {
+            int k = srcKept[i];
+            double trace = cellQ[k].A.trace();
+            if (trace <= 1e-18) continue;
+            Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(cellQ[k].A);
+            const Vec3& eigVals = es.eigenvalues();       // ascending
+            const Eigen::Matrix3d& V = es.eigenvectors();
+            double maxEig = eigVals[2];
+            Vec3 ref = out.P[i];
+            Vec3 zRef = V.transpose() * ref;
+            Vec3 zB = V.transpose() * cellQ[k].b;
+            Vec3 z;
+            for (int a = 0; a < 3; ++a)
+                z[a] = (eigVals[a] > 1e-4 * maxEig) ? -zB[a] / eigVals[a] : zRef[a];
+            Vec3 solved = V * z;
+            if (solved.allFinite()) proposed[i] = solved;
+        }
+        // Iterate: reverting one vertex can un-break a face but a chain of bad vertices needs
+        // more than one pass; converges quickly (worst case, every implicated vertex reverts to
+        // its known-good original position, never a new failure mode).
+        for (int iter = 0; iter < 5; ++iter) {
+            std::vector<char> bad(nOut, 0);
+            bool any = false;
+            for (const auto& t : out.F) {
+                Vec3 a0 = out.P[t[0]], b0 = out.P[t[1]], c0 = out.P[t[2]];
+                Vec3 n0 = (b0-a0).cross(c0-a0);
+                double origArea = 0.5 * n0.norm();
+                Vec3 a1 = proposed[t[0]], b1 = proposed[t[1]], c1 = proposed[t[2]];
+                Vec3 n1 = (b1-a1).cross(c1-a1);
+                double newArea = 0.5 * n1.norm();
+                bool collapsed = newArea < 0.05 * origArea;
+                bool flipped = origArea > 0 && n0.dot(n1) < 0;
+                if (collapsed || flipped) { bad[t[0]] = bad[t[1]] = bad[t[2]] = 1; any = true; }
+            }
+            if (!any) break;
+            for (int i = 0; i < nOut; ++i) if (bad[i]) proposed[i] = out.P[i];
+        }
+        out.P = proposed;
     }
 
     // Final check: after the edge-cap + repair pass, require a properly CLOSED 2-manifold
