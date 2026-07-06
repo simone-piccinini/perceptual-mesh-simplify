@@ -1207,3 +1207,40 @@ regime than case7 likely presents. Better complexity proxies (real watertight ob
 genuine positive genus and/or fine surface detail, not raw damaged scans) were being gathered
 by a parallel agent when this was written -- see session notes for the next update once that
 completes.
+
+## Real genus-bearing objects at scale: the genus fix holds, case7's gap still unexplained
+
+Got two genuinely good real-world test meshes (public domain, from Keenan Crane's CMU model
+repository): **Pittsburgh Bridge** (real photogrammetry scan from CMU's Panoptic Studio,
+isotropic-remeshed-without-boundary variant -- confirmed single-component, watertight, genus 3
+via direct Euler-characteristic check: V-E+F=-4) and **"Yeah Right"** (a deliberately extreme
+topology stress test, explicitly documented genus 131, single-component, watertight, 94076
+vertices). Both are real, non-smooth, non-mathematical geometry -- exactly the missing
+complexity class this investigation needed.
+
+**At native scale**: bridge (75081v/150170f) -> manifoldOk=1, FinalSSIM=0.9793, no hull
+fallback. Yeah Right (94076v/188672f, genus 131!) -> manifoldOk=1, FinalSSIM=0.9015 (clears the
+cliff, though with little margin -- expected for a deliberately extreme case). Both confirm the
+round-22 genus fix generalizes correctly to real, irregular, non-synthetic topology, not just
+the mathematical torus it was built and verified against.
+
+**Subdivided to case7's exact scale (~1M vertices) using case7's own fraction/budget bracket**:
+- Bridge subdivided to 1,201,356v/2,402,720f (real genus-3 geometry at matching scale): total
+  runtime 4.05s setup + 4.7s growth = **8.75s**, FinalSSIM=0.9873, manifoldOk=1. Nowhere close
+  to the real judge's 23+ seconds on case7.
+- Yeah Right subdivided to 1,509,116v/3,018,752f (genus 131 at matching scale, an intentionally
+  extreme stress test far beyond anything a real asset would plausibly have): setup cost DID
+  rise meaningfully with topology complexity (9.14s vs 4.05s for the less-complex bridge at
+  similar scale -- extract_features and build_clustered_mesh both cost more with more edge/
+  corner feature points from denser topology), but total runtime was still only **16.1s**,
+  comfortably under the ~21s ceiling, with FinalSSIM=0.9248 and manifoldOk=1.
+
+**Conclusion**: topology complexity (even genus 131, an extreme case unlikely in any real
+asset) measurably affects setup cost but does not come close to explaining case7's real 23+
+second runtime or its Wrong Answer verdict. This was the most representative test buildable
+without the actual judge file -- real scanned geometry, real positive genus, matched scale,
+matched fraction/budget -- and it still passes cleanly and quickly. Whatever case7's actual
+defect is, it is not reproduced by scale, genus, or real-world scan irregularity individually
+or combined, at least not at the levels tested here. This investigation has reached the
+practical limit of what's answerable without either the real input file or judge-side execution
+access (e.g. profiling tools on the actual judge machine), both outside this project's reach.
