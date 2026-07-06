@@ -154,8 +154,15 @@ kill-shot says governs appearance. One knob (σ), ~50× cheaper than SVD (safe e
 for cases 6/7), a drop-in swap of the placement in `Evaluate`. Candidate across
 **all** cases, including the large ones where nothing else has moved.
 
-*Status: IMPLEMENTED + LOCALLY SCREENED (2026-07-05) — ready for the judge family
-test.* Implemented per the corrected recipe in
+*Status: IMPLEMENTED + LOCALLY SCREENED (2026-07-05) — BLOCKED on a judge COMPILE
+OOM (`cc1plus` killed, "Compilation memory limit exceeded", g++-14).* Measured cause:
+D4 added only ~80 MB (a single fat Eigen expression), total 0.66→0.74 GB under
+g++-15 — not a plausible multi-GB OOM; the judge compiler appears to have changed
+(g++-14 vs the recorded GCC 11.5), which would break the pre-D4 solver too. Fixed
+locally by slimming `pq_accumulate` (D4 back to control's 0.66 GB, off-band
+byte-identical). Decisive next step: resubmit the banked pre-D4 build — if it
+compiles, D4 is submittable; if it OOMs, the whole file needs slimming. Full record:
+[../postmortems/d4-compile-oom.md](../postmortems/d4-compile-oom.md). Implemented per the corrected recipe in
 [../theory/paper-notes.md](../theory/paper-notes.md) (the notes' σ-powers were
 dimensionally wrong; re-derived from Q(x)=E[(s̃·x−det̃)²] and verified: σ=0 ⇒ exact
 GH triangle quadric @2e-14, Monte-Carlo match @5e-4, flat-patch minimizer exactly

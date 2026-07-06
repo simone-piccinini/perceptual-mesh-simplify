@@ -178,14 +178,21 @@ static void pq_accumulate(int va, int vb, int vc,
     const double det = pxq.dot(r);
     const Vec3 dpq = p - q, dqr = q - r, drp = r - p;
 
+    // A, b built with small per-statement Eigen expressions (deliberately NOT one big
+    // s2*(k*I - vv^T - vv^T - vv^T) tree -> shallower template instantiation, lighter cc1plus).
     Eigen::Matrix3d A = s * s.transpose();
-    A += s2 * ((dpq.squaredNorm() + dqr.squaredNorm() + drp.squaredNorm())
-                   * Eigen::Matrix3d::Identity()
-               - dpq*dpq.transpose() - dqr*dqr.transpose() - drp*drp.transpose());
-    A += (6.0*s4) * Eigen::Matrix3d::Identity();
+    A -= s2 * (dpq * dpq.transpose());
+    A -= s2 * (dqr * dqr.transpose());
+    A -= s2 * (drp * drp.transpose());
+    const double diag_add = s2*(dpq.squaredNorm() + dqr.squaredNorm() + drp.squaredNorm())
+                          + 6.0*s4;
+    A(0,0) += diag_add; A(1,1) += diag_add; A(2,2) += diag_add;
 
-    const Vec3 b = s*det - s2*(dpq.cross(pxq) + dqr.cross(qxr) + drp.cross(rxp))
-                 + (2.0*s4)*(p + q + r);
+    Vec3 b = s * det;
+    b -= s2 * dpq.cross(pxq);
+    b -= s2 * dqr.cross(qxr);
+    b -= s2 * drp.cross(rxp);
+    b += (2.0*s4) * (p + q + r);
     const double c = det*det
                    + s2*(pxq.squaredNorm() + qxr.squaredNorm() + rxp.squaredNorm())
                    + (2.0*s4)*(p.squaredNorm() + q.squaredNorm() + r.squaredNorm())
