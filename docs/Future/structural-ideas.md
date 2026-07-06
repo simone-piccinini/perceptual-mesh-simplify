@@ -154,20 +154,20 @@ kill-shot says governs appearance. One knob (σ), ~50× cheaper than SVD (safe e
 for cases 6/7), a drop-in swap of the placement in `Evaluate`. Candidate across
 **all** cases, including the large ones where nothing else has moved.
 
-*Status: IMPLEMENTED + LOCALLY SCREENED (2026-07-05) — hit a judge COMPILE OOM
-(`cc1plus` killed, "Compilation memory limit exceeded", g++-14); REWRITTEN Eigen-free
-(2026-07-06), awaiting judge resubmit.* The probe resolved it: the banked pre-D4 build
-**compiled and scored 90.27** on the judge, so the toolchain is fine — D4's Eigen delta
-was tipping a razor-edge limit. The first fix (slimming `pq_accumulate`) matched control
-footprint under local g++-15 but **still OOM'd** on g++-14, because g++-14 amplifies
-Eigen expression-template instantiation far more than g++-15 (local footprint parity ≠
-judge-side). Fix #2 removes the *cause*: D4 now instantiates **no Eigen template v108
-doesn't already use** — flat `vector<double>` storage (6+3 scalars/vertex), entrywise
-scalar `pq_accumulate` (Vec3 cross/dot only), Matrix3d reconstructed once at the solve
-site to reuse v108's existing `ldlt()`. Result: compile 0.666 GB (**below** v108's
-0.684), entrywise math == Matrix3d @1.4e-14, off-band byte-identical, case-5 screen
-reproduced exactly (+0.0009 @σ=0.25, valid). Since v108 compiles on g++-14 and D4 now
-uses only its templates at ≤ its footprint, D4 must compile too. Full record:
+*Status: IMPLEMENTED + SCREENED (2026-07-05); judge COMPILE OOM diagnosed and fixed on
+the REAL compiler (2026-07-06), awaiting judge resubmit.* D4 OOM'd the judge's g++-14
+(`cc1plus` killed) three times; the banked pre-D4 build compiles + scores 90.27, so the
+toolchain is fine and D4's Eigen delta was tipping a razor-edge limit. Two fixes based on
+local **g++-15** peak-RSS ("below v108, must compile") both **still OOM'd** — g++-15 with
+gigabytes of headroom does not predict a g++-14 hard limit sitting at the file's footprint.
+Root cause found only by reproducing on real g++-14 (Homebrew 14.4.0 + Linux `gcc:14`
+Docker, Eigen 5.0.1), sampling the `cc1plus` child directly: v108 = **738 MB**, and D4's
+`Eigen::Matrix3d Ap; Ap.ldlt().solve()` PQ placement added a **second inlined ldlt blob**
+worth **+59 MB** — over the edge. Fix: solve the SPD 3×3 minimizer x*=A⁻¹b by the
+**closed-form symmetric cofactor inverse in plain doubles** (no Matrix3d, no ldlt). Real
+Linux g++-14: **D4 740 MB = v108 738 +2 MB** (noise); cofactor==ldlt @1.5e-14; off-band
+byte-identical (cow/bunny/fandisk); case-5 screen unchanged (+0.0009 @σ=0.25, valid). Full
+record:
 [../postmortems/d4-compile-oom.md](../postmortems/d4-compile-oom.md). Implemented per the corrected recipe in
 [../theory/paper-notes.md](../theory/paper-notes.md) (the notes' σ-powers were
 dimensionally wrong; re-derived from Q(x)=E[(s̃·x−det̃)²] and verified: σ=0 ⇒ exact

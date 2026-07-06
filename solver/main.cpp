@@ -1351,12 +1351,23 @@ EvalResult Evaluate(int i, int j) {
         int nc = 4;
         if (g_pqsigma > 0.0) {   // D4: probabilistic-quadric minimizer x* = A^-1 b (SPD for sigma>0).
             const double* Ai = &pqA[6*i]; const double* Aj = &pqA[6*j];
-            Eigen::Matrix3d Ap;   // reuses v108's existing Matrix3d + ldlt; introduces NO new template
-            Ap(0,0)=Ai[0]+Aj[0]; Ap(0,1)=Ai[1]+Aj[1]; Ap(0,2)=Ai[2]+Aj[2];
-            Ap(1,0)=Ap(0,1);     Ap(1,1)=Ai[3]+Aj[3]; Ap(1,2)=Ai[4]+Aj[4];
-            Ap(2,0)=Ap(0,2);     Ap(2,1)=Ap(1,2);     Ap(2,2)=Ai[5]+Aj[5];
-            const Vec3 bp(pqB[3*i]+pqB[3*j], pqB[3*i+1]+pqB[3*j+1], pqB[3*i+2]+pqB[3*j+2]);
-            cand2[nc++] = Ap.ldlt().solve(bp);
+            const double a00=Ai[0]+Aj[0], a01=Ai[1]+Aj[1], a02=Ai[2]+Aj[2],
+                         a11=Ai[3]+Aj[3], a12=Ai[4]+Aj[4], a22=Ai[5]+Aj[5];
+            const double b0=pqB[3*i]+pqB[3*j], b1=pqB[3*i+1]+pqB[3*j+1], b2=pqB[3*i+2]+pqB[3*j+2];
+            // Closed-form SPD solve via the symmetric cofactor inverse, in plain doubles.
+            // Deliberately NOT Eigen's ldlt: a second inlined Matrix3d ldlt().solve() blob adds
+            // ~59 MB of cc1plus peak under the judge's g++-14 -O2 -- enough to tip its razor-thin
+            // compile-memory limit (v108 fits at 609 MB, that pushed it to 668). See
+            // docs/postmortems/d4-compile-oom.md. sigma>0 makes A SPD so det>0.
+            const double c00=a11*a22-a12*a12, c01=a02*a12-a01*a22, c02=a01*a12-a02*a11,
+                         c11=a00*a22-a02*a02, c12=a02*a01-a00*a12, c22=a00*a11-a01*a01;
+            const double det=a00*c00+a01*c01+a02*c02;
+            if (det > 1e-20) {
+                const double inv=1.0/det;
+                cand2[nc++] = Vec3((c00*b0+c01*b1+c02*b2)*inv,
+                                   (c01*b0+c11*b1+c12*b2)*inv,
+                                   (c02*b0+c12*b1+c22*b2)*inv);
+            }
         }
         if (g_nplace2) { cand2[nc++] = 0.25*pos[i]+0.75*pos[j]; cand2[nc++] = 0.75*pos[i]+0.25*pos[j]; }
         if (g_aniso) {

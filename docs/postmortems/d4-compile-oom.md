@@ -119,12 +119,56 @@ Verification (this Mac, g++-15 -O2, and end-to-end):
 D4 now compiles at-or-below the banked build that the judge already accepts, using only its
 templates — so if v108 compiles on g++-14, D4 must too. Awaiting the judge resubmit to close.
 
+### Fix #2 also OOM'd — because it was measured on the wrong compiler
+
+Resubmitted, fix #2 **still OOM'd**. The claim "uses only v108's templates" was true at the
+*type* level but wrong about *cost*: fix #2 kept `Eigen::Matrix3d Ap; Ap.ldlt().solve(bp)` at
+the PQ placement site — a **second** inlined `ldlt().solve()` blob in the same function as
+v108's existing one. Distinct template *types* instantiate once, but each `-O2` **call site**
+gets its own inlined+optimized Eigen body, and `cc1plus` peak scales with per-function
+optimizer state. All of fix #2's "0.666 GB, below v108" numbers were **g++-15** — which does
+not predict g++-14. I never reproduced the failure; I extrapolated, and extrapolation failed
+twice.
+
+## Reproducing the real thing (2026-07-06) — stop extrapolating
+
+Installed a real `g++-14` (Homebrew GCC 14.4.0) and, for the judge's actual OS, a Linux
+`gcc:14` (GCC 14.4.0) Docker image + Eigen 5.0.1. Sampled the **`cc1plus` child** peak RSS
+directly (the process the judge kills), not the `g++` driver:
+
+| build | macOS g++-14 | **Linux g++-14 (judge family)** |
+|---|---|---|
+| v108 (compiles + scores 90.27) | 609–645 MB | **738 MB** |
+| D4 fix #2 (second `ldlt().solve()`) | 668 MB (**+59**) | — |
+| D4 fix #3 (hand-rolled solve) | 650 MB (+5) | **740 MB (+2)** |
+
+Two facts fall out: (1) the judge's compile-memory limit is **razor-thin, right around
+v108's footprint** — v108 barely fits, so any real delta tips it; (2) g++-14 magnifies the
+`ldlt` blob ~3× vs g++-15, which is why local g++-15 saw +18 MB and "below v108" while the
+judge saw an OOM. **Local g++-15 peak-RSS is not a valid predictor of judge g++-14.**
+
+## Fix #3 (the real one) — hand-rolled 3×3 SPD solve, zero new Eigen
+
+The PQ minimizer x* = A⁻¹b (A symmetric SPD for σ>0) is now solved by the **closed-form
+symmetric cofactor inverse in plain doubles** — no `Matrix3d`, no `ldlt`, no new inlined
+Eigen. Verified vs Eigen `ldlt` over 2000 random SPD matrices: `max|Δx| = 1.5e-14`.
+
+Result on the real judge compiler: **D4 = v108 + 2 MB** (noise). Off-band cases
+(cow/bunny/fandisk) byte-identical to v108; armadillo differs (D4 active); case-5 screen
+unchanged (σ=0.25 → +0.0009, valid). D4 now compiles at the banked build's footprint, on the
+actual g++-14 — no longer a guess.
+
 ## Takeaway
 
-The file was already near the ceiling; a single fat Eigen expression is worth ~80 MB of
-`cc1plus` memory — but the deeper lesson is that **local `g++-15` footprint parity does NOT
-predict `g++-14`**: expression-template instantiation is the axis that diverges. The robust
-fix for a compile-limited single-TU Eigen file is not "use less memory" but "**add no new
-template instantiations**" — keep new math in plain scalars and reuse the solver types the
-banked build already pays for. And **treat a compile verdict as a toolchain probe**: the
-decisive read was whether the banked build still compiled (it did).
+Two lessons, one process and one technical.
+
+**Process:** a compile-memory OOM must be **reproduced on the judge's actual compiler** before
+claiming a fix. `g++-15` peak-RSS with gigabytes of local headroom told me nothing about a
+`g++-14` hard limit sitting at the edge of the file's footprint; I "verified" two fixes that
+both failed. Docker `gcc:14` (or Homebrew `gcc@14`) reproduces it in minutes — cheap insurance
+that would have saved two failed submissions.
+
+**Technical:** at `-O2`, `cc1plus` memory is driven by **inlined Eigen blobs per call site**,
+not just distinct template types. On a file already at the ceiling, a *second* `ldlt().solve()`
+is worth ~60 MB on g++-14. The robust fix is to keep new math in plain scalars / hand-rolled
+closed forms and reserve Eigen's heavy solvers for the sites the banked build already pays for.
