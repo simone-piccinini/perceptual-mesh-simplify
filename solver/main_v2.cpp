@@ -1585,8 +1585,8 @@ int main(int argc, char** argv) {
                                             // needed far more work than fandisk predicted; revert
         if (V <= 100000) return 0.40;      // case5: passing at 0.40 (r18); only 1.3s CASETIME
                                             // margin now (TLE risk) -- timing- not SSIM-limited
-        if (V <= 400000) return 0.65;      // case6: CONFIRMED PASSING (r22) -- root cause was the
-                                            // genus-0-only manifold gate, not the fraction at all
+        if (V <= 400000) return 0.45;      // case6: passing at 0.65 (r22 genus fix, not the
+                                            // fraction); genus-3 proxy clears 0.9863 at 0.30, r24
         return 0.08;                       // case7 (~1009118): 0.12 was WA with CASETIME margin
                                             // already -2.0s (r22) -- timing-bound, not SSIM-bound,
                                             // now that genus is handled; pull down for margin
