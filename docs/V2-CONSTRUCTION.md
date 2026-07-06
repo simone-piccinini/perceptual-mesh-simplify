@@ -1148,3 +1148,62 @@ without the real file, this specific gap can't be further localized locally.
 tuned parameter) -- case6 now passes with margin to spare, not by luck. case7 remains the one
 open case, blocked on a timing gap that has resisted explanation since round 9 and needs either
 the real input file or further profiling access this project doesn't have.
+
+## Post-checkpoint deep dive: real-world messy meshes, a second real bug (unfixed), a revert
+
+User pushback again after the 42.63 checkpoint: study case7 deeper, use real messy/complex
+meshes from the internet (not just smooth synthetic ones), multiple agents in parallel.
+
+**Downloaded real research scans**: Stanford Dragon (437645v/871414f) and Armadillo
+(172974v/345944f) from graphics.stanford.edu/data/3Dscanrep, converted to this file's format.
+The RAW dragon scan has 151 disconnected components (a normal artifact of range-scan
+zippering) -- not representative of the judge's guaranteed watertight+connected input, so
+extracted just the largest single component (436846v/870887f) for a fairer test. It still has
+3499 boundary-edge holes from the original scan reconstruction, which is itself NOT
+representative either (the judge guarantees watertight input) -- but running it through the
+pipeline anyway surfaced a second, real, distinct bug from the genus one.
+
+**Second bug found (real, root-caused, NOT yet safely fixed)**: `manifoldOk=0` on this mesh
+even after all repair passes converge, with an Euler characteristic that can never satisfy any
+valid genus (V-E+F=-11, an odd defect -- topologically impossible for ANY orientable closed
+surface). Root cause: the ear-clipping hole-closer's boundary-loop walk is UNDIRECTED (`pick
+any neighbor that isn't the vertex we came from`), so on a mesh with many simultaneous holes it
+can close a hole with winding INCONSISTENT with the surrounding mesh -- still edge-manifold
+(exactly 2 faces/edge, invisible to the existing badEdges/oneEdges counters) but globally
+non-orientable, which is exactly what produces an impossible odd Euler characteristic.
+
+**Attempted fix**: derive the walk direction from the boundary edge's one owning face (each
+face's own winding fixes a canonical direction for its shared edges), with multi-candidate
+support for boundary vertices where several holes meet (common with many simultaneous
+defects), and trial/commit semantics so a failed walk attempt doesn't destructively consume
+candidates a different, successful walk still needs. Verified correct by hand for the single-
+missing-triangle case -- but when applied, it REGRESSED cow_watertight.obj and
+armadillo_watertight.obj (both previously clean, now falling back to the hull seed).
+Diagnosed why: a small residual boundary structure (4 edges on cow) has a vertex with
+UNBALANCED in/out-degree in the derived directed graph (out-degree 2, in-degree 0) --
+topologically impossible for any union of simple closed loops, meaning the quotient +
+edge-cap-at-2 interaction can locally produce a boundary structure that ISN'T a clean union of
+orientable loops at all, not just one that's hard to walk in the right direction. A correct fix
+needs to handle this residual case explicitly (likely: detect unbalanced vertices and fall back
+to the old undirected approach only for the sub-structure touching them), which needs more care
+than remaining time allows to get right without risk.
+
+**Reverted the winding-direction change entirely** (git checkout back to the last commit,
+re-applied only the separately-verified-safe iteration-cap increases: 8->40, 6->30, 3->15,
+8->40, which a dedicated agent proved add zero regressions and zero timing cost since the
+"no progress -> break" exits mean the higher cap only matters when genuinely needed). case6's
+confirmed-passing state and all 4 local proxies are restored to their exact pre-investigation
+behavior. The winding bug is real and worth fixing properly in a future session, but this
+session prioritizes not risking the one confirmed win (case6) for an unproven, already-once-
+regressed fix.
+
+**On the dense-defects premise itself**: raw research scans (151 components, thousands of
+scan-seam holes) are NOT a fair proxy for case6/7's real input regardless of this bug, since
+the problem spec guarantees watertight + connected input -- case7 would never arrive with this
+much pre-existing damage. The winding bug is real and could still matter (my OWN quotienting +
+edge-cap process can introduce a handful of holes even from clean input, as seen on cow/
+armadillo already), but a mesh with hundreds of simultaneous holes is testing a much harder
+regime than case7 likely presents. Better complexity proxies (real watertight objects with
+genuine positive genus and/or fine surface detail, not raw damaged scans) were being gathered
+by a parallel agent when this was written -- see session notes for the next update once that
+completes.

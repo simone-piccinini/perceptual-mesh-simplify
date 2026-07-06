@@ -1138,7 +1138,8 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
     // shared by unrelated accepted geometry), leaving a smaller residual loop behind -- re-scan
     // and retry until no more progress is made, rather than accepting whatever the first pass
     // alone could close.
-    for (int pass = 0; pass < 8; ++pass) {
+    for (int pass = 0; pass < 40; ++pass) {   // was 8; "no progress -> break" makes a higher
+                                                // cap free when already converged (verified)
         std::map<int, std::vector<int>> boundaryNext;
         for (const auto& kv : edgeCount) if (kv.second == 1) {
             boundaryNext[kv.first.first].push_back(kv.first.second);
@@ -1219,7 +1220,7 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
     // splitting a pinch can, in principle, leave a vertex 0-face on one side, and stripping can
     // shift which vertex a later pass would have found; loop both until nothing changes rather
     // than assuming one pass of each suffices.
-    for (int repairPass = 0; repairPass < 6; ++repairPass) {
+    for (int repairPass = 0; repairPass < 30; ++repairPass) {   // was 6, same free-when-converged logic
         int pinchesFound = 0;
         {
             int nvOut = (int)out.P.size();
@@ -1287,7 +1288,7 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
     // induced sliver but a bug if the mesh legitimately has multiple pieces (confirmed via a
     // synthetic test: a real 3490-face piece got silently dropped). Only drop FRAGMENTS now
     // (small relative to the whole mesh), keeping any real-sized component.
-    for (int compPass = 0; compPass < 3; ++compPass) {
+    for (int compPass = 0; compPass < 15; ++compPass) {   // was 3, same free-when-converged logic
         std::unordered_map<std::pair<int,int>, std::vector<int>, PairIntHash> ef2;
         for (int f = 0; f < (int)out.F.size(); ++f) {
             const auto& t = out.F[f];
@@ -1319,7 +1320,7 @@ static ClusteredMesh build_clustered_mesh(const std::vector<Vec3>& origP, const 
         // re-close boundary holes the pruning just created, same ear-clipping as before.
         edgeCount.clear();
         for (const auto& t : out.F) { int e[3][2]={{t[0],t[1]},{t[1],t[2]},{t[2],t[0]}}; for (auto& ee:e) ++edgeCount[keyOf(ee[0],ee[1])]; }
-        for (int pass2 = 0; pass2 < 8; ++pass2) {
+        for (int pass2 = 0; pass2 < 40; ++pass2) {   // was 8, same free-when-converged logic
             std::map<int, std::vector<int>> bnext;
             for (const auto& kv : edgeCount) if (kv.second == 1) { bnext[kv.first.first].push_back(kv.first.second); bnext[kv.first.second].push_back(kv.first.first); }
             if (bnext.empty()) break;
