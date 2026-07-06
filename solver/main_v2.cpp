@@ -2045,6 +2045,64 @@ int main(int argc, char** argv) {
                  curP.size(), curF.size(), iters, elapsed());
     std::fprintf(stderr, "[v2] candidate rejects: area=%ld sep=%ld\n", g_areaRejects, g_sepRejects);
 
+    // Final safety pass, UNCONDITIONAL: the in-loop Hausdorff guard above only samples 400
+    // points from the original mesh (`hausSample`) to decide where to steer splits DURING
+    // growth -- fine at the scale this was written for (~3.5k-vertex proxies, where 400 points
+    // is ~10% coverage), but the judge's real Hausdorff rule checks EVERY original vertex
+    // exactly, and 400 samples is only ~0.1% coverage of case6's ~377k vertices (less still for
+    // case7's ~1M) -- more than large enough a gap for a real violation to exist somewhere in
+    // the ~99.9% of vertices never checked. case6 failed identically at 5 different keep
+    // fractions and survived a targeted degenerate-face fix untouched, which is exactly the
+    // signature of a validity failure the per-iteration sampling could never have caught, not
+    // an SSIM-budget or geometry-defect one. Fix: one EXHAUSTIVE pass over every original
+    // vertex before saving, patching any violation the sparse in-loop sampling missed. Kept
+    // separate from the in-loop guard (not just raising its sample count) because doing this
+    // exhaustive check on every growth iteration would be too slow at this scale; doing it once
+    // at the end is a fixed, bounded cost regardless of how many iterations growth took.
+    {
+        g_curGrid.build(curP, curF);
+        int extraFixes = 0;
+        const int MAX_EXTRA_FIXES = 2000;   // safety cap -- if this triggers often, something
+                                             // deeper is wrong and endless small fixes aren't the
+                                             // right response, but this should never be reached
+                                             // for a genuinely small number of missed violations
+        // wall-clock cap too: this pass's own cost is O(Vin) per fix at large scale, and it must
+        // not itself become a NEW source of TLE risk on top of the growth loop's own budget.
+        const double EXTRA_PASS_DEADLINE = elapsed() + std::max(1.0, BUDGET * 0.25);
+        for (int pass = 0; pass < MAX_EXTRA_FIXES && elapsed() < EXTRA_PASS_DEADLINE; ++pass) {
+            double worstGeom = -1; Vec3 worstPt; int worstFace = -1;
+            for (const Vec3& s : pos) {
+                int fi; Vec3 cp = g_curGrid.query(s, &fi);
+                double d = (cp - s).norm();
+                if (d > worstGeom) { worstGeom = d; worstPt = s; worstFace = fi; }
+            }
+            if (worstGeom <= LEASH) break;   // every original vertex is within the leash -- done
+            const auto& wt = curF[worstFace];
+            const Vec3 &wa = curP[wt[0]], &wb = curP[wt[1]], &wc = curP[wt[2]];
+            double a1 = 0.5*(wa-worstPt).cross(wb-worstPt).norm();
+            double a2 = 0.5*(wb-worstPt).cross(wc-worstPt).norm();
+            double a3 = 0.5*(wc-worstPt).cross(wa-worstPt).norm();
+            const double MIN_AREA_F = 1e-8 * diag * diag;
+            if (!(a1 > MIN_AREA_F && a2 > MIN_AREA_F && a3 > MIN_AREA_F)) {
+                // the worst violator's own face can't be validly split (would produce a
+                // sliver) -- there is no safe fix for THIS specific violation via subdivision;
+                // stop rather than loop forever on the same unfixable point.
+                if (getenv("V2_DBG"))
+                    std::fprintf(stderr, "[v2] exhaustive Hausdorff pass: worst violation %.4f (limit %.4f) has no valid split -- stopping\n", worstGeom, LEASH);
+                break;
+            }
+            int newIdx = (int)curP.size();
+            curP.push_back(worstPt);
+            curF.push_back({wt[0], wt[1], newIdx});
+            curF.push_back({wt[1], wt[2], newIdx});
+            curF[worstFace] = {wt[2], wt[0], newIdx};
+            g_curGrid.build(curP, curF);
+            ++extraFixes;
+        }
+        if (getenv("V2_DBG") && extraFixes)
+            std::fprintf(stderr, "[v2] exhaustive Hausdorff pass: %d extra splits to cover all %zu original vertices (not just the 400-sample subset)\n", extraFixes, pos.size());
+    }
+
     // Final safety pass, UNCONDITIONAL (not gated on V2_DBG -- this must run on every real
     // judge invocation, not just local diagnostic runs), placed BEFORE the diagnostic block
     // below so its own sanity print reflects the post-fix state. The judge's validity rule is
