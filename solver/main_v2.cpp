@@ -11,16 +11,15 @@
 // a design decision, it is satisfying a scoring contract. Every other choice below (seed
 // topology, growth order, split rule, vertex placement) is independent of main.cpp.
 //
-// PROBE-V2-FIRST-JUDGE-READ 2026-07-06: day 7 of the construction effort. Seed = day-7 vertex-
-// clustering quotient (Rossignac & Borrel style, region-segmentation-anchored, falls back to
-// day-1's convex hull if the quotient fails its own manifold/genus check), then day 1-5's
-// exact-delta SSIM-driven refinement for any remaining budget. Local proxy results (bunny,
-// armadillo, cow — never the real case inputs, which this submission is the first read of):
-// FinalSSIM 0.63-0.81 across V=350-4249, all passing degenerate-face/Hausdorff/genus checks.
-// NEVER tested above ~50k input vertices locally; case6 (377k) and case7 (1.01M) are a genuine
-// unknown -- this submission is explicitly to find out, not a claim that it will complete
-// those. docs/V2-CONSTRUCTION.md has the full day-by-day log. Submitted standalone via
-// `scripts/judge_submit.py solver/main_v2.cpp` -- does not touch or risk the banked main.cpp.
+// STATUS 2026-07-06 (8 real judge submissions so far): seed = vertex-clustering quotient
+// (Rossignac & Borrel style, region-segmentation-anchored), falls back to a convex hull if the
+// quotient fails its own manifold/genus check, then exact-delta SSIM-driven refinement for any
+// remaining budget. CONFIRMED passing on the real judge: case2/3/4/5. Still failing: case6
+// (Wrong Answer across 5 keep fractions 0.50-0.95 plus targeted fixes -- cause unconfirmed,
+// leading hypothesis is unverified input genus, see the topology check in main()) and case7
+// (Time Limit Exceeded, judge-side timing variance not yet cleanly separated from a real SSIM
+// gap). Full history: docs/V2-CONSTRUCTION.md. Submitted standalone via
+// `scripts/judge_submit.py solver/main_v2.cpp` -- never touches the banked main.cpp.
 
 #include <cstdio>
 #include <cstdlib>
@@ -1514,6 +1513,41 @@ int main(int argc, char** argv) {
     const double keepOverride = (argc > 1) ? std::atof(argv[1]) : -1.0;   // local testing only
     if (Vin < 100) { save_obj(pos, faces); return 0; }   // sample: too small to matter, echo
 
+    // Input topology diagnostic: unlike case2/case4 (confirmed genus-0), case6's genus was
+    // never probed, and this pipeline assumes genus-0 by design. TRIED gating clustering off
+    // this check (fall back to hull-and-grow when V-E+F!=2): cow_watertight.obj reports
+    // V-E+F=1 despite clustering working perfectly on it (0.9369 FinalSSIM) -- either "watertight"
+    // test meshes can have a minor irregularity this simple a check flags too eagerly, or the
+    // check itself has an edge case; either way, disabling the STRONGER mechanism over it
+    // regressed a working case hard (0.9369 -> 0.3326). Reverted to diagnostic-only.
+    bool inputIsSimpleGenus0 = true;
+    {
+        std::unordered_map<std::pair<int,int>, std::vector<int>, PairIntHash> ef;
+        ef.reserve(faces.size() * 2);
+        for (int f = 0; f < (int)faces.size(); ++f) {
+            const auto& t = faces[f];
+            int e[3][2] = {{t[0],t[1]}, {t[1],t[2]}, {t[2],t[0]}};
+            for (auto& ee : e) {
+                auto k = ee[0] < ee[1] ? std::make_pair(ee[0], ee[1]) : std::make_pair(ee[1], ee[0]);
+                ef[k].push_back(f);
+            }
+        }
+        std::vector<std::vector<int>> fadj(faces.size());
+        for (auto& kv : ef) if (kv.second.size() == 2) { fadj[kv.second[0]].push_back(kv.second[1]); fadj[kv.second[1]].push_back(kv.second[0]); }
+        std::vector<int> comp((int)faces.size(), -1); int nc = 0;
+        for (int f = 0; f < (int)faces.size(); ++f) {
+            if (comp[f] >= 0) continue;
+            std::vector<int> stack = {f}; comp[f] = nc;
+            while (!stack.empty()) { int u = stack.back(); stack.pop_back(); for (int w : fadj[u]) if (comp[w] < 0) { comp[w] = nc; stack.push_back(w); } }
+            ++nc;
+        }
+        long eIn = (long)ef.size();
+        long chi = (long)pos.size() - eIn + (long)faces.size();
+        inputIsSimpleGenus0 = (nc == 1 && chi == 2);
+        if (getenv("V2_DBG"))
+            std::fprintf(stderr, "[v2] input topology: components=%d V-E+F=%ld simpleGenus0=%d\n", nc, chi, (int)inputIsSimpleGenus0);
+    }
+
     // ---- target vertex count ----
     // FinalSSIM >= 0.9 is a hard cliff (docs/PROBLEM-AND-JUDGE.md): below it the case is Wrong
     // Answer, not a low score. Calibrated live against 8 real judge submissions (full history:
@@ -1550,11 +1584,11 @@ int main(int argc, char** argv) {
     for (const auto& fp : feat.edgePts) g_featurePoints.push_back(fp.p);
     std::fprintf(stderr, "[v2feat] K=%d corners=%zu edgePts=%zu\n", K, feat.corners.size(), feat.edgePts.size());
 
-    // ---- day 7: seed = vertex-clustering construction anchored on the segmentation features
-    // above (see build_clustered_mesh) -- falls back to day 1's convex-hull-of-farthest-points
-    // seed if the clustering quotient fails its own manifold check (never assumed clean).
+    // seed = vertex-clustering, falls back to convex-hull-of-farthest-points if the quotient
+    // fails its own manifold check (never assumed clean).
     std::vector<Vec3> curP; std::vector<std::array<int,3>> curF;
     bool usedCluster = false;
+    (void)inputIsSimpleGenus0;   // diagnostic only -- see note above the computation
     if (!getenv("V2_NOCLUSTER")) {
         // Reserving budget for SSIM polish on top of an under-filled cluster was tried and
         // reverted: monotonic regression as the reserved fraction grew (clustering is the
@@ -2004,20 +2038,11 @@ int main(int argc, char** argv) {
                  curP.size(), curF.size(), iters, elapsed());
     std::fprintf(stderr, "[v2] candidate rejects: area=%ld sep=%ld\n", g_areaRejects, g_sepRejects);
 
-    // Final safety pass, UNCONDITIONAL: the in-loop Hausdorff guard above only samples 400
-    // points from the original mesh (`hausSample`) to decide where to steer splits DURING
-    // growth -- fine at the scale this was written for (~3.5k-vertex proxies, where 400 points
-    // is ~10% coverage), but the judge's real Hausdorff rule checks EVERY original vertex
-    // exactly, and 400 samples is only ~0.1% coverage of case6's ~377k vertices (less still for
-    // case7's ~1M) -- more than large enough a gap for a real violation to exist somewhere in
-    // the ~99.9% of vertices never checked. case6 failed identically at 5 different keep
-    // fractions and survived a targeted degenerate-face fix untouched, which is exactly the
-    // signature of a validity failure the per-iteration sampling could never have caught, not
-    // an SSIM-budget or geometry-defect one. Fix: one EXHAUSTIVE pass over every original
-    // vertex before saving, patching any violation the sparse in-loop sampling missed. Kept
-    // separate from the in-loop guard (not just raising its sample count) because doing this
-    // exhaustive check on every growth iteration would be too slow at this scale; doing it once
-    // at the end is a fixed, bounded cost regardless of how many iterations growth took.
+    // Exhaustive Hausdorff pass: the in-loop guard above only samples 400 points from the
+    // original mesh to steer splits DURING growth (~10% coverage at the ~3.5k-vertex scale it
+    // was written for, ~0.1% at case6's ~377k) -- the real rule checks every vertex exactly.
+    // Patch anything the sparse sampling missed, once, after growth (not every iteration --
+    // too slow at scale; a fixed one-time cost instead).
     {
         g_curGrid.build(curP, curF);
         int extraFixes = 0;
@@ -2062,21 +2087,11 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "[v2] exhaustive Hausdorff pass: %d extra splits to cover all %zu original vertices (not just the 400-sample subset)\n", extraFixes, pos.size());
     }
 
-    // Final safety pass, UNCONDITIONAL (not gated on V2_DBG -- this must run on every real
-    // judge invocation, not just local diagnostic runs), placed BEFORE the diagnostic block
-    // below so its own sanity print reflects the post-fix state. The judge's validity rule is
-    // exact ("facce non degeneri (area positiva)"): a handful of near-zero-area faces have been
-    // measured on synthetic meshes at extreme scale (~1e-23 area, technically positive but at
-    // floating-point noise level -- likely 3 near-COLLINEAR points from the ear-clipping hole
-    // repair being forced to accept the only available ear, not near-coincident ones; an
-    // earlier attempt to dedup near-coincident kept vertices before quotienting did not reduce
-    // the count, ruling that hypothesis out). Rejecting such a face outright (tried twice
-    // already, day 7) regresses the manifold check by reopening a hole with no other valid
-    // patch. Nudging one vertex slightly instead is topology-preserving -- it can only affect
-    // the small number of OTHER faces already touching that same vertex, never create or
-    // remove an edge -- and is cheap insurance a real judge case (case6, failing identically at
-    // 5 different keep fractions from 0.50 to 0.95, consistent with a structural rather than an
-    // SSIM-budget cause) may be hitting.
+    // Degenerate-face nudge, UNCONDITIONAL, placed before the diagnostic block below so its
+    // print reflects post-fix state. The validity rule is exact (positive area required): a
+    // few near-zero-area faces (~1e-23, likely near-collinear ear-clipping picks) were measured
+    // at extreme scale. Nudging one vertex is topology-preserving (never adds/removes an edge),
+    // unlike rejecting the face outright (tried twice, regressed the manifold check both times).
     {
         const double MIN_AREA_FIX = 1e-9 * diag * diag;
         int fixed = 0;
