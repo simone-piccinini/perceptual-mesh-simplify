@@ -89,20 +89,28 @@ static void view_basis(int v, Vec3& eye, Vec3& right, Vec3& up, Vec3& fwd) {
     up = right.cross(fwd).normalized();
 }
 
-// Render the given mesh from view v at resolution W: per-pixel face id (-1 = background) and
-// per-pixel camera-space depth (perspective-correct via 1/z barycentric interpolation).
-static void render(const std::vector<Vec3>& P, const std::vector<std::array<int,3>>& Fa,
-                    int v, int W, std::vector<int>& fid, std::vector<double>& depth) {
+// screen-space projection of every vertex for view v at resolution W (judge camera model) --
+// factored out of render() so candidate-scoring code can rasterize hypothetical local changes
+// using the SAME per-vertex projections as the real render, without re-deriving the formula.
+static void project_view(const std::vector<Vec3>& P, int v, int W,
+                          std::vector<double>& su, std::vector<double>& sv, std::vector<double>& sd) {
     const double F = 800.0 * (W / 1024.0), C = W / 2.0;
     Vec3 eye, right, up, fwd; view_basis(v, eye, right, up, fwd);
     const int n = (int)P.size();
-    std::vector<double> su(n), sv(n), sd(n);
+    su.assign(n, 0.0); sv.assign(n, 0.0); sd.assign(n, 0.0);
     for (int i = 0; i < n; ++i) {
         Vec3 r = P[i] - eye;
         double x = r.dot(right), y = r.dot(up), d = r.dot(fwd);
         if (d == 0) d = 1e-9;
         su[i] = F * x / d + C; sv[i] = F * y / d + C; sd[i] = d;
     }
+}
+
+// Render the given mesh from view v at resolution W: per-pixel face id (-1 = background) and
+// per-pixel camera-space depth (perspective-correct via 1/z barycentric interpolation).
+static void render_proj(const std::vector<Vec3>& P, const std::vector<std::array<int,3>>& Fa,
+                         int W, const std::vector<double>& su, const std::vector<double>& sv,
+                         const std::vector<double>& sd, std::vector<int>& fid, std::vector<double>& depth) {
     fid.assign((size_t)W * W, -1);
     depth.assign((size_t)W * W, 255.0);
     std::vector<double> zbuf((size_t)W * W, 1e30);
@@ -134,6 +142,13 @@ static void render(const std::vector<Vec3>& P, const std::vector<std::array<int,
             }
         }
     }
+}
+
+static void render(const std::vector<Vec3>& P, const std::vector<std::array<int,3>>& Fa,
+                    int v, int W, std::vector<int>& fid, std::vector<double>& depth) {
+    std::vector<double> su, sv, sd;
+    project_view(P, v, W, su, sv, sd);
+    render_proj(P, Fa, W, su, sv, sd, fid, depth);
 }
 
 static inline Vec3 face_normal(const std::vector<Vec3>& P, const std::array<int,3>& t) {
@@ -301,6 +316,225 @@ static void capture_original(const std::vector<Vec3>& P, const std::vector<std::
     }
 }
 
+// ===================== EXACT LOCAL-DELTA SCORING (day 4) =====================
+// Replaces the day 1-3 proxy (an isolated per-triangle normal-distortion score, removed —
+// see docs/V2-CONSTRUCTION.md day 3 for the full account of the 4 bugs it caused) with JD's
+// validated technique from the same session (docs/ATTEMPT_LOG.md, 2026-07-06): an insertion's
+// screen footprint is LOCAL (bounded by the old triangle's + new point's screen positions), so
+// only SSIM windows touching that footprint can change. Compute the EXACT before/after
+// rendered SSIM delta there instead of scoring a candidate in isolation — this automatically
+// down-scores coplanar no-ops, already-covered "magnet" points, and wrongly-attributed
+// targets, since all three provably fail to increase the TRUE rendered SSIM.
+
+struct ViewCache {
+    std::vector<int> fid;
+    std::vector<double> depth;
+    std::vector<double> su, sv, sd;
+    double N3 = 0, Nd = 0;   // global valid-window count (same for all 3 normal channels: same coverage rule)
+};
+static ViewCache VC[6];
+static int VC_RES = 0;
+
+// build the current-mesh render cache (once per growth iteration) and the global valid-window
+// counts used to convert a local rect delta-sum into a delta of the GLOBAL mean SSIM.
+static void build_view_cache(const std::vector<Vec3>& P, const std::vector<std::array<int,3>>& Fa,
+                              int RES, const OrigViews& O) {
+    VC_RES = RES;
+    for (int v = 0; v < 6; ++v) {
+        project_view(P, v, RES, VC[v].su, VC[v].sv, VC[v].sd);
+        render_proj(P, Fa, RES, VC[v].su, VC[v].sv, VC[v].sd, VC[v].fid, VC[v].depth);
+        long n3 = 0;
+        for (int y = RAD; y < RES - RAD; ++y) for (int x = RAD; x < RES - RAD; ++x) {
+            size_t k = (size_t)y * RES + x;
+            if (O.covF[v][k] >= 0 || VC[v].fid[k] >= 0) ++n3;
+        }
+        VC[v].N3 = (double)n3; VC[v].Nd = (double)n3;
+    }
+}
+
+// local separable box-sum, tw x th tile — identical algorithm to box_sum(), just scoped to a
+// small tile instead of the full RES x RES image (reproduces box_sum's value bit-for-bit at
+// any center whose 2*RAD neighborhood is fully covered by the tile).
+static void local_box_sum(const std::vector<double>& img, int tw, int th, std::vector<double>& out) {
+    static std::vector<double> tmp;
+    tmp.assign((size_t)tw * th, 0.0); out.assign((size_t)tw * th, 0.0);
+    for (int y = 0; y < th; ++y) {
+        double s = 0;
+        for (int x = 0; x <= RAD && x < tw; ++x) s += img[(size_t)y * tw + x];
+        for (int x = 0; x < tw; ++x) {
+            tmp[(size_t)y * tw + x] = s;
+            int add = x + RAD + 1, rem = x - RAD;
+            if (add < tw) s += img[(size_t)y * tw + add];
+            if (rem >= 0) s -= img[(size_t)y * tw + rem];
+        }
+    }
+    for (int x = 0; x < tw; ++x) {
+        double s = 0;
+        for (int y = 0; y <= RAD && y < th; ++y) s += tmp[(size_t)y * tw + x];
+        for (int y = 0; y < th; ++y) {
+            out[(size_t)y * tw + x] = s;
+            int add = y + RAD + 1, rem = y - RAD;
+            if (add < th) s += tmp[(size_t)add * tw + x];
+            if (rem >= 0) s -= tmp[(size_t)rem * tw + x];
+        }
+    }
+}
+
+static inline Vec3 tri_normal(const Vec3& p0, const Vec3& p1, const Vec3& p2) {
+    Vec3 n = (p1 - p0).cross(p2 - p0);
+    double l = n.norm();
+    return l > 1e-15 ? Vec3(n / l) : Vec3::Zero();
+}
+
+// Exact per-view ΔFinalSSIM contribution of replacing old face `oldF` (vertices va,vb,vc, all
+// existing curP indices) with 3 new triangles (va,vb,newIdx),(vb,vc,newIdx),(vc,va,newIdx),
+// where the new vertex sits at position `p` (not yet in curP). Mirrors JD's flip evaluator:
+// erase the old face's pixels, rasterize the 3 new triangles with a z-test, guarded by the
+// SAME 2 safety checks (window-count match, foreign-face intrusion) plus a crack check for
+// unfilled erased pixels — bails (returns false) rather than trust an ambiguous read.
+static bool eval_insertion_view(int v, int oldF, int va, int vb, int vc, const Vec3& p,
+                                 const std::vector<Vec3>& curP, const std::vector<std::array<int,3>>& curF,
+                                 const OrigViews& O, double dsum[4], double cnt[4]) {
+    const int W = VC_RES;
+    const auto& su = VC[v].su; const auto& sv = VC[v].sv; const auto& sd = VC[v].sd;
+
+    double pd; double pu, pv;
+    {   // project the single new point p into this view (not cached: p is not in curP yet)
+        Vec3 eye, right, up, fwd; view_basis(v, eye, right, up, fwd);
+        Vec3 r = p - eye; double x = r.dot(right), y = r.dot(up), d = r.dot(fwd);
+        if (d == 0) d = 1e-9;
+        const double F = 800.0 * (W / 1024.0), C = W / 2.0;
+        pu = F * x / d + C; pv = F * y / d + C; pd = d;
+    }
+    double qd[4] = {sd[va], sd[vb], sd[vc], pd};
+    if (qd[0] <= 0 || qd[1] <= 0 || qd[2] <= 0 || qd[3] <= 0) return false;
+    double qu[4] = {su[va], su[vb], su[vc], pu}, qv[4] = {sv[va], sv[vb], sv[vc], pv};
+    double umin = std::min({qu[0],qu[1],qu[2],qu[3]}), umax = std::max({qu[0],qu[1],qu[2],qu[3]});
+    double vmin = std::min({qv[0],qv[1],qv[2],qv[3]}), vmax = std::max({qv[0],qv[1],qv[2],qv[3]});
+    int bx0 = (int)std::floor(umin), bx1 = (int)std::ceil(umax);
+    int by0 = (int)std::floor(vmin), by1 = (int)std::ceil(vmax);
+    if (bx1 < 0 || bx0 > W-1 || by1 < 0 || by0 > W-1) return false;
+    if (bx0 < 0) bx0 = 0; if (bx1 > W-1) bx1 = W-1; if (by0 < 0) by0 = 0; if (by1 > W-1) by1 = W-1;
+    int cx0 = std::max(RAD, bx0-RAD), cx1 = std::min(W-RAD-1, bx1+RAD);
+    int cy0 = std::max(RAD, by0-RAD), cy1 = std::min(W-RAD-1, by1+RAD);
+    if (cx0 > cx1 || cy0 > cy1) return false;
+    int tx0 = std::max(0, bx0-2*RAD), tx1 = std::min(W-1, bx1+2*RAD);
+    int ty0 = std::max(0, by0-2*RAD), ty1 = std::min(W-1, by1+2*RAD);
+    const int tw = tx1-tx0+1, th = ty1-ty0+1;
+    if ((long)tw*th > 40000) return false;   // safety cap: pathological candidate, skip
+
+    static std::vector<int> afid; static std::vector<float> azb;
+    afid.assign((size_t)tw*th, -1); azb.assign((size_t)tw*th, 1e30f);
+    for (int ty = 0; ty < th; ++ty) for (int tx = 0; tx < tw; ++tx) {
+        size_t gk = (size_t)(ty0+ty)*W + (tx0+tx);
+        int f = VC[v].fid[gk];
+        if (f == oldF) { afid[(size_t)ty*tw+tx] = -2; continue; }   // erased, pending redraw
+        afid[(size_t)ty*tw+tx] = f; azb[(size_t)ty*tw+tx] = (float)VC[v].depth[gk];
+    }
+    bool intruded = false;
+    auto raster_tri = [&](int i0, int i1, int i2, int tag) {
+        double td0 = qd[i0], td1 = qd[i1], td2 = qd[i2];
+        double lu0 = qu[i0]-tx0, lv0 = qv[i0]-ty0, lu1 = qu[i1]-tx0, lv1 = qv[i1]-ty0, lu2 = qu[i2]-tx0, lv2 = qv[i2]-ty0;
+        double det = (lv1-lv2)*(lu0-lu2)+(lu2-lu1)*(lv0-lv2); if (det>-1e-12&&det<1e-12) return; double inv=1.0/det;
+        int mnx=(int)std::floor(std::min({lu0,lu1,lu2})),mxx=(int)std::ceil(std::max({lu0,lu1,lu2}));
+        int mny=(int)std::floor(std::min({lv0,lv1,lv2})),mxy=(int)std::ceil(std::max({lv0,lv1,lv2}));
+        if (mnx<0)mnx=0; if (mny<0)mny=0; if (mxx>tw-1)mxx=tw-1; if (mxy>th-1)mxy=th-1;
+        for (int py=mny;py<=mxy;++py){double cy=py+0.5; for (int px=mnx;px<=mxx;++px){double cx=px+0.5;
+            double w0=((lv1-lv2)*(cx-lu2)+(lu2-lu1)*(cy-lv2))*inv,w1=((lv2-lv0)*(cx-lu2)+(lu0-lu2)*(cy-lv2))*inv,w2=1-w0-w1;
+            if (w0<-1e-9||w1<-1e-9||w2<-1e-9) continue; double den=w0/td0+w1/td1+w2/td2; if (den<=0) continue; double z=(float)(1.0/den);
+            size_t k=(size_t)py*tw+px; if ((float)z<azb[k]){ if (afid[k] >= 0) intruded = true; azb[k]=(float)z; afid[k]=tag; } }}
+    };
+    // qu/qv/qd index: 0=va, 1=vb, 2=vc, 3=p. New triangles: (va,vb,p)=tag-3, (vb,vc,p)=tag-4, (vc,va,p)=tag-5.
+    raster_tri(0, 1, 3, -3);
+    raster_tri(1, 2, 3, -4);
+    raster_tri(2, 0, 3, -5);
+    if (intruded) return false;
+    for (size_t k = 0; k < afid.size(); ++k) if (afid[k] == -2) return false;   // unfilled crack
+
+    Vec3 nA = tri_normal(curP[va], curP[vb], p);
+    Vec3 nB = tri_normal(curP[vb], curP[vc], p);
+    Vec3 nC = tri_normal(curP[vc], curP[va], p);
+    // "before" encode: any REAL face id (the cache's own content, untouched by this candidate).
+    auto encode_before = [&](int f, double z, int ch) -> double {
+        if (ch == 3) return (f >= 0) ? z : 255.0;
+        if (f < 0) return 127.5;
+        return (face_normal(curP, curF[f])[ch] + 1.0) * 127.5;
+    };
+    // "after" encode: -1 background, -3/-4/-5 one of the 3 new triangles, otherwise a REAL
+    // face id copied unchanged from the cache (an untouched neighbor, not oldF).
+    auto encode_after = [&](int f, float z, int ch) -> double {
+        if (ch == 3) return (f == -1) ? 255.0 : (double)z;
+        if (f == -1) return 127.5;
+        if (f == -3) return (nA[ch] + 1.0) * 127.5;
+        if (f == -4) return (nB[ch] + 1.0) * 127.5;
+        if (f == -5) return (nC[ch] + 1.0) * 127.5;
+        return (face_normal(curP, curF[f])[ch] + 1.0) * 127.5;
+    };
+
+    bool ok = true;
+    for (int ch = 0; ch < 4 && ok; ++ch) {
+        static std::vector<double> X, Ybefore, Yafter, mx, mby, may_, xx, yb, ya, xyb, xya, t;
+        X.assign((size_t)tw*th, 0.0); Ybefore.assign((size_t)tw*th, 0.0); Yafter.assign((size_t)tw*th, 0.0);
+        for (int ty = 0; ty < th; ++ty) for (int tx = 0; tx < tw; ++tx) {
+            size_t lk = (size_t)ty*tw+tx, gk = (size_t)(ty0+ty)*W + (tx0+tx);
+            X[lk] = (ch == 3) ? O.dX[v][gk] : O.nX[ch][v][gk];
+            Ybefore[lk] = encode_before(VC[v].fid[gk], VC[v].depth[gk], ch);
+            Yafter[lk] = encode_after(afid[lk], azb[lk], ch);
+        }
+        local_box_sum(X, tw, th, mx);
+        t.assign(X.size(), 0.0);
+        for (size_t k = 0; k < X.size(); ++k) t[k] = X[k]*X[k]; local_box_sum(t, tw, th, xx);
+        local_box_sum(Ybefore, tw, th, mby);
+        for (size_t k = 0; k < X.size(); ++k) t[k] = Ybefore[k]*Ybefore[k]; local_box_sum(t, tw, th, yb);
+        for (size_t k = 0; k < X.size(); ++k) t[k] = X[k]*Ybefore[k]; local_box_sum(t, tw, th, xyb);
+        local_box_sum(Yafter, tw, th, may_);
+        for (size_t k = 0; k < X.size(); ++k) t[k] = Yafter[k]*Yafter[k]; local_box_sum(t, tw, th, ya);
+        for (size_t k = 0; k < X.size(); ++k) t[k] = X[k]*Yafter[k]; local_box_sum(t, tw, th, xya);
+
+        double sBefore = 0, sAfter = 0; long nBefore = 0, nAfter = 0;
+        for (int gy = cy0; gy <= cy1; ++gy) for (int gx = cx0; gx <= cx1; ++gx) {
+            int ty = gy - ty0, tx = gx - tx0; size_t lk = (size_t)ty*tw+tx;
+            size_t gk = (size_t)gy*W+gx;
+            const double MX = mx[lk]/WN, SX = xx[lk]/WN - MX*MX;
+            {
+                const double MYb = mby[lk]/WN, SYb = yb[lk]/WN - MYb*MYb, SXYb = xyb[lk]/WN - MX*MYb;
+                bool covB = (O.covF[v][gk] >= 0) || (VC[v].fid[gk] >= 0);
+                if (covB) {
+                    double A=2*MX*MYb+C1, B=2*SXYb+C2, D1=MX*MX+MYb*MYb+C1, D2=SX+SYb+C2;
+                    sBefore += (A*B)/(D1*D2); ++nBefore;
+                }
+            }
+            {
+                const double MYa = may_[lk]/WN, SYa = ya[lk]/WN - MYa*MYa, SXYa = xya[lk]/WN - MX*MYa;
+                bool covA = (O.covF[v][gk] >= 0) || (afid[lk] != -1);
+                if (covA) {
+                    double A=2*MX*MYa+C1, B=2*SXYa+C2, D1=MX*MX+MYa*MYa+C1, D2=SX+SYa+C2;
+                    sAfter += (A*B)/(D1*D2); ++nAfter;
+                }
+            }
+        }
+        if (nBefore != nAfter) { ok = false; break; }   // silhouette-adjacent case: bail, don't misscore
+        dsum[ch] = sAfter - sBefore; cnt[ch] = (double)nBefore;
+    }
+    return ok;
+}
+
+// Sum the exact ΔFinalSSIM of inserting `p` as the new vertex splitting old face `oldF`
+// (a,b,c) across all 6 views. Aggregation identical to JD's (docs/ATTEMPT_LOG.md 2026-07-06):
+// normal channels contribute 0.5*(1/18)*(dsum[c]/N3[v]), depth contributes 0.5*(1/6)*(dsum[3]/Nd[v]).
+static double exact_insertion_delta(int oldF, int va, int vb, int vc, const Vec3& p,
+                                     const std::vector<Vec3>& curP, const std::vector<std::array<int,3>>& curF,
+                                     const OrigViews& O) {
+    double total = 0.0;
+    for (int v = 0; v < 6; ++v) {
+        double dsum[4] = {0,0,0,0}, cnt[4] = {0,0,0,0};
+        if (!eval_insertion_view(v, oldF, va, vb, vc, p, curP, curF, O, dsum, cnt)) continue;
+        for (int ch = 0; ch < 3; ++ch) if (cnt[ch] > 0) total += 0.5 * (dsum[ch] / VC[v].N3) / 18.0;
+        if (cnt[3] > 0) total += 0.5 * (dsum[3] / VC[v].Nd) / 6.0;
+    }
+    return total;
+}
+
 // nearest point on ANY mesh's surface to a query point, and which face it landed on
 // (brute-force over faces; fine for the coarse meshes this loop deals with early on — will
 // need a spatial index once V grows past a few thousand; see NEXT STEPS below).
@@ -345,79 +579,36 @@ static Vec3 closest_point_on_mesh(const Vec3& q, const std::vector<Vec3>& OP,
     if (faceOut) *faceOut = bestF;
     return bestP;
 }
-static inline Vec3 closest_point_on_original(const Vec3& q, const std::vector<Vec3>& OP,
-                                              const std::vector<std::array<int,3>>& OF) {
-    return closest_point_on_mesh(q, OP, OF, nullptr);
-}
-
-// area-weighted induced normal distortion of a candidate split: for the 3 new sub-triangles
-// (a,b,p),(b,c,p),(c,a,p), compare each one's own normal against the TRUE original surface
-// normal sampled at that sub-triangle's centroid — the same style of objective VSA-lite uses
-// for collapse placement (incident_ndist), applied here to INSERTION instead. Day-1's
-// placement (pure closest-point) ignored this entirely and was measured to regress normal
-// SSIM as V grew (docs/V2-CONSTRUCTION.md); this is the fix.
-static double induced_normal_distortion(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& p,
-                                         const std::vector<Vec3>& OP,
-                                         const std::vector<std::array<int,3>>& OF) {
-    double total = 0.0;
-    const Vec3 tri[3][3] = {{a,b,p}, {b,c,p}, {c,a,p}};
-    for (const auto& t : tri) {
-        Vec3 e1 = t[1] - t[0], e2 = t[2] - t[0], cr = e1.cross(e2);
-        double area = 0.5 * cr.norm();
-        if (area < 1e-15) { total += 1e6; continue; }   // degenerate candidate: reject hard
-        Vec3 n = cr / (2.0 * area);
-        Vec3 centroid = (t[0] + t[1] + t[2]) / 3.0;
-        int fi; closest_point_on_mesh(centroid, OP, OF, &fi);
-        Vec3 trueN = face_normal(OP, OF[fi]);
-        total += area * (1.0 - n.dot(trueN));
-    }
-    return total;
-}
-
-// pick the split point for face (a,b,c) that minimizes induced normal distortion, searching a
-// small candidate set around the position-based baseline: the closest point on the original
-// surface (position-correct baseline) PLUS the actual nearest ORIGINAL VERTEX (real, unmodified
-// surface data — carries the true local normal transition exactly, unlike an interpolated
-// closest-point-on-a-triangle) PLUS small offsets of the baseline along the local original
-// normal's tangent plane (explores nearby positions that might align sub-face normals better).
-// returns false if NO candidate produces a valid (non-degenerate) split — the caller must then
-// move to the next face rather than silently accept a degenerate point. Measured bug (day 3):
-// when this always returned "the best of the candidates" even if every one was degenerate, the
-// SINGLE WORST-DEFICIT face in the whole mesh could get permanently skipped every iteration
-// (its candidates all failed the caller's OWN validity check afterward), while a much-lower-
-// value face was accepted instead — freezing the render: the highest-value target never got
-// touched. Traced directly: face 92 (deficit 5591, the true worst, visible across 3 views up
-// to 1690px) was silently skipped every iteration in favor of a rank-4 candidate (deficit 2026)
-// for hundreds of splits, while mean rendered SSIM sat frozen bit-for-bit.
-// `curP`/minSep guard against a second bug found the same day: a single distinctive original
-// vertex (a crease/corner) can score best on induced_normal_distortion for MANY DIFFERENT
-// parent faces in its neighborhood, so the "nearest real original vertex" candidate keeps
-// picking the EXACT SAME 3D point from different parents — clustering new vertices on top of
-// each other at one spot while the actual deficit region (hundreds of rendered pixels) never
-// gets covered. Traced directly: `newPos` was bit-identical across dozens of iterations.
-// Rejecting any candidate too close to an EXISTING current-mesh vertex forces spatial
-// diversity — the split must land somewhere genuinely new.
-static bool pick_split_point(const Vec3& a, const Vec3& b, const Vec3& c,
-                              const std::vector<Vec3>& OP, const std::vector<std::array<int,3>>& OF,
-                              const std::vector<Vec3>& curP, double edgeScale, double minArea,
-                              double minSep, Vec3& out) {
+// Generate a small candidate set of split positions for face (a,b,c): the closest point on the
+// original surface from the centroid (position baseline), the actual nearest ORIGINAL VERTEX
+// (real, unmodified surface data), and small tangent-plane offsets of the baseline RE-PROJECTED
+// onto the original surface (so every candidate stays on-surface by construction — an earlier
+// off-surface version broke Hausdorff, 0.249 vs the 0.119 limit). Filters out candidates that
+// would be degenerate (near-zero sub-triangle area) or land within `minSep` of an existing
+// current-mesh vertex (day-3 bug: a single distinctive original vertex/crease acted as a
+// magnet, with many different parent faces all converging on the SAME 3D point).
+//
+// Day 1-3 used an ISOLATED per-triangle "induced normal distortion" score to pick among these
+// candidates — proven unreliable (docs/V2-CONSTRUCTION.md day 3: 4 distinct bugs, all
+// variations of "the proxy doesn't correlate with whether this candidate helps the actual
+// rendered image"). Day 4 replaces that scoring with the exact local-delta technique
+// (exact_insertion_delta) applied by the CALLER to whichever candidates this generates.
+static void generate_split_candidates(const Vec3& a, const Vec3& b, const Vec3& c,
+                                       const std::vector<Vec3>& OP, const std::vector<std::array<int,3>>& OF,
+                                       const std::vector<Vec3>& curP, double edgeScale, double minArea,
+                                       double minSep, std::vector<Vec3>& out) {
+    out.clear();
     Vec3 centroid = (a + b + c) / 3.0;
     int fi; Vec3 p0 = closest_point_on_mesh(centroid, OP, OF, &fi);
     Vec3 trueN = face_normal(OP, OF[fi]);
 
     std::vector<Vec3> cand = {p0};
-    // nearest actual original vertex among the closest face's own 3 vertices (real data point)
     {
         const auto& t = OF[fi];
         double bd = 1e300; Vec3 bv = p0;
         for (int k = 0; k < 3; ++k) { double d = (OP[t[k]] - centroid).squaredNorm(); if (d < bd) { bd = d; bv = OP[t[k]]; } }
         cand.push_back(bv);
     }
-    // small tangent-plane offsets of p0, RE-PROJECTED onto the original surface (an earlier
-    // attempt used raw off-surface offsets and was measured to break Hausdorff — 0.249 vs the
-    // 0.119 limit — by wandering away from the surface in exchange for normal alignment).
-    // Re-projecting keeps every candidate on-surface by construction; only the TANGENTIAL
-    // position (which patch of the true surface we land on) varies between candidates.
     {
         Vec3 ref = std::fabs(trueN.x()) < 0.9 ? Vec3(1,0,0) : Vec3(0,1,0);
         Vec3 t1 = trueN.cross(ref).normalized(), t2 = trueN.cross(t1).normalized();
@@ -426,27 +617,14 @@ static bool pick_split_point(const Vec3& a, const Vec3& b, const Vec3& c,
             cand.push_back(closest_point_on_mesh(p0 + s * edgeScale * t2, OP, OF, nullptr));
         }
     }
-    // NOTE: do NOT add the plain geometric centroid as a fallback candidate. Measured bug
-    // (day 3, second occurrence): a triangle is always exactly planar, so splitting it at ITS
-    // OWN centroid produces 3 sub-triangles perfectly COPLANAR with the parent — identical
-    // normal, hence a BIT-IDENTICAL render before and after. This candidate always passes the
-    // area check (harmless-looking) but can never change a single rendered pixel; accepting it
-    // "successfully" consumes vertex budget while leaving the true visual defect untouched
-    // forever (traced: face 308's deficit sat frozen at exactly 1813.0061 for 100+ iterations
-    // after this fallback fired). If no surface-aware candidate is valid, this function must
-    // return false so the caller moves on to a DIFFERENT face, not accept a useless no-op.
-
-    double bestScore = 1e300; bool found = false;
     for (const Vec3& p : cand) {
         double a1 = 0.5*(a-p).cross(b-p).norm(), a2 = 0.5*(b-p).cross(c-p).norm(), a3 = 0.5*(c-p).cross(a-p).norm();
-        if (a1 <= minArea || a2 <= minArea || a3 <= minArea) continue;   // reject degenerate candidates OUTRIGHT
+        if (a1 <= minArea || a2 <= minArea || a3 <= minArea) continue;
         bool tooClose = false;
         for (const Vec3& ev : curP) if ((ev - p).squaredNorm() < minSep * minSep) { tooClose = true; break; }
-        if (tooClose) continue;   // reject: would cluster on top of an already-placed vertex
-        double s = induced_normal_distortion(a, b, c, p, OP, OF);
-        if (s < bestScore) { bestScore = s; out = p; found = true; }
+        if (tooClose) continue;
+        out.push_back(p);
     }
-    return found;
 }
 
 // farthest-point sampling: greedily pick K points that are well spread over the input surface.
@@ -501,6 +679,93 @@ int main(int argc, char** argv) {
     int RES = 256;   // day-1 steering resolution (cheap iteration; judge-res validation separately)
     if (getenv("V2_RES")) RES = atoi(getenv("V2_RES"));   // local testing only
     OrigViews O; capture_original(pos, faces, RES, O);
+
+    if (getenv("V2_VALIDATE")) {
+        // ===== EXACT-DELTA VALIDATION (env-gated; never runs on the judge) =====
+        // Same discipline as JD's validation earlier this session: predict each candidate
+        // insertion's delta via exact_insertion_delta, then perform it for REAL, rescore fully
+        // with the same render()+ssim_map() machinery used everywhere else in this file, and
+        // compare. Zero trust extended to the new scoring code until this passes.
+        auto full_score = [&](const std::vector<Vec3>& P, const std::vector<std::array<int,3>>& F) {
+            double sn = 0.0; long nn = 0, dn = 0; double sd_ = 0.0;
+            for (int v = 0; v < 6; ++v) {
+                std::vector<int> fid; std::vector<double> depth;
+                render(P, F, v, RES, fid, depth);
+                for (int c = 0; c < 3; ++c) {
+                    std::vector<double> Y((size_t)RES*RES, 127.5);
+                    for (size_t k = 0; k < Y.size(); ++k) if (fid[k] >= 0) Y[k] = (face_normal(P, F[fid[k]])[c]+1.0)*127.5;
+                    std::vector<double> smap; ssim_map(O.nX[c][v], Y, RES, smap);
+                    for (size_t k = 0; k < smap.size(); ++k) { if (fid[k]<0) continue; sn += smap[k]; ++nn; }
+                }
+                std::vector<double> Yd((size_t)RES*RES, 255.0);
+                for (size_t k = 0; k < Yd.size(); ++k) if (fid[k] >= 0) Yd[k] = depth[k];
+                std::vector<double> smapD; ssim_map(O.dX[v], Yd, RES, smapD);
+                for (size_t k = 0; k < smapD.size(); ++k) { if (fid[k]<0) continue; sd_ += smapD[k]; ++dn; }
+            }
+            double meanN = nn ? sn/nn : 1.0, meanD = dn ? sd_/dn : 1.0;
+            return 0.5*meanN + 0.5*meanD;
+        };
+
+        std::vector<Vec3> vP = curP; std::vector<std::array<int,3>> vF = curF;
+        if (const char* mp = getenv("V2_VALMESH")) {   // test on a pre-grown mesh instead of the raw seed
+            FILE* mf = std::fopen(mp, "r");
+            int mv, mfc; if (std::fscanf(mf, "%d %d", &mv, &mfc) == 2) {
+                vP.assign(mv, Vec3::Zero()); vF.assign(mfc, {0,0,0});
+                for (int i = 0; i < mv; ++i) { double x,y,z; std::fscanf(mf, " v %lf %lf %lf", &x,&y,&z); vP[i]=Vec3(x,y,z); }
+                for (int i = 0; i < mfc; ++i) { int a,b,c; std::fscanf(mf, " f %d %d %d", &a,&b,&c); vF[i]={a-1,b-1,c-1}; }
+            }
+            std::fclose(mf);
+            std::fprintf(stderr, "[v2val] loaded alt mesh from %s: V=%zu F=%zu\n", mp, vP.size(), vF.size());
+        }
+        build_view_cache(vP, vF, RES, O);
+        double baseline = full_score(vP, vF);
+        std::fprintf(stderr, "[v2val] baseline FinalSSIM=%.9f V=%zu F=%zu\n", baseline, vP.size(), vF.size());
+        int tested = 0, matched = 0;
+        const int K = getenv("V2_VALK") ? atoi(getenv("V2_VALK")) : 20;
+        const double TOL = 2e-6;
+        for (int f = 0; f < (int)vF.size() && tested < K; ++f) {
+            const auto& t = vF[f];
+            Vec3 a = vP[t[0]], b = vP[t[1]], c = vP[t[2]];
+            Vec3 centroid = (a+b+c)/3.0;
+            int fi; Vec3 p0 = closest_point_on_mesh(centroid, pos, faces, &fi);
+            double edgeScale = std::max({(b-a).norm(), (c-b).norm(), (a-c).norm()});
+            Vec3 tinyLocal = centroid + 0.01 * edgeScale * (a - centroid).normalized();
+            std::fprintf(stderr, "  [v2val-info] face=%d edgeScale=%.4f |centroid-p0|=%.4f (ratio=%.2f)\n",
+                         f, edgeScale, (centroid-p0).norm(), (centroid-p0).norm()/edgeScale);
+            // a handful of candidates per face: position-baseline, a few offsets, and a TINY
+            // local perturbation (to isolate whether locality-violation is the cause)
+            std::vector<Vec3> cands = {p0, centroid, tinyLocal};
+            for (const Vec3& p : cands) {
+                if (tested >= K) break;
+                double predicted = exact_insertion_delta(f, t[0], t[1], t[2], p, vP, vF, O);
+                if (getenv("V2_VALDBG") && tested == atoi(getenv("V2_VALDBG"))) {
+                    for (int vv = 0; vv < 6; ++vv) {
+                        double dsum[4]={0,0,0,0}, cnt[4]={0,0,0,0};
+                        bool okv = eval_insertion_view(vv, f, t[0], t[1], t[2], p, vP, vF, O, dsum, cnt);
+                        std::fprintf(stderr, "    [view %d] ok=%d dsum=%.6f,%.6f,%.6f,%.6f cnt=%.0f,%.0f,%.0f,%.0f N3=%.0f Nd=%.0f\n",
+                                     vv, okv, dsum[0],dsum[1],dsum[2],dsum[3], cnt[0],cnt[1],cnt[2],cnt[3], VC[vv].N3, VC[vv].Nd);
+                    }
+                }
+                // perform for real: replace face f with 3 new triangles, rescore fully
+                std::vector<Vec3> tp = vP; std::vector<std::array<int,3>> tf = vF;
+                int newIdx = (int)tp.size(); tp.push_back(p);
+                tf.push_back({t[0], t[1], newIdx});
+                tf.push_back({t[1], t[2], newIdx});
+                tf[f] = {t[2], t[0], newIdx};
+                double after = full_score(tp, tf);
+                double actual = after - baseline;
+                double err = std::fabs(actual - predicted);
+                bool ok = err < TOL;
+                std::fprintf(stderr, "[v2val] #%d face=%d predicted=%+.9f actual=%+.9f err=%.2e %s\n",
+                             tested, f, predicted, actual, err, ok ? "OK" : "MISMATCH");
+                if (ok) ++matched;
+                ++tested;
+            }
+        }
+        std::fprintf(stderr, "[v2val] SUMMARY tested=%d matched=%d\n", tested, matched);
+        save_obj(curP, curF);
+        return 0;
+    }
 
     const auto t0 = std::chrono::steady_clock::now();
     auto elapsed = [&]{ return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); };
@@ -632,16 +897,28 @@ int main(int argc, char** argv) {
         if (worstGeom > LEASH && split_areas_ok(curF[worstFace], worstPt)) {
             splitFace = worstFace; newPos = worstPt; haus = true;
         } else {
+            // day 4: score candidates by the EXACT local-delta rendered SSIM change (validated
+            // against a bit-exact full rescore, docs/V2-CONSTRUCTION.md day 4), not the day 1-3
+            // isolated-normal proxy that caused 4 distinct bugs. Accept bar kept conservative
+            // (JD's pattern this session): only a clearly-positive true gain wins.
+            const double ACCEPT_BAR = 1e-5;
+            build_view_cache(curP, curF, RES, O);
+            std::vector<Vec3> cands;
             for (int cand : ssimOrder) {
                 ++tried;
                 const auto& t = curF[cand];
                 const Vec3 &fa = curP[t[0]], &fb = curP[t[1]], &fc = curP[t[2]];
                 double edgeScale = std::max({(fb-fa).norm(), (fc-fb).norm(), (fa-fc).norm()});
-                Vec3 np;
                 double minSep = 0.05 * edgeScale;
-                if (pick_split_point(fa, fb, fc, pos, faces, curP, edgeScale, MIN_AREA, minSep, np) && split_areas_ok(t, np)) {
-                    splitFace = cand; newPos = np; break;
+                generate_split_candidates(fa, fb, fc, pos, faces, curP, edgeScale, MIN_AREA, minSep, cands);
+                double bestDelta = ACCEPT_BAR; Vec3 bestP; bool found = false;
+                for (const Vec3& p : cands) {
+                    double d = exact_insertion_delta(cand, t[0], t[1], t[2], p, curP, curF, O);
+                    if (d > bestDelta) { bestDelta = d; bestP = p; found = true; }
                 }
+                if (found) { splitFace = cand; newPos = bestP; break; }
+                if (tried >= 150) break;   // cap the fallback scan: exact-delta scoring is
+                                          // per-candidate expensive (6-view local rescore)
             }
         }
         if (getenv("V2_DBG") && iters % 20 == 0)

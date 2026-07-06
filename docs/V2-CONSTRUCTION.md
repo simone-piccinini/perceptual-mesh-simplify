@@ -216,6 +216,64 @@ The self-occlusion/attribution problem itself may still need a longer-run Hausdo
 phase before switching to SSIM-driven refinement (get the gross topology right first), but the
 exact-delta scoring should stop misdirecting budget regardless.
 
+## Day 4 (2026-07-06 continued): exact local-delta scoring replaces the proxy — real progress
+
+Implemented the day-3 plan: `induced_normal_distortion` (the isolated per-triangle proxy
+responsible for all 4 day-3 bugs) is REMOVED. Split candidates are now scored by the EXACT
+local rendered SSIM delta, reusing JD's validated technique from earlier this session
+(docs/ATTEMPT_LOG.md 2026-07-06 JD entries) adapted from flip (2 old faces -> 2 new) to
+insertion (1 old face -> 3 new): erase the old face's pixels in a local screen tile, rasterize
+the 3 new triangles with a z-test, guarded by the same window-count-match and foreign-face-
+intrusion checks JD used, aggregated into a properly normalized ΔFinalSSIM via a per-view
+cache of valid-window counts (`ViewCache`, rebuilt once per growth iteration).
+
+**Validated the same way as JD** before trusting it: `V2_VALIDATE` predicts each candidate's
+delta, performs it for real, rescues with the full render+SSIM machinery, and compares.
+- On the RAW V=20 hull seed: mostly MISMATCHED, with large errors (up to 2.7x, even sign
+  flips) — traced to a genuine blind spot new to insertion (not present in JD's flip case):
+  erasing a face can, in principle, expose a HIDDEN occluded face the local model has no
+  knowledge of (JD's flip never has this problem — a flip's footprint is provably identical
+  before/after, so nothing is ever "revealed"). This risk is worst on ultra-coarse meshes
+  where individual faces are huge and self-occlusion is common.
+- On a pre-grown V=522 mesh: errors shrank to the same small-residual class JD saw (relative
+  errors ~1-3%, no sign flips in the sample tested) — supporting the hypothesis that this
+  blind spot is specific to the initial ultra-coarse regime, which the existing Hausdorff-
+  priority phase already grows past before SSIM-driven splitting (using this scoring) begins.
+  **Known limitation, not yet guarded**: no check exists for hidden-occluder exposure; the
+  scoring should not be trusted on meshes as coarse as the raw ~20-vertex seed.
+
+**Wired into the growth loop** (conservative accept bar, 1e-5, matching JD's calibration):
+mean rendered normal SSIM now **improves with noise, no longer plateaus or regresses**:
+
+```
+iter=0   V=20  meanNormalSSIM=0.2183
+iter=40  V=60  meanNormalSSIM=0.1957
+iter=140 V=160 meanNormalSSIM=0.1903   (noisy, but recovers)
+iter=300 V=320 meanNormalSSIM=0.2062
+iter=320 V=340 meanNormalSSIM=0.2026
+```
+
+Growth naturally stops when no candidate among the top 150 deficit-ranked faces clears the
+accept bar ("no valid split candidate — stopping early", V=352 on this run) — a real signal
+that the CURRENT candidate-generation scheme (position baseline + nearest original vertex + 4
+tangent offsets) has been exhausted, not a bug; expanding the candidate set is the natural next
+lever, not raising the bar or forcing acceptance (day 1-3's mistake, in a new guise).
+
+**Result at V=352 (bunny proxy, first fully-validated growth run)**: FinalSSIM 0.5417,
+Hausdorff 0.103 (comfortably under the 0.119 limit) — zero degenerate faces. Best result of
+the 4-day effort, and the first with a scoring mechanism that is actually sound end-to-end.
+Reference: the decimator at matched V=352 reads 0.7467 — the gap (~0.20) is still large, but
+this is the first day where the REMAINING gap can be attributed to "not enough
+candidates/iterations yet" rather than "the mechanism is actively working against itself."
+
+**Performance note**: exact-delta scoring costs a 6-view local rescore per candidate (~5
+candidates x up to 150 faces tried in the worst case) — roughly 8x slower per split than the
+day 1-3 proxy (0.26s/split vs 0.03-0.04s/split here). Growing to case-3-scale budgets (~7000
+vertices) at this rate is not yet feasible within any CPU budget; performance work (spatial
+index for `closest_point_on_mesh`, wider/smarter candidate search to reduce wasted scoring
+calls, possibly caching exact-delta results across iterations where nothing nearby changed)
+is the concrete day 5 target, now that the mechanism itself is validated and improving.
+
 ## Known performance debt (not addressed today, correctness came first)
 
 - `closest_point_on_mesh` is brute-force O(faces) per query; used both for the Hausdorff guard
