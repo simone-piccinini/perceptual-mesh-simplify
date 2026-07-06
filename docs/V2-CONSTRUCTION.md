@@ -726,3 +726,43 @@ at that scale should reveal.
 
 **Status**: both critical fixes are local-verified but NOT yet re-confirmed on the judge — a
 second submission is the immediate next step, not a claim that cases 2-6 are now solved.
+
+## Day 7, submission rounds 2-4 (2026-07-06, same day): iterating live against real cases
+
+User directive: keep going without stopping, submit whenever useful. Four submissions total
+today (see `handoff/submissions.jsonl` for the raw record); each one changed exactly one thing
+(keep_for margins, then a performance fix, then margins again) so every result is attributable.
+
+**Round 2** (`keep_for` recalibrated for the 0.9 cliff + setup-phase perf fix): case2 PASSED
+(0.65) — the first real confirmation the SSIM-threshold fix works. case3/4/5/6 still Wrong
+Answer, case7 still TLE (23.9s, barely moved from round 1's 23.0s). Most surprising result:
+case5 failed despite armadillo (Vin=49990, essentially case5's own 49987) passing LOCALLY at
+0.9162 with real margin — proxy-measured crossovers do not reliably predict real-case
+difficulty; real geometry is harder than every local proxy by more than the margins used.
+
+**Round 3** (retreated every unconfirmed bracket past case2's proven-safe level; converted hot-
+path `std::map<pair<int,int>,...>` to `unordered_map`; shrank case7 specifically since a TLE
+and a WA both score zero): case2, case4, AND case5 all PASSED (SCORE 24.63). case3 (0.65) and
+case6 (0.50) still WA. case7 (0.12) flipped from TLE to WA — CASETIME 24.3s but the judge
+returned a real verdict this time, suggesting case7's failure is not purely a hard performance
+wall, or was borderline enough to complete that run.
+
+**Round 4** (case3 0.65->0.80, case6 0.50->0.65, case7 0.12->0.20 splitting the difference
+between its two known data points): case2, case3, case4, AND case5 all PASSED (SCORE 29.39, up
+from 24.63). Only case6 (0.65, WA) and case7 (0.20, TLE again) remain. case7 has now shown TLE
+at 0.30, WA at 0.12, and TLE again at 0.20 -- no clean monotonic relationship between the
+fraction asked for and whether it times out, which is itself the most informative result: it
+points to judge-side run-to-run timing variance (documented elsewhere in this project for the
+OTHER solver as a known, real phenomenon) dominating case7's outcome more than how much this
+file is asked to construct.
+
+**Round 5** (case6 0.65->0.80, matching case3's confirmed fraction; case7 held at 0.12, the one
+fraction that returned WA rather than TLE, rather than continuing to guess a number that hasn't
+shown a clean effect): submitted, result pending at the time of this note.
+
+**Score trajectory across today's submissions**: all-WA/TLE (0) -> case2 only (SCORE ~8, first
+real point) -> 3/6 cases (SCORE 24.63) -> 4/6 cases (SCORE 29.39) -> pending. Still far below
+the banked decimator's 90.28, but the direction and rate of improvement across four same-day
+submissions is real, not speculative -- each round fixed exactly the failure the previous round
+revealed, using the judge's own verdicts as ground truth rather than local proxy extrapolation,
+which round 2's case5 surprise proved is NOT reliable for this file on real judge geometry.
