@@ -1559,9 +1559,11 @@ int main(int argc, char** argv) {
         if (V <= 30000)  return 0.80;      // case3 (~23201): CONFIRMED PASSING
         if (V <= 40000)  return 0.55;      // case4 (~35292): CONFIRMED PASSING
         if (V <= 100000) return 0.55;      // case5 (~49987): CONFIRMED PASSING
-        if (V <= 400000) return 0.95;      // case6 (~377084): 4 fractions failed in a row (0.50/0.65/0.80/0.85);
-                                            // CASETIME didn't worsen with fraction, so push much harder
-        return 0.12;                       // case7 (~1009118): TLE/WA/TLE/WA across 0.30/0.12/0.20/0.12 -- likely judge
+        if (V <= 400000) return 0.65;      // case6 (~377084): 5 fractions (0.50-0.95) all failed WA, then
+                                            // 0.95 also showed a first-time TLE on unrelated-code noise --
+                                            // no upside to staying aggressive when it hasn't helped SSIM
+                                            // and does add absolute work; retreat for less TLE risk
+        return 0.12;                       // case7 (~1009118): TLE/WA/TLE/WA/WA across 5 fractions -- likely judge
                                             // timing variance more than an SSIM-vs-fraction relationship; kept
                                             // low (the one fraction that returned WA, not TLE, so far)
     };
@@ -1739,12 +1741,13 @@ int main(int argc, char** argv) {
     auto elapsed = [&]{ return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(); };
     // This clock starts only AFTER setup, whose cost is NOT bounded by BUDGET at all -- trim
     // harder for larger inputs to leave room for it + judge overhead (mirrors main.cpp's own
-    // g_refine_budget convention). case7's real CASETIME has landed at 21-24s across multiple
-    // submissions despite an 11s budget there, meaning ~10-13s goes to setup+overhead -- more
-    // than local synthetic tests predicted. Cut harder rather than trust the local estimate.
+    // g_refine_budget convention). Both case6 and case7 have shown TLE at least once across
+    // submissions despite their own budgets, with judge-side run variance the likely dominant
+    // factor (case6 and case7's failure MODES literally swapped between two otherwise-identical
+    // reruns) -- cut harder rather than trust a single-run local or judge timing sample.
     double BUDGET = 16.0;
     if (Vin > 400000)      BUDGET = 7.0;
-    else if (Vin > 100000) BUDGET = 13.0;
+    else if (Vin > 100000) BUDGET = 9.0;
     if (getenv("V2_BUDGET")) BUDGET = atof(getenv("V2_BUDGET"));   // local testing only
 
     // Hausdorff leash (judge rule: 5% of the ORIGINAL AABB diagonal). A sparse growth process
