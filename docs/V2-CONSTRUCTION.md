@@ -1366,3 +1366,23 @@ as a real improvement -- but it does not fix case7. This rules out one more well
 mathematically principled hypothesis: continuous QEM placement was not the cause. Whatever
 case7's defect is, it survives even when every kept vertex is guaranteed to sit exactly on the
 original surface.
+
+## Round 32: pragmatic reframing -- accept a smaller payout instead of chasing zero
+
+Re-read docs/SOLVER-INTERNALS.md's own per-case dispatch table for the banked main.cpp
+solver's case7 recipe: keep_for=0.02855 -> V'=28,810 (97.14 payout), needing a dedicated
+2-stage bulk-QEM engineering effort specifically because full VSA-lite ordering was too slow
+at 1M vertices (their own "case7 TLE fix", section 4.9) -- confirming BOTH solvers found case7
+uniquely hard, and that main.cpp needed real, non-default engineering to make even 2.85%
+compression feasible at all. This proves 2.85% compression IS achievable with SSIM>=0.9 on
+case7's real geometry -- just not (so far) by this construction method's per-vertex placement
+quality at that fraction, even with subset placement's now-guaranteed on-surface positions.
+
+Reframing: case6 only clears 0.9 SSIM at 0.45 kept, ~20x more generous than banked main.cpp's
+own 2.3% for that case -- this construction method needs far more vertices than an
+iterative-decimation approach to hit the same quality bar, a known, already-documented
+efficiency gap (session start: ~half-to-two-thirds banked rate). Applying that SAME ~20x
+compensation ratio to case7's banked 2.85% gives roughly 0.45-0.57 kept. Every fraction tried
+so far for case7 (0.03 to 0.15) stayed well below that band. Raised to 0.45 (matching case6's
+own successful value) as a genuinely untested point, accepting a much smaller payout than
+2.85% compression would give IF it works -- passing at a modest rate beats failing at zero.
