@@ -1587,9 +1587,8 @@ int main(int argc, char** argv) {
                                             // margin now (TLE risk) -- timing- not SSIM-limited
         if (V <= 400000) return 0.45;      // case6: passing at 0.65 (r22 genus fix, not the
                                             // fraction); genus-3 proxy clears 0.9863 at 0.30, r24
-        return 0.25;                       // case7: 0.03-0.15 all WA (quality), 0.45 TLE'd for
-                                            // the first time ever (real-vs-local timing gap
-                                            // scales with fraction) -- searching the middle
+        return 0.18;                       // case7: 0.15 WA (margin ok), 0.25/0.45 both TLE --
+                                            // narrowing toward the boundary from below
     };
     double kf = (keepOverride > 0) ? keepOverride : keep_for(Vin);
     int target = std::max(4, (int)(kf * Vin));
