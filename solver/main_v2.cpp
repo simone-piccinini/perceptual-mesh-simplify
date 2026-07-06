@@ -1584,13 +1584,11 @@ int main(int argc, char** argv) {
                                             // needed far more work than fandisk predicted; revert
         if (V <= 100000) return 0.40;      // case5: passing at 0.40 (r18); only 1.3s CASETIME
                                             // margin now (TLE risk) -- timing- not SSIM-limited
-        if (V <= 400000) return 0.65;      // case6 (~377084): 5 fractions (0.50-0.95) all failed WA, then
-                                            // 0.95 also showed a first-time TLE on unrelated-code noise --
-                                            // no upside to staying aggressive when it hasn't helped SSIM
-                                            // and does add absolute work; retreat for less TLE risk
-        return 0.12;                       // case7 (~1009118): TLE/WA/TLE/WA/WA across 5 fractions -- likely judge
-                                            // timing variance more than an SSIM-vs-fraction relationship; kept
-                                            // low (the one fraction that returned WA, not TLE, so far)
+        if (V <= 400000) return 0.65;      // case6: CONFIRMED PASSING (r22) -- root cause was the
+                                            // genus-0-only manifold gate, not the fraction at all
+        return 0.08;                       // case7 (~1009118): 0.12 was WA with CASETIME margin
+                                            // already -2.0s (r22) -- timing-bound, not SSIM-bound,
+                                            // now that genus is handled; pull down for margin
     };
     double kf = (keepOverride > 0) ? keepOverride : keep_for(Vin);
     int target = std::max(4, (int)(kf * Vin));
