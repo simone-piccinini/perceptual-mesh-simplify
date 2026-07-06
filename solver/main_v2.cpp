@@ -1562,9 +1562,9 @@ int main(int argc, char** argv) {
                                             // margin now (TLE risk) -- timing- not SSIM-limited
         if (V <= 400000) return 0.45;      // case6: passing at 0.65 (r22 genus fix, not the
                                             // fraction); genus-3 proxy clears 0.9863 at 0.30, r24
-        return 0.08;                       // case7 (~1009118): 0.12 was WA with CASETIME margin
-                                            // already -2.0s (r22) -- timing-bound, not SSIM-bound,
-                                            // now that genus is handled; pull down for margin
+        return 0.15;                       // case7 (~1009118): r26's setup speedup gave CASETIME
+                                            // margin +1.6s at 0.08 (still WA) -- timing was never
+                                            // the real constraint, so raise fraction for quality
     };
     double kf = (keepOverride > 0) ? keepOverride : keep_for(Vin);
     int target = std::max(4, (int)(kf * Vin));
