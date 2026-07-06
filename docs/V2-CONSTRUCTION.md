@@ -1292,3 +1292,38 @@ setup time 4.56s -> 2.70s (41% reduction), total runtime ~9.4s vs ~11s before** 
 This is the most promising case7 lever found all session: not a guess about the INPUT, but a
 confirmed, verified-correct, purely mechanical speedup that should apply regardless of what
 case7's real geometry actually is. Submitting immediately as round 26.
+
+**Round 26 real-judge result: case7 CASETIME margin swung from -1.8s to +1.6s (a real,
+measured 3.4s improvement) -- and STILL Wrong Answer.** This is the single most important
+result for case7 all session: it proves, directly on the real judge, that timing was NEVER
+case7's binding constraint. Every earlier fraction cut (rounds 9-27) was pulling the wrong
+lever. Rounds 27-30 then swept fraction across a huge range with the speedup in place --
+0.15 (near-zero margin), 0.08 (redrawn 3x, margins from -0.2s to +1.6s), 0.03 (best-ever
+margin, +3.3s, no TLE risk at all) -- **all four consistently Wrong Answer**, including the
+0.03 run with the most comfortable timing margin case7 has ever shown. Also ran 3 identical
+redraws at 0.08 specifically to test for judge noise: all three came back Wrong Answer, never
+once TLE -- ruling out the earlier WA/TLE noise-flip pattern as the current story; this is now
+a real, consistent, timing-independent, fraction-independent verdict.
+
+**This is exactly case6's pre-genus-fix signature** (5 fractions 0.50-0.95, all identically
+WA, resolved by round 22's genus fix) -- but case7 does not reproduce on any real genus-bearing
+proxy built this session (genus-3, genus-131, both at matching scale, both clean passes).
+Attempted one more targeted hypothesis: real scan noise interacting with QEM repositioning
+(noisy face normals feeding noisy quadrics). Built a genus-3 proxy at case7's scale with
+realistic per-vertex noise added -- FinalSSIM crashed to 0.80 (normal=0.60, depth=0.99,
+exactly the fingerprint expected: geometry/position fine, normals wrecked). Looked like a
+strong lead, but a control test (sweeping the QEM solve's eigenvalue-acceptance threshold from
+1e-4 to 0.5, i.e. from "trust almost any direction" to "trust almost nothing, stay near the
+raw point") made NO difference to the normal-SSIM collapse -- disproving QEM as the cause. The
+real explanation: adding synthetic noise to the TEST mesh perturbs its own reference normals,
+so ANY reasonable (smoothing) simplification will score badly against that self-noisy ground
+truth, regardless of algorithm -- a flawed test methodology artifact, not a solver bug. No
+code change made; reverted the temporary threshold parametrization cleanly (confirmed via
+`git diff` showing zero residual changes).
+
+**Conclusion**: case7 has a real, reproducible, timing- and fraction-independent Wrong Answer
+that has now survived every hypothesis this project's tooling can generate and test, including
+several that turned out to be real bugs worth fixing in their own right (setup performance x2,
+multi-component handling, genus acceptance, memory footprint) but that don't explain THIS
+specific case. Whatever case7's actual defect is, it requires either the real input file or
+judge-side execution access to localize further -- both outside what's available here.
