@@ -96,6 +96,17 @@ Hausdorff budget is 5% of the diagonal — you are using under half your room fo
 one lever that provably improves the metric. Sweep the cap up (0.03, 0.04) on cases
 3/4. Monotonic-accept protects you; best-counts makes it a free-roll.
 
+*Status: LOCALLY INERT (2026-07-06) — the premise is false.* A/B on organic case-3-band
+proxies (bunny/cow subdivided, keep 0.10): sweeping the stock cap via `G_CAPA` ∈
+{0.02, 0.03, 0.04, **0.5**} moves final SSIM by ≤ 5e-6 (noise) and leaves the output
+Hausdorff pinned at **0.36–0.84% of diag** — i.e. the optimizer converges to displacements
+*far under the existing 2% cap*, so the cap is **not the binding constraint**; the ascent
+simply plateaus with room to spare. `G_CAPF` (phase-C tilt cap) is likewise inert (matches
+the prior "no judged gain"). More room only helps if the gradient wants to use it, and it
+doesn't. Not worth a submission (baking a wider cap re-rolls every case's mesh for ~0 gain).
+Caveat: unverifiable on the real (more detailed) case-3 mesh, but the mechanism —
+plateau-well-within-cap — is general.
+
 **D2. Better optimizer than vanilla gradient ascent.** Lever 4 is plain gradient
 ascent with step-halving. Swap in **momentum/Adam** and/or **coarse-to-fine
 rendering** (optimize at 256 then 512): same gradient, more effective steps inside
