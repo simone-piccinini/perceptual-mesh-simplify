@@ -87,13 +87,12 @@ constexpr double kOpFloorFrac    = 0.05;    // adaptive vertex floor; kOpAdaptiv
 static double keep_for(int V) {
     if (V <= 7000)   return 0.00725;// case 2: DUST ~99.29 (99.268 conf; ~99.32 WA'd)
     if (V <= 30000)  return 0.2996875;// case 3: 70.03125 banked keep (R1 descent closed: 6931/6944/banked-with-R1 all WA'd)
-    if (V <= 40000)  return 0.1475;   // case 4: DE-RAZORED (was 0.1428125 -> N=4990, a measured per-run
-                                      // coin: pass ~2/3, WA'd the 90.27-family run at 75.956618 = exactly
-                                      // case 4's contribution, V=35292 re-derived == measured 19895611).
-                                      // 0.1475 -> keep stage ~5205, final 5150: v74 passed clean at ~5162
-                                      // with the WEAKER pre-tail-harvest mechanism -> +160 verts ~ +3sigma
-                                      // of the box-cut jitter for 0.076 pts. Razor rung history preserved:
-                                      // TAIL-HARVEST 85.71875 (85.6875 BANKED draw-3-of-3 #90.2333)
+    if (V <= 40000)  return 0.1428125;// case 4: HARVEST LADDER (this branch only -- the dev base keeps the
+                                      // de-razored 0.1475/5150). Restores the BANKED keep stage (5040) so the
+                                      // decimate+refine trajectory is byte-identical to the 90.2667 family;
+                                      // only the RLIVE tail target descends (4990 banked -> ladder below).
+                                      // Ladder + protocol: docs/Future/c4-harvest-ladder.md.
+                                      // Razor history: TAIL-HARVEST 85.71875 (85.6875 BANKED draw-3-of-3 #90.2333)
     if (V <= 100000) return 0.08453125;// case 5: banked keep + SIL (passed 19897967; SIL ladder closed: 4212/4219 WA — judge-side SIL gain < 7 verts)
     if (V <= 400000) return 8684.0/(double)V; // case 6: crop-off family, target 8684 (v102-class banked 8705 via +21 stall)
     return 0.02855;                // case 7: banked (28800 WA 19897066 -> wall in (28800,28822], not worth the slots)
@@ -1757,9 +1756,12 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        seed_heap(); Decimate(5150);               // DE-RAZORED from 4990 (S(4990)=0.905 read 19898422, but a
-                                                   // per-run coin at ~2/3 — WA'd run 75.956618); 5150 = v74's
-                                                   // historically-clean band, +160 verts of jitter margin
+        seed_heap(); Decimate(4970);               // HARVEST rung 1 (branch harvest/c4-ladder only; dev base = 5150).
+                                                   // Banked tail was 4990 (S(4990)=0.905 read 19898422, coin ~2/3);
+                                                   // 4970 = -20 verts = +0.0095 pts over the 90.2667 bank if it
+                                                   // passes. Same keep stage (5040) as the banked family -> only
+                                                   // the last 70 (vs 50) tail collapses differ. Ladder doc:
+                                                   // docs/Future/c4-harvest-ladder.md
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
         mini_refine(1.5);                          // case 4's first 1024 polish
