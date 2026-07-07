@@ -1,9 +1,12 @@
 # D5 — connectivity in the optimizer loop (render-gated edge flips)
 
-**Status: SCAFFOLD LANDED, cheap-proxy driver CLOSED (2026-07-06). Env-gated `G_FLIPOPT`,
-judge-default OFF (v109 byte-identical). Finding 1 below closed the cheap `flip_tricost`
-driver with data; the viable path (flips selected by localized real-SSIM) is scoped but
-unbuilt — see "The redirect".**
+**Status: SHELVED (2026-07-06).** Scaffold landed (env-gated `G_FLIPOPT`, judge-default OFF,
+v109 byte-identical); Finding 1 CLOSED the cheap `flip_tricost` driver with data. The viable
+path (flips selected by a localized real-SSIM delta) is scoped in "The redirect" but was
+**not built** — it is a substantial dirty-region-renderer effort for a ~+0.01–0.02 pt ceiling
+with weak-transfer + keep-lottery risk (the D4/D5 marginal-EV-big-build profile). Deferred in
+favour of cheaper, lower-risk levers. The scaffold + `G_FLIPDIAG` diagnostic remain in-tree,
+judge-inert, ready if the localized-SSIM kernel is ever built for other reasons.
 
 ## The idea in one sentence
 
