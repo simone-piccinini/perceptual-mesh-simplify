@@ -17,7 +17,7 @@ Design rules (from WALL-MODEL.md):
   the submission.
 - The harness never submits. Kattis 403s scripts; the click and the spend decision are human.
 """
-import argparse, itertools, json, os, re, shutil, subprocess, sys, datetime
+import argparse, itertools, json, os, re, shutil, subprocess, sys, datetime, time as _time
 
 ROOT   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE  = os.path.join(ROOT, "probe")
@@ -248,16 +248,121 @@ def cmd_status(_args, st):
         for r in cfg.get("reads", []): print(f"         read: N={r['N']} K={r['K']} S2={r['S2']}")
         if cfg.get("fails"): print(f"         WA'd at: {cfg['fails']}")
 
+# ---------------------------------------------------------------- submit (closes the click)
+
+JUDGE_SUBMIT = os.path.join(ROOT, "scripts", "judge_submit.py")
+SUBLOG       = os.path.join(ROOT, "handoff", "submissions.jsonl")
+
+def _logcount():
+    return sum(1 for l in open(SUBLOG) if l.strip()) if os.path.exists(SUBLOG) else 0
+
+def do_submit(fpath, note, contest, live):
+    """Run judge_submit.py on fpath; return its freshly-appended JSONL record (score, cases, ...)."""
+    cmd = [sys.executable, JUDGE_SUBMIT, fpath, "--problem", "simplifygeometry", "--note", note, "--force"]
+    if contest: cmd += ["--contest", contest]
+    if not live:
+        print("[submit] DRY-RUN (no --live) — would run:\n  " + " ".join(cmd)); return None
+    n0 = _logcount()
+    print("[submit] LIVE ->", " ".join(cmd[:3]), "...")
+    subprocess.run(cmd)
+    lines = [l for l in open(SUBLOG) if l.strip()] if os.path.exists(SUBLOG) else []
+    if len(lines) <= n0: raise SystemExit("[submit] judge_submit wrote no record — aborting (no state change)")
+    return json.loads(lines[-1])
+
+def apply_result(rec, st, plan):
+    """Decode a judge_submit record (score + per-case cases string) into the wall model."""
+    score, cases = rec.get("score"), rec.get("cases", "")
+    verdict = rec.get("verdict")
+    print(f"[result] id={rec.get('id')} verdict={verdict} score={score} cases={cases}")
+    if score is None:
+        # WA/TLE/CE: attribute from the per-case string ('.'=pass,'x'=fail; index 0 = sample)
+        failed = [str(i) for i, ch in enumerate(cases) if ch == "x" and 2 <= i <= 7]
+        for c in failed:
+            if c in plan and c in st["cases"]:
+                st["cases"][c].setdefault("fails", []).append(plan[c]["N"])
+        print(f"[result] no score (verdict {verdict}); failed cases {failed or '?'} — bank unchanged")
+        st["log"].append({"date": str(datetime.date.today()), "id": rec.get("id"),
+                          "verdict": verdict, "plan": plan, "cases": cases})
+        save_state(st); return
+    hits = decode(score, st, plan)
+    if len(hits) != 1:
+        print(f"[result] HALT — {len(hits)} decode hypotheses for {score}; state NOT changed:")
+        for h in hits: print("   ", h)
+        raise SystemExit(2)
+    # reuse cmd_decode's writer by faking args
+    class A: pass
+    a = A(); a.score = score; a.dry = False
+    cmd_decode(a, st)
+
+def cmd_submit(args, st):
+    if not os.path.exists(PENDING): raise SystemExit("no pending plan — run `plan` then `preflight` first")
+    plan = json.load(open(PENDING))["plan"]
+    rec = do_submit(os.path.join(OUTDIR, "main.cpp"),
+                    args.note or f"harness probe {plan}", args.contest, args.live)
+    if rec is None: return
+    apply_result(rec, st, plan)
+
+# ---------------------------------------------------------------- campaign (guarded autonomy)
+
+def cmd_campaign(args, st):
+    """Autonomous plan->preflight->submit->decode for ONE target case, under hard guardrails.
+    Strategy: read-and-descend a box-cut razor. Halts on: budget, ambiguity, new bank, or WA."""
+    c = args.case
+    if c not in st["patchable"]: raise SystemExit(f"case {c} not patchable")
+    N = args.start or st["cases"][c]["banked_N"]
+    print(f"[campaign] case {c}: start N={N}  budget={args.max_subs}  interval={args.min_interval}s  "
+          f"live={args.live}  halt_on_bank={not args.auto_bank}")
+    for i in range(args.max_subs):
+        mode = "bank" if args.bank else "read"
+        plan = {c: {"mode": mode, "N": N}}
+        gap, _ = ambiguity_check(st, plan)
+        if gap <= 2*SCORE_TOL: print("[campaign] HALT: undecodable plan"); return
+        generate(plan, st); json.dump({"plan": plan}, open(PENDING, "w"))
+        # preflight (compile + identity) always, even in dry-run
+        class PF: docker = args.docker
+        try: cmd_preflight(PF(), st)
+        except SystemExit as e: print(f"[campaign] HALT: preflight failed: {e}"); return
+        if i > 0 and args.live: _time.sleep(args.min_interval)
+        rec = do_submit(os.path.join(OUTDIR, "main.cpp"), f"campaign c{c} {mode}@{N}", args.contest, args.live)
+        if rec is None: print(f"[campaign] dry-run step {i+1}: would submit {mode}@{N} for case {c}"); break
+        before = st["banked_total"]
+        apply_result(rec, st, plan)
+        st = load_state()
+        if st["banked_total"] > before:
+            print(f"[campaign] NEW BANK {st['banked_total']:.6f}. Snapshot probe/out/main.cpp into submissions/.")
+            if not args.auto_bank: print("[campaign] HALT for bank checkpoint (use --auto-bank to continue)."); return
+        # descend toward the wall using the read (if we have one)
+        reads = st["cases"][c].get("reads", [])
+        if mode == "read" and reads:
+            s2 = reads[-1]["S2"]; slope = 3.5e-5
+            step = max(4, int((s2 - 0.900 - args.margin) / slope))
+            step -= step % 4
+            if step <= 0: print(f"[campaign] read S2={s2} at/below wall+margin — stop descending."); return
+            N -= step; N -= N % 4
+            print(f"[campaign] read S2={s2} -> descend {step} verts -> next N={N}")
+        else:
+            print("[campaign] no read to guide descent — stopping."); return
+    print("[campaign] budget exhausted.")
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     pl = sub.add_parser("plan");     pl.add_argument("--read", action="append"); pl.add_argument("--bank", action="append")
     pf = sub.add_parser("preflight"); pf.add_argument("--docker", action="store_true")
     de = sub.add_parser("decode");   de.add_argument("score", type=float); de.add_argument("--dry", action="store_true")
+    sm = sub.add_parser("submit");   sm.add_argument("--live", action="store_true", help="actually submit (default: dry-run)")
+    sm.add_argument("--note", default=""); sm.add_argument("--contest", default="imc2-2")
+    ca = sub.add_parser("campaign"); ca.add_argument("case"); ca.add_argument("--start", type=int)
+    ca.add_argument("--bank", action="store_true", help="bank mode (default: read/descend)")
+    ca.add_argument("--live", action="store_true"); ca.add_argument("--auto-bank", action="store_true")
+    ca.add_argument("--max-subs", type=int, default=3); ca.add_argument("--min-interval", type=float, default=30.0)
+    ca.add_argument("--margin", type=float, default=0.002); ca.add_argument("--contest", default="imc2-2")
+    ca.add_argument("--docker", action="store_true")
     sub.add_parser("status")
     a = p.parse_args()
     st = load_state()
-    {"plan": cmd_plan, "preflight": cmd_preflight, "decode": cmd_decode, "status": cmd_status}[a.cmd](a, st)
+    {"plan": cmd_plan, "preflight": cmd_preflight, "decode": cmd_decode,
+     "submit": cmd_submit, "campaign": cmd_campaign, "status": cmd_status}[a.cmd](a, st)
 
 if __name__ == "__main__":
     main()
