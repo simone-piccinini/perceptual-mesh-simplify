@@ -49,6 +49,11 @@ The graveyard is full of *cost reweightings* and *vertex-normal preservers*. It 
 
 ## New ideas
 
+> **➡ 2026-07-07: the razor is exhausted (all six walls pinned, bank 90.285538). The forward
+> plan to push past 91 — quantified targets, the measurement prerequisite, and the ranked
+> structural ideas — now lives in [STRUCTURAL-ROADMAP.md](STRUCTURAL-ROADMAP.md). The list
+> below is the older idea bank; the roadmap supersedes its prioritization.**
+>
 > **2026-07-06 session outcomes (status of the ideas below):**
 > - **D1 (widen displacement cap): LOCALLY INERT.** Sweeping the stock cap via `G_CAPA` ∈
 >   {0.02…0.5} moves proxy SSIM ≤ 5e-6; the optimizer converges to <1% Hausdorff, far under
