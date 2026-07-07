@@ -11,6 +11,7 @@ dumps/
 # C++ build artifacts + vendored Eigen (machine-specific symlink, judge provides it)
 solver/Eigen
 solver/main
+solver/main_v2
 *.o
 # OS / IDE cruft
 .DS_Store

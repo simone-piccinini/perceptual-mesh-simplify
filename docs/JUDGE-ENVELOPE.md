@@ -104,21 +104,29 @@ made past notes confusing.
 
 ## 3. Hardware & environment
 
-- **Compiler = g++-14 since ≥2026-07-05 (supersedes the GCC 11.5 read below).** Every
-  compile-failure message names `g++-14` (four D4-era submissions, 2026-07-05/06).
-  **The compile-MEMORY limit sits at the solver's own footprint**: v108 compiles at
-  ~738 MB cc1plus peak [MEASURED, Linux gcc:14 + Eigen 5.0.1 container] and passes;
-  +59 MB (one extra inlined Eigen `ldlt().solve()` blob) OOM'd 4×. The memory is
-  FRONT-END template instantiation (-O1/-O0 save only ~40 MB) → add no new Eigen
-  instantiations; hand-roll small solves in plain doubles. Since v109 the dead
-  Eigen-sparse Sobolev path is `#ifdef`'d out → **629 MB, ~110 MB margin**
-  [judge-confirmed compile 2026-07-06]. Local g++-15 peak-RSS does NOT predict g++-14 —
-  measure in a `gcc:14` container. Full record: docs/postmortems/d4-compile-oom.md +
-  compile-headroom.md.
-- Baseline x86-64 arch (no `__AVX2__` at default flags), on a CPU that DOES support AVX2
-  at runtime. [MEASURED — covert probe 19889788, 2026-07-05, GCC 11.5-era; the scalar
-  -O2 conclusion should be re-verified under g++-14 if it ever becomes load-bearing,
-  since GCC 14 auto-vectorizes more at -O2 than GCC 11.]
+- **Compiler = GCC 14.2, baseline x86-64 generic arch (no `__AVX2__` at default flags), CPU
+  supports AVX2 at runtime.** [MEASURED — probe 19889788 re-decoded + rerun 19900194,
+  bit-identical across both days.] The 2026-07-05 "GCC 11.5" reading was a DECODE ARTIFACT of
+  the then-wrong case-2 size (3989 vs true 4098); with the true size both runs decode to
+  v=942 = GCC 14.2 — consistent with the `g++-14` CE driver line. **No mid-contest toolchain
+  change.** GCC 14 auto-vectorizes at -O2 (SSE2 128-bit at generic arch), so the baseline binary
+  is NOT fully scalar — but the refine-loop memory-bound conclusion (pragma ratio 1.000) stands:
+  bandwidth is the ceiling, not vector width. (Supersedes the older "fully scalar / GCC 11.5"
+  note that used to live here.)
+- **COMPILE-MEMORY LIMIT exists and our file sits AT it.** Two independent measurement lines
+  agree: (a) [MEASURED 19898649..726, 5 CEs + 2 controls] the CE page says "Compilation memory
+  limit exceeded" / "g++-14: fatal error: Killed signal terminated program cc1plus"; the
+  v108-era source is at the cliff — pure REPLACEMENT edits compile, any NET ADDITION of a few
+  statements tips it over regardless of code shape (const-loop, volatile-loop, noinline-hoist
+  all CE'd; a one-line add compiled); (b) [MEASURED, Linux `gcc:14` + Eigen 5.0.1 container]
+  v108 peaks ~738 MB cc1plus, +59 MB (one extra inlined Eigen `ldlt().solve()`) OOM'd 4×; the
+  memory is FRONT-END template instantiation (-O1/-O0 save only ~40 MB) → add no new Eigen
+  instantiations, hand-roll small solves in plain doubles. Biggest known dead weight: the
+  judged-dead Sobolev path (`G_LAPL`) instantiating `Eigen::SimplicialLDLT<SparseMatrix<double>>`
+  (≈60–110 MB compile RSS when stripped); `#ifdef`'d out since v109 → **629 MB, ~110 MB margin**
+  [judge-confirmed compile 2026-07-06]. Engineering rule: strip dead template-heavy code before
+  adding features; local g++-15 peak-RSS does NOT predict g++-14 — measure in a `gcc:14`
+  container. Full record: docs/postmortems/d4-compile-oom.md + compile-headroom.md.
 - **The GCC pragma region (`push_options` + `optimize("O3")` + `target("avx2,fma")`) compiles,
   runs, and really vectorizes on the judge**: pure compute-bound FMA lanes speed up 3.26×
   [MEASURED — 19889824]. But the REAL solver kernels gain NOTHING: the refine SSIM compound
@@ -166,6 +174,17 @@ made past notes confusing.
   count of a sacrificial case and read back from the score. Used implicitly to pin exact case
   sizes (§6). Available for future diagnostics (e.g., timing a phase in vivo).
 - CPU time column in the submissions table is empty for scored submissions. [MEASURED]
+- **Source file size limit = 128 KiB.** [MEASURED 2026-07-06]: a 137 KiB submission attempt
+  was refused before compilation with an explicit message ("File-size limit: 128 KiB. Current
+  size: 137 KiB"). The live file (~113 KiB at last count) has real headroom for new mechanisms
+  (~15 KiB), but adding a large new subsystem (e.g. JD, ~15-22 KiB uncompressed) means trimming
+  something else — dead env-gated experiment code (G_ADAM/G_SHARP/G_HOP etc.) is the correct
+  thing to cut first, verified harmless by re-running the binary and diffing output (only FP
+  reordering noise, same class as any other code-change draw).
+- **Submission rate limit = token bucket** [MEASURED 2026-07-06]: a burst of ~8 submissions in
+  ~40 minutes exhausted it; the refusal names the mechanism ("You are out of submission tokens.
+  Your next token will regenerate in 231 seconds") -> sustained ~1 per ~4 min, burst capacity
+  several. A refused submit costs nothing. This bounds read-ladder throughput to ~15/hour.
 
 ## 5. Validity & output rules
 

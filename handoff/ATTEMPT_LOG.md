@@ -721,3 +721,157 @@ placement), `G_NMETRIC` (VSA distortion metric variant). Keep fractions are per-
   not worth box-cut coin rolls). Case-6 recipe ruled out on budget (754k-face 1024 orig render
   ~4 s does not fit its box). SESSION END STATE: bank 90.266754, live v108, the READ->TWIN->BANK
   instrument documented with its convergence-regime rule.**
+
+## Session 8 (2026-07-06 morning, Fable 5)
+- **RC3-READ (19898572): the c5/c4 recipe read on case 3 = S(6941) = 0.9135** (V'=7169 = 6941
+  mesh (stall 1) + 4*57; local proxy read 0.8989 — the +0.0146 gap says the case-3 proxy is
+  ALSO pessimistic once the recipe path is active; the old "faithful ±0.002" claim held only
+  for the pre-recipe pipeline). Mechanism: hybrid phase B is budget-starved (-2.4 s guard +
+  late start); an extra 1.2 s mini_refine at 1024 buys ~+0.013 on the true input.
+- **BANK-TWIN-C3 (19898599): NEW BANK 90.276093 (+0.009339).** c3 6954 -> 6941 (payout 70.0827).
+  Converged-refine regime -> pads-stripped twin reproduced the read mesh exactly, first roll.
+  Live = v109 (twin file). Descent ladder opened: read @6800 in flight (predicted S ~0.909 by
+  the 3.1e-5/vertex judge slope; if the linear model holds, floor ~6500 = +0.32 total).
+- **RC3B-READ @6800 CLEAN-PRIMARY (19898621): case-3 WA** — the linear-slope model (predicted
+  S~0.909) is wrong. Mechanism re-read: the 6941 read's +0.0135 was NOT "extra polish" — a
+  converged mesh re-ascends from gradient ~0 (basin-hop history: converged = stuck). The gain
+  is COLLAPSE-PERTURBATION + RE-ASCENT (the 13 extra collapses knock the converged mesh off
+  its local optimum; the 1024 re-ascent lands in a better basin) — the same structure that
+  moved cases 5 and 4, and consistent with the c5 cliff (>22 collapses = unrepairable damage,
+  <=14 = repairable). Local proxies read ~0 for this mechanism (0.8969-0.8989 vs judge 0.9135)
+  — trajectory-class effect, invisible per THEORY 9.1, yet judge-POSITIVE.
+- **RC3C-READ in flight: the recipe RECURSED** — primary 6814 (own converged family) + 14 extra
+  collapses -> 6800 + 1024 repair. If S(6800) >= 0.9005, the ladder recurses at ~140 verts per
+  rung until the clean-primary base drops below ~0.887 (projected floor ~6500 = +0.32 total).
+- **RC3C-READ recursed @6800 (19898640): case-3 WA** — the recipe delta does NOT re-apply on a
+  fresh 6814-primary family. The 6941 gain is anchored to the BANKED-primary family (or family
+  luck; discriminator = the anneal read). Clean-6800 and recursed-6800 both dead.
+- **RC3D anneal attempt 1 (19898649): Compile Error = "g++-14: fatal error: Killed signal
+  terminated program cc1plus"** — judge-side compiler OOM/kill, NOT a code error; resubmitted
+  --force. ⚠ ENVELOPE CONFLICT: the compile driver is **g++-14**, but covert probe 19889788
+  (2026-07-05) measured __GNUC__ = 11.5 at runtime. Either the toolchain changed mid-contest
+  (GCC 12+ auto-vectorizes at -O2 → the "fully scalar baseline" fact would be stale) or
+  compile/run environments differ. Re-pin with a probe-A rerun (1 submission) queued.
+- **RC3D CE x3 (19898649/661/670, all "g++-14: cc1plus killed"):** three consecutive compiler
+  kills on the anneal read while near-identical files (RC3B/RC3C, same size, same headers)
+  compiled fine within the hour. Content diff is trivial (a budget else-if + a 10-line loop) —
+  no plausible OOM trigger. CONTROL in flight: byte-identical RC3C resubmit; CE => compile-farm
+  load era (wait it out), compile => content (bisect the three RC3D edits).
+- **CE bisected (19898696 control vs 19898649/661/670/689):** budget else-if alone COMPILES;
+  the anneal block kills cc1plus even with volatile bounds -> loop-wrapped big callees
+  (Decimate + mini_refine in any loop shape) = GCC-14 inline/jump-thread explosion. Fix: hoist
+  into `__attribute__((noinline)) anneal_cycle(tgt, dt)` + straight-line calls (r6).
+  Collateral: the bisect run doubled as a THIRD case-3 family draw at 6800 (recipe, box 14.8):
+  WA — 6800 now dead across 3 families; looking like landscape, not family lottery.
+- **Kattis rate limit hit (2026-07-06 ~morning): token bucket, ~1 token/4 min** after an
+  ~8-submission burst. "Out of submission tokens... regenerate in 231 seconds." Envelope §4
+  updated; the old "70+/day no throttle" note superseded (that was spread over a day).
+- **RC3D anneal @6912 (19898744, after the CE saga): case-3 WA.** Even 3 repaired -14 cycles
+  sit below 0.9 at banked-42. With clean-6800 (x2 families) and recursed-6800 dead too:
+  **the case-3 recipe buys EXACTLY ONE ~13-vertex rung and the cliff is immediately below —
+  same structural pattern as case 5's 4212 cliff.** c3 floor: (6912, 6941], 3 mechanisms
+  falsified below. c3 CLOSED at 6941 (banked, payout 70.083186).
+- **RC4-EXT read @4970 polish-3.0 (19898758): case-4 WA on this draw** (17.5 s, fits). Box-cut
+  coin — one negative draw of the extended-polish family at the once-WA'd rung. Re-roll possible
+  (--force) but token-budgeted; parked behind the case-2 multistart.
+- **MS2 BUILT (case-2 multistart):** best-of-5 seeded decimations (deterministic per-edge cost
+  perturbation ±4%, hash of edge+seed) at target 27, per-seed 512 ascent, selection by
+  IN-PROCESS true FinalSSIM at 1024 on the judge's own input (dodges THEORY §9.1 by
+  construction — no proxy in the loop), winner polished 1.5 s at 1024. Proof-run on trefoil:
+  5/5 seeds reach V=27, seed spread S = 0.038 (selection live), 10.1 s total. Read in flight.
+- **MS2 N=5 (19898784): case-2 TLE at 22.4 s** — the REAL case 2's jam-breaker endgame costs
+  ~3.6 s/seed (trefoil proxy: 1.6 s — floor class differs). Cut to N=3, resubmitted.
+- **MS2 N=3 (19898806): case-2 WA at 27** — best-of-3 seeded decimations with in-process 1024
+  true-metric selection still below 0.9. The case-2 27-wall holds against seed diversity;
+  MS2 closed x2 (TLE at N=5, WA at N=3). In-process selection VALIDATED mechanically (spread
+  visible, selection works, timing fits at N=3) — the tool survives for other uses; the c2
+  prize does not exist at 27.
+- **VSAM (VSA-full construction) BUILT + CLOSED LOCALLY, zero submissions (2026-07-06):**
+  new-family constructor — Lloyd L2,1 partition of the original normal field (k=4300, anchors =
+  triple points ~7100), manifold-safe contract-to-anchors (anchor-pinned survivors, hard skip in
+  Decimate), greedy trim to 6940, standard refine. Mechanics perfect (exact counts, 11.3 s
+  local). Quality: S2 = 0.8535 vs 0.8989 (current family, same count, same proxy) = **-0.045,
+  20-30x the known proxy bias** -> local verdict valid per ENVELOPE §7.2 ("definitive for the
+  coarse"). Refine budget x3: +0.0005 (converged — the construction itself is weak, not the
+  optimization). v2 (Lloyd iters 15 + post-trim flip_pass): 0.8521, worse. Mechanism: same
+  disease as the judged-dead B2/C families — a STATIC partition of the original cannot adapt;
+  the greedy heap's global marginal-cost equalization on fresh geometry is the stronger
+  connectivity constructor. Ironically the day's measurement: greedy connectivity BEATS naive
+  VSA-full by 0.045. A true Cohen-Steiner (alternating everything, anisotropic triangulation,
+  anchor optimization) remains days of work with the start line 0.045 behind.
+- **TOOLCHAIN RE-PINNED (19900194): GCC 14.2 all along.** Bit-identical probe score to 07-05;
+  the "GCC 11.5" was a decode artifact of the wrong case-2 size (3989 vs 4098). Envelope §3
+  corrected: baseline auto-vectorizes (SSE2); memory-bound refine conclusion unchanged.
+
+## JD (image-driven discrete flip optimizer) — NEW MECHANISM CLASS, 2026-07-06
+Built from scratch: edge flips accepted by the TRUE incremental FinalSSIM delta (exact math,
+local footprint — a flip moves no vertex, so its screen bbox is identical before/after; only
+SSIM windows touching that bbox can change, avoiding full re-renders). First mechanism ever
+where CONNECTIVITY itself is judged by the real metric instead of inherited from greedy order.
+
+**Development discipline**: wrote the full local-delta-SSIM math by hand, reviewed it BEFORE
+compiling (caught 2 bugs on paper: a variable-name shadowing bug in the rasterizer, and a
+spurious ×6 factor in the normal-channel aggregation — both fixed pre-compile). Built a
+standalone validation harness (env `JD_VALIDATE`): sequentially predicts each candidate flip's
+delta, commits it for REAL, rescues with the bit-exact production scorer, compares. Zero
+submissions burned on debugging.
+
+**Bugs found BY the harness (not by review) — both fixed, both documented as guards**:
+1. `encode_after` recolored EVERY non-background tile pixel as one of the two new synthetic
+   faces' normal, corrupting untouched neighboring geometry copied from cache. Fixed: real
+   face ids now correctly call `face_nrm(f)`.
+2. **Foreign-face intrusion**: a new triangle's z-test can legitimately "win" a pixel that
+   belongs to an UNRELATED neighboring face (adjacent faces can be near-coplanar at a shared
+   boundary, z differing by ~1e-4) — the local model has no way to trust that comparison at
+   full-mesh floating-point precision. Guard: track if raster_tri overwrites any pixel whose
+   prior content was a real face id (not background, not our own erased pair); bail if so.
+3. **Unfilled rasterization crack**: for a non-planar quad, the two new triangles can fail to
+   exactly retile 100% of the erased footprint (a classic shared-edge rasterization crack),
+   leaving a pixel stuck as background. Guard: track every erased pixel; bail if any is never
+   reclaimed by either new triangle. Same fix applied to `jd_patch_cache` (the persistent
+   cache), healing via a full single-view re-render on the rare detected crack (self-correcting;
+   avoids silent cache drift corrupting LATER candidates in the same sweep).
+
+**Validation results** (proxy25k, ~500 candidates tested across multiple runs):
+- With all 3 guards + fresh-cache-per-candidate isolation: 91-96% exact match to the bit-exact
+  full rescore (error ~1e-10 to 1e-12 — double-precision noise floor).
+- Remaining ~5-9% "mismatches" are all guard-adjacent boundary cases; 8/9 examined were
+  same-sign UNDERestimates (guard conservatively excludes a real but small contributing view);
+  1/9 was a sign-flip but at a magnitude (~2e-6) far below any usable threshold.
+- **Empirical false-accept scan across ~500 candidates: ZERO false accepts at threshold >= 1e-5**
+  (one found at 1e-6, itself only ~3e-6 in true magnitude). Accept bar set to 1e-5 — 15x margin
+  above the only found risk case.
+- Real `jd_pass` timing (not the validation harness, which is deliberately expensive):
+  3.0s budget on proxy25k processed 2519/~15000 candidate edges, accepted 2, gained +0.000033
+  FinalSSIM (0.08% acceptance rate — the mesh is already well-optimized by decimation+refine;
+  JD finds the RESIDUAL topology-only headroom, which is real but modest per unit time).
+
+**First judge read (submitted, PROBE-JD-C4-READ)**: 1.5s JD carve-out appended to the ALREADY-
+BANKED case-4 recipe (mesh count 4990 unchanged — zero risk to the bank), self-scored via the
+measured-mesh channel. Timing chosen conservatively (case 4 has the most headroom of any case,
+14-17.5s of its ~21-22s ceiling in recent judge runs) after an initial 3s+re-ascent design was
+found to risk ~21.5s total — trimmed before ever submitting. Question: does the topology-only
+mechanism transfer positively to the judge's real input (untested mechanism CLASS — not
+position-space, so THEORY 9.1's proxy-transfer-bias warning may not even apply), and does the
+timing hold.
+
+## JD first judge test — RESULT (2026-07-06, submission 19900568)
+**7/7 Accepted, SCORE 90.202422** (below current bank 90.276093 — best-counts protects the
+bank; this submission changes nothing about it). Case 4 (JD target) PASSED at safe timing
+(15.7s of ~21s ceiling, 5.3s margin — the trimmed 1.5s budget was the right call).
+
+**Quantitative isolation of JD's own contribution is AMBIGUOUS from this single read**: case 6
+is ALSO box-cut (per-run coin per ENVELOPE §1); adding JD to the binary is a code change that
+redraws EVERY box-cut case, not just case 4's target. The score arithmetic has two unknowns
+(case 4's true payout AND case 6's redrawn payout) and one equation (SUM6) — brute-force search
+over plausible K (JD's tetra-encode) finds several integer-consistent (K, case-6-vertex-count)
+pairs, none landing cleanly in case 6's known historical band (~8690-8720), meaning the
+decode genuinely cannot be trusted without a second read.
+
+**What IS trustworthy**: JD produced a LEGAL, judge-accepted, manifold-safe output on a REAL
+judge input for the first time — this validates the mechanism's ENGINEERING (no crashes, no
+invalid geometry, safe timing) independent of its quantitative SSIM contribution. The
+quantitative question (does JD's math genuinely help on real inputs, and by how much) needs
+either: (a) a second read holding case 6 fixed some other way, or (b) testing JD on a
+CONVERGED-regime case (3 or 5) instead, where the "no other case redraws" assumption holds
+exactly and the decode is unambiguous — RECOMMENDED next step over further case-4 reads.

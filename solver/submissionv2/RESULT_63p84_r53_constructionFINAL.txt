@@ -1,0 +1,7 @@
+r53 (2026-07-07): VSA-lite restored + VSA-full case5@0.36. ALL GREEN, SCORE 63.840290.
+(Below the 64.34 r49 bank -- case5's VSA path emits more verts than the fraction implies;
+paradigm noise.) FINAL state of the pure-construction paradigm: fraction floors converged
+(c2 .60 c3 .62 c4 .38 c5 .36-.40 c6 .25 c7 .17), all in-paradigm levers judged dead
+(growth ~+0.002 SSIM/7s at scale; polishFrac monotone-negative; VSA seed = +1 case).
+Ceiling ~65. Paradigm verdict: one-shot quotient + repairs, no iterative improvement at
+fixed V -> structurally capped. Superseded by the r54 construct->carve hybrid.

@@ -1,0 +1,31 @@
+FILE solver/main_v2.cpp (130884 bytes)
+SHA256 1fc266cc32c99f1ab205aaa700db66b9be8f2a5decd015c0405833512d85ab77
+BANNER // IMC2 Problem B (simplifygeometry) — SECOND SOLVER, built from scratch. CONSTRUCTION method
+AGE 0.2 min since last edit
+SUBMISSION 19908852 https://imc2.kattis.com/submissions/19908852
+PROGRESS t=0.3s status=New
+PROGRESS t=4.2s status=Compiling
+PROGRESS t=22.9s status=Running
+PROGRESS t=22.9s testcase 1/7 (+0.0s)
+PROGRESS t=32.7s testcase 2/7 (+9.8s)
+PROGRESS t=46.0s testcase 3/7 (+13.3s)
+PROGRESS t=55.6s testcase 4/7 (+9.6s)
+PROGRESS t=74.8s testcase 5/7 (+19.2s)
+PROGRESS t=94.0s testcase 6/7 (+19.2s)
+PROGRESS t=115.3s status=Accepted
+PROGRESS t=115.3s testcase 7/7 (+21.3s)
+VERDICT Accepted
+SCORE 64.34242
+CPU -
+CASES .......
+CASETIME 1 ~0.0s (margin ~21.0s of ~21s ceiling)
+CASETIME 2 ~9.8s (margin ~11.2s of ~21s ceiling)
+CASETIME 3 ~13.3s (margin ~7.7s of ~21s ceiling)
+CASETIME 4 ~9.6s (margin ~11.4s of ~21s ceiling)
+CASETIME 5 ~19.2s (margin ~1.8s of ~21s ceiling)  << TLE RISK
+CASETIME 6 ~19.2s (margin ~1.8s of ~21s ceiling)  << TLE RISK
+CASETIME 7 ~21.3s (margin ~-0.3s of ~21s ceiling)  << TLE RISK
+SUM6 386.054520
+ARITH all-pass: sum6-vs-bank residual -155.602038 (payout differs from bank)
+BANK 90.276093 DELTA -25.933673
+LOGGED /Users/eh/Documents/perceptual-mesh-simplify-master/handoff/submissions.jsonl

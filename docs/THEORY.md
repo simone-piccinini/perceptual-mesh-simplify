@@ -298,3 +298,18 @@ pads-stripped twin reproduces the read mesh exactly; on BOX-CUT cases (4, 6) any
 re-rolls the family — the twin inherits the read's family MEAN and may need per-run --force
 re-rolls (case-4 @4990: WA then bank). Case 6 cannot afford the recipe (orig 1024 render of
 754k faces ≈ 4 s > its budget).
+
+
+### 9.6 ✗ VSA-full construction (contract-to-anchors) — closed LOCALLY, 2026-07-06, zero submissions
+The first genuinely out-of-family constructor since the image-fit test: connectivity built FROM
+an L2,1 Lloyd partition of the original normal field (anchors = triple points, manifold-safe
+contraction into them, greedy trim, standard refine). Result on the faithful case-3 proxy at the
+banked count: **S = 0.8535 vs 0.8989 for the current family — −0.045, i.e. 20-30× every proxy
+bias ever measured**, insensitive to refine budget ×3 (converged), Lloyd iterations ×2.5, and a
+post-trim flip pass. Mechanism: the same static-partition disease as the judged-dead B2/C
+families — a partition computed once on the original cannot adapt as geometry coarsens, while
+the greedy heap re-equalizes marginal cost on fresh geometry after every collapse. The day's
+real finding: **greedy collapse connectivity is a much stronger constructor than naive
+region-based remeshing** — any future out-of-family attempt must beat a −0.045 head start, so
+it needs the FULL alternating machinery (partition ↔ proxy ↔ anchor placement ↔ anisotropic
+triangulation) or a rendered-metric-in-the-loop constructor, not a static skeleton.
