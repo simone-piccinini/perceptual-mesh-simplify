@@ -1,8 +1,9 @@
 # Case-4 razor re-harvest ladder
 
-**Status: ACTIVE (2026-07-06) — rung 1b BANKED at 90.276200 (v110, +0.009446, NEW BANK).
-Rung 2 (N=4950) prepared, same v108 family. See rung-1 failure analysis for why the binary
-family matters.**
+**Status: CLOSED (2026-07-06). Bank = v110 / 90.276200 (+0.009446 vs the prior 90.266754).
+Case-4 wall pinned to (4960, 4970]: 4970 PASS, 4960 & 4950 WA. Harvest exhausted — the branch
+tip is restored to the banked N=4970. Strategic verdict: razor-harvesting cannot close the
+~1.18-pt gap to the leaders (91.46); that gap is structural. See "Verdict" below.**
 
 ## The play
 
@@ -93,14 +94,22 @@ calibrating it at the banked rung.
 | 2026-07-06 | 4970 | headroom (rung 1) | **WA (case 4)** | 75.956618 | family-shift diagnosis above; other 5 cases bit-exact |
 | 2026-07-06 | 4970 | **v108 (rung 1b)** | **PASS — BANK** | **90.276200** | v110; predicted 90.276199, exact. +0.009446. |
 | 2026-07-06 | 4950 | v108 (rung 2) | **WA (case 4)** | 75.956618 | 6/7; case-4 zero, rest bit-exact. Bank safe at v110. |
-| 2026-07-06 | 4960 | v108 (rung 2b) | _pending_ | | BISECTION of [4950 fail, 4970 pass]; +0.004722 over v110 if it holds |
+| 2026-07-06 | 4960 | v108 (rung 2b) | **WA (case 4)** | 75.956618 | 6/7; wall confirmed in (4960,4970] |
 
-**Wall bracket (2026-07-06):** case-4 judge wall is in **(4950, 4970]** — 4970 PASS (v110),
-4950 WA. Bisecting at **4960** (+0.004722 over the v110 bank if it holds). Rung logic switched
-from fixed −20 steps to **bisection** now that the wall is bracketed: 4960 pass → wall ∈
-(4950,4960], try 4955; 4960 WA → wall ∈ (4960,4970], v110 stands and the ladder is essentially
-done (only 4961–4969 left, ≤ +0.0043, sub-coin odds). One WA is a coin, not proof of the wall;
-but with a clean bracket, bisection beats re-rolling the failed rung.
+**Wall pinned (2026-07-06):** case-4 judge wall is in **(4960, 4970]** — 4970 PASS (v110),
+4960 & 4950 WA. The last passing rung IS the bank. Only 4961–4969 remain untested (≤ +0.0043,
+sub-coin odds against a wall one vertex below 4970) — not worth further submissions.
+
+## Verdict — the razor is the wrong tool for the gap that's left
+
+This ladder did its job: **+0.009446** (90.266754 → 90.276200), and it pinned the case-4 wall.
+But the leaders are at **~91.46**, and we are at **90.28** — a **~1.18-point gap**. Arithmetic
+of why the razor can't close it: at 1 vertex ≈ 0.00047 pts on case 4, 1.18 pts is ~2,500
+case-4 vertices of headroom — i.e. passing case 4 at ~2,470 instead of 4,970, which the SSIM
+wall forbids for this pipeline. The same holds per case. **The leaders are not out-razoring
+us; they are passing each case at materially fewer vertices, which means a better core
+simplifier (better normal-SSIM per vertex).** That is a "move the wall" problem, not a
+"tune the wall" problem. Razor rungs are exhausted; the gap is structural.
 
 ## Stop condition
 
