@@ -2,52 +2,148 @@
   "banked_total": 90.285538,
   "base_file": "submissions/v111-stack-c3-6941-c4-4970-90285538/main.cpp",
   "family": "v108-lineage (v111 stack)",
-  "patchable": ["3", "4", "5"],
+  "patchable": [
+    "3",
+    "4",
+    "5"
+  ],
   "cases": {
     "2": {
-      "V": 4098, "banked_N": 30, "regime": "topology floor",
+      "V": 4098,
+      "banked_N": 30,
+      "regime": "topology floor",
       "wall": "~99.32% WA'd -> wall just below N=30; not patchable (keep_for path)",
-      "suggest": "close — at floor"
+      "suggest": "close \u2014 at floor"
     },
     "3": {
-      "V": 23201, "banked_N": 6941, "base_target": 6940,
+      "V": 23201,
+      "banked_N": 6941,
+      "base_target": 6940,
       "marker": "===== PROBE-RC3-READ =====",
       "regime": "box-cut coin",
       "wall": "6941 PASS x2 (v109-c3, v111); un-anchored below",
-      "reads": [{"N": 6940, "K": 57, "S2": 0.9135, "note": "friend's read 19898572"}],
+      "reads": [
+        {
+          "N": 6940,
+          "K": 57,
+          "S2": 0.9135,
+          "note": "friend's read 19898572"
+        },
+        {
+          "N": 6940,
+          "K": 57,
+          "S2": 0.9135
+        }
+      ],
       "suggest": "read at a lower N (e.g. 6800) to measure slope toward the wall"
     },
     "4": {
-      "V": 35292, "banked_N": 4970, "base_target": 4970,
+      "V": 35292,
+      "banked_N": 4970,
+      "base_target": 4970,
       "marker": "===== PROBE-RLIVE-C4 =====",
       "regime": "box-cut coin",
       "wall": "PINNED (4960,4970]: 4970 PASS x2, 4960 & 4950 WA (v108 family)",
-      "reads": [{"N": 4990, "K": null, "S2": 0.905, "note": "read 19898422, pre-harness; S2 reads ~+0.005 optimistic vs true (4990 was a ~2/3 coin)"}],
-      "fails": [4950, 4960],
-      "suggest": "close — wall pinned, ladder exhausted"
+      "reads": [
+        {
+          "N": 4990,
+          "K": null,
+          "S2": 0.905,
+          "note": "read 19898422, pre-harness; S2 reads ~+0.005 optimistic vs true (4990 was a ~2/3 coin)"
+        }
+      ],
+      "fails": [
+        4950,
+        4960
+      ],
+      "suggest": "close \u2014 wall pinned, ladder exhausted"
     },
     "5": {
-      "V": 49987, "banked_N": 4212, "base_target": 4212,
+      "V": 49987,
+      "banked_N": 4212,
+      "base_target": 4212,
       "marker": "===== PROBE-RLIVE-C5 =====",
       "regime": "converged (~deterministic per binary)",
       "wall": "ladder below banked closed 0/12 (envelope 7.1); slope near razor ~3.5e-5 S/vertex",
-      "reads": [{"N": 4212, "K": null, "S2": 0.908, "note": "read 19898155 family"}],
-      "suggest": "close — deterministic wall; only a new mechanism moves it"
+      "reads": [
+        {
+          "N": 4212,
+          "K": null,
+          "S2": 0.908,
+          "note": "read 19898155 family"
+        }
+      ],
+      "suggest": "close \u2014 deterministic wall; only a new mechanism moves it"
     },
     "6": {
-      "V": 377084, "banked_N": 8684, "regime": "box-cut (5/5 stable recently)",
-      "wall": "8684-target family banked (stall +21 observed historically); exact-6000/6500 WA'd; not patchable in v1 (keep_for constant 8684.0 — manual edit if ever needed)",
-      "suggest": "close — 4.4e-5 pts/vertex, not worth slots"
+      "V": 377084,
+      "banked_N": 8684,
+      "regime": "box-cut (5/5 stable recently)",
+      "wall": "8684-target family banked (stall +21 observed historically); exact-6000/6500 WA'd; not patchable in v1 (keep_for constant 8684.0 \u2014 manual edit if ever needed)",
+      "suggest": "close \u2014 4.4e-5 pts/vertex, not worth slots"
     },
     "7": {
-      "V": 1009118, "banked_N": 28800, "regime": "no refine (deterministic)",
+      "V": 1009118,
+      "banked_N": 28800,
+      "regime": "no refine (deterministic)",
       "wall": "PINNED (28800, 28822]",
-      "suggest": "close — 1.7e-5 pts/vertex"
+      "suggest": "close \u2014 1.7e-5 pts/vertex"
     }
   },
   "log": [
-    {"date": "2026-07-06", "score": 90.266754, "plan": {}, "outcome": {"note": "v108 bank (pre-harness)"}},
-    {"date": "2026-07-06", "score": 90.276200, "plan": {"4": {"mode": "bank", "N": 4970}}, "outcome": {"4": "pass@4970", "note": "v110"}},
-    {"date": "2026-07-06", "score": 90.285538, "plan": {"3": {"mode": "bank", "N": 6941}, "4": {"mode": "bank", "N": 4970}}, "outcome": {"3": "pass@6941", "4": "pass@4970", "note": "v111 stack"}}
+    {
+      "date": "2026-07-06",
+      "score": 90.266754,
+      "plan": {},
+      "outcome": {
+        "note": "v108 bank (pre-harness)"
+      }
+    },
+    {
+      "date": "2026-07-06",
+      "score": 90.2762,
+      "plan": {
+        "4": {
+          "mode": "bank",
+          "N": 4970
+        }
+      },
+      "outcome": {
+        "4": "pass@4970",
+        "note": "v110"
+      }
+    },
+    {
+      "date": "2026-07-06",
+      "score": 90.285538,
+      "plan": {
+        "3": {
+          "mode": "bank",
+          "N": 6941
+        },
+        "4": {
+          "mode": "bank",
+          "N": 4970
+        }
+      },
+      "outcome": {
+        "3": "pass@6941",
+        "4": "pass@4970",
+        "note": "v111 stack"
+      }
+    },
+    {
+      "date": "2026-07-07",
+      "id": "19912931",
+      "verdict": "Accepted",
+      "score": 90.121752,
+      "cases": ".......",
+      "plan": {
+        "3": {
+          "mode": "read",
+          "N": 6940
+        }
+      }
+    }
   ]
 }

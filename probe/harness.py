@@ -103,8 +103,11 @@ def case_options(c, plan, st):
     return [("banked", 0.0), ("WA", -banked)]
 
 def decode(score, st, plan, max_untouched_wa=1):
-    """Enumerate all outcome combinations; return those matching the printed score."""
-    target = 6.0 * score - 6.0 * st["banked_total"]   # total delta vs the banked sum
+    """Enumerate all outcome combinations; return those matching the printed score.
+    NOTE: contribution() is already s_c/6 (this case's share of the mean), so per-case deltas
+    sum directly to the total-score delta — no factor of 6. Legacy path; the live path
+    (apply_result) uses per-case pass/fail + direct K-solve, which tolerates box-cut drift."""
+    target = score - st["banked_total"]   # total-score delta = sum of per-case contribution deltas
     cases  = sorted(st["cases"], key=int)
     opts   = [case_options(c, plan, st) for c in cases]
     hits = []
@@ -158,11 +161,11 @@ def cmd_plan(args, st):
     for c, act in sorted(plan.items()):
         V = st["cases"][c]["V"]; bank = contribution(st["cases"][c]["banked_N"], V)
         if act["mode"] == "bank":
-            print(f"  case {c} bank@{act['N']}: pass -> {exp + (contribution(act['N'],V)-bank)/6:.6f} on this case alone; WA -> {exp - bank/6:.6f}")
+            print(f"  case {c} bank@{act['N']}: pass -> {exp + (contribution(act['N'],V)-bank):.6f}; WA -> {exp - bank:.6f}")
         else:
             for s2 in (0.900, 0.910):
                 K = max(0, min(K_MAX, round((s2 - K_BASE)/K_STEP)))
-                print(f"  case {c} read@{act['N']}: if S2={s2:.3f} (K={K}) -> {exp + (contribution(act['N']+4*K,V)-bank)/6:.6f}")
+                print(f"  case {c} read@{act['N']}: if S2={s2:.3f} (K={K}) -> {exp + (contribution(act['N']+4*K,V)-bank):.6f}")
     with open(PENDING, "w") as f:
         json.dump({"plan": plan, "created": str(datetime.date.today())}, f, indent=2)
     print(f"[plan] pending plan saved; submit probe/out/main.cpp, then: decode <score>")
@@ -269,30 +272,57 @@ def do_submit(fpath, note, contest, live):
     if len(lines) <= n0: raise SystemExit("[submit] judge_submit wrote no record — aborting (no state change)")
     return json.loads(lines[-1])
 
+def invert_contribution(target_contrib, V):
+    """N such that contribution(N,V) == target_contrib."""
+    return V * (1.0 - target_contrib * 6.0 / 100.0)
+
+def case_passed(cases, c):
+    """cases string: index 0 = sample (case 1), index i = case i+1. '.'=pass, 'x'=fail."""
+    idx = int(c) - 1
+    return idx < len(cases) and cases[idx] == "."
+
 def apply_result(rec, st, plan):
-    """Decode a judge_submit record (score + per-case cases string) into the wall model."""
-    score, cases = rec.get("score"), rec.get("cases", "")
-    verdict = rec.get("verdict")
-    print(f"[result] id={rec.get('id')} verdict={verdict} score={score} cases={cases}")
-    if score is None:
-        # WA/TLE/CE: attribute from the per-case string ('.'=pass,'x'=fail; index 0 = sample)
-        failed = [str(i) for i, ch in enumerate(cases) if ch == "x" and 2 <= i <= 7]
-        for c in failed:
-            if c in plan and c in st["cases"]:
-                st["cases"][c].setdefault("fails", []).append(plan[c]["N"])
-        print(f"[result] no score (verdict {verdict}); failed cases {failed or '?'} — bank unchanged")
-        st["log"].append({"date": str(datetime.date.today()), "id": rec.get("id"),
-                          "verdict": verdict, "plan": plan, "cases": cases})
-        save_state(st); return
-    hits = decode(score, st, plan)
-    if len(hits) != 1:
-        print(f"[result] HALT — {len(hits)} decode hypotheses for {score}; state NOT changed:")
-        for h in hits: print("   ", h)
-        raise SystemExit(2)
-    # reuse cmd_decode's writer by faking args
-    class A: pass
-    a = A(); a.score = score; a.dry = False
-    cmd_decode(a, st)
+    """Decode a judge_submit record into the wall model, using the per-case pass/fail string
+    for attribution and the total score to solve K for a single read case (box-cut drift on
+    the other cases is absorbed by rounding K to the nearest 4-vertex step)."""
+    score, cases, verdict = rec.get("score"), rec.get("cases", ""), rec.get("verdict")
+    print(f"[result] id={rec.get('id')} verdict={verdict} score={score} cases={cases!r}")
+
+    # 1) any WA (including on untouched box-cut coins) -> log, never touch the bank
+    for c in [x for x in st["cases"] if not case_passed(cases, x)]:
+        where = plan[c]["N"] if c in plan else st["cases"][c]["banked_N"]
+        st["cases"][c].setdefault("fails", []).append(where)
+        print(f"[result] case {c} WA at N~{where}" + ("  (probed)" if c in plan else "  (untouched coin)"))
+
+    reads = [c for c in plan if plan[c]["mode"] == "read" and case_passed(cases, c)]
+    banks = [c for c in plan if plan[c]["mode"] == "bank" and case_passed(cases, c)]
+
+    if score is not None and len(reads) == 1:
+        # solve K for the single read case; others assumed at (approximately) their banked N
+        c = reads[0]; V = st["cases"][c]["V"]; N = plan[c]["N"]; Nb = st["cases"][c]["banked_N"]
+        want = (score - st["banked_total"]) + contribution(Nb, V)   # == contribution(N+4K, V) + drift
+        Nout = invert_contribution(want, V)
+        Kf = (Nout - N) / 4.0; K = max(0, min(K_MAX, round(Kf)))
+        S2 = round(K_BASE + K * K_STEP, 4)
+        resid_v = Nout - (N + 4 * K)
+        st["cases"][c].setdefault("reads", []).append({"N": N, "K": K, "S2": S2})
+        print(f"[result] READ case {c}@{N}: K={K} (raw {Kf:.2f}, other-case drift ~{resid_v:.1f}v) -> S2={S2}")
+    elif len(reads) > 1:
+        print("[result] HALT — multiple read cases can't be isolated from one total; no read logged")
+    for c in banks:
+        cfg = st["cases"][c]; N = plan[c]["N"]
+        if N < cfg["banked_N"]:
+            print(f"[result] BANK case {c}: pass@{N} (was {cfg['banked_N']}) — snapshot into submissions/!")
+            cfg["banked_N"], cfg["base_target"] = N, N
+
+    # bank total: only a pure all-pass, no-read, at-or-below improvement counts
+    if score is not None and not reads and all(case_passed(cases, x) for x in st["cases"]) \
+            and score > st["banked_total"]:
+        print(f"[result] NEW BANK {score:.6f} (was {st['banked_total']:.6f})")
+        st["banked_total"] = score
+    st["log"].append({"date": str(datetime.date.today()), "id": rec.get("id"),
+                      "verdict": verdict, "score": score, "cases": cases, "plan": plan})
+    save_state(st)
 
 def cmd_submit(args, st):
     if not os.path.exists(PENDING): raise SystemExit("no pending plan — run `plan` then `preflight` first")
