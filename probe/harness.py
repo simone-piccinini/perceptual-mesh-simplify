@@ -361,9 +361,14 @@ def cmd_campaign(args, st):
         if st["banked_total"] > before:
             print(f"[campaign] NEW BANK {st['banked_total']:.6f}. Snapshot probe/out/main.cpp into submissions/.")
             if not args.auto_bank: print("[campaign] HALT for bank checkpoint (use --auto-bank to continue)."); return
-        # descend toward the wall using the read (if we have one)
+        # if the probed case WA'd at N, the wall is ABOVE N -> stop descending (bracket up instead)
+        if N in st["cases"][c].get("fails", []):
+            print(f"[campaign] case {c} WA at N={N} -> wall in (N, last-pass]. Stop descending "
+                  f"(a single WA is also a lost coin; re-read near N to disambiguate).")
+            return
+        # descend toward the wall using the newest successful read
         reads = st["cases"][c].get("reads", [])
-        if mode == "read" and reads:
+        if mode == "read" and reads and reads[-1]["N"] == N:
             s2 = reads[-1]["S2"]; slope = 3.5e-5
             step = max(4, int((s2 - 0.900 - args.margin) / slope))
             step -= step % 4

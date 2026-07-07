@@ -21,7 +21,7 @@
       "base_target": 6940,
       "marker": "===== PROBE-RC3-READ =====",
       "regime": "box-cut coin",
-      "wall": "6941 PASS x2 (v109-c3, v111); un-anchored below",
+      "wall": "BRACKETED (6800, 6941] 2026-07-07 (subs 19912987/19913017: reads at 6800 & 6588 BOTH WA case 3). 6941 PASS (bank). Raw S2=0.9135@6940 implied ~240v headroom -> FALSE: real wall is <=141v below the bank. S2 is badly optimistic/unanchored here; trust judge pass/fail, not S2 magnitude. Case 3 is nearly pinned like case 4 -- thin (<=141v ~ <=0.01 pt), coin-gated headroom.",
       "reads": [
         {
           "N": 6940,
@@ -32,10 +32,15 @@
         {
           "N": 6940,
           "K": 57,
-          "S2": 0.9135
+          "S2": 0.9135,
+          "note": "v111-family read 19912931 -- CONFIRMS friend's value; but S2 does NOT predict the wall (6800 WAs)"
         }
       ],
-      "suggest": "read at a lower N (e.g. 6800) to measure slope toward the wall"
+      "suggest": "NEARLY PINNED. If chasing the <=141v: read/bank between 6850-6940 (single WA at 6800 is also a coin loss -- re-read to disambiguate). Low EV.",
+      "fails": [
+        6800,
+        6588
+      ]
     },
     "4": {
       "V": 35292,
@@ -54,7 +59,9 @@
       ],
       "fails": [
         4950,
-        4960
+        4960,
+        4970,
+        4970
       ],
       "suggest": "close \u2014 wall pinned, ladder exhausted"
     },
@@ -142,6 +149,32 @@
         "3": {
           "mode": "read",
           "N": 6940
+        }
+      }
+    },
+    {
+      "date": "2026-07-07",
+      "id": "19912987",
+      "verdict": "Accepted",
+      "score": 64.284707,
+      "cases": "..xx...",
+      "plan": {
+        "3": {
+          "mode": "read",
+          "N": 6800
+        }
+      }
+    },
+    {
+      "date": "2026-07-07",
+      "id": "19913017",
+      "verdict": "Accepted",
+      "score": 64.284707,
+      "cases": "..xx...",
+      "plan": {
+        "3": {
+          "mode": "read",
+          "N": 6588
         }
       }
     }
