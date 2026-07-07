@@ -537,7 +537,7 @@ static void sil_pass(double diag, const std::vector<Vec3>& base, double cap) {
                 if(qx<0||qy<0||qx>=GW||qy>=GW) continue;
                 for (int i : grid[(size_t)qy*GW+qx]) { double du=ru[i]-x, dv=rv2[i]-y, d2=du*du+dv*dv;
                     if (d2<bd){bd=d2;bi=i;} } }
-            if (bi<0 || bd > 24.0*24.0) continue;   // vote only within ~24 px of a rim vertex
+            if (bi<0 || bd > (getenv("G_SILV3") ? 14.0*14.0 : 24.0*24.0)) continue;   // vote radius: v2=24 px; v3 (research reconstruction, G_SILV3) = 14 px
             const int vv = rimv[bi];
             Vec3 n = nref[vv]; double l=n.norm(); if(l<1e-30) continue; n/=l;
             Vec3 rim = n - fwd*(n.dot(fwd)); double rl=rim.norm(); if(rl<1e-12) continue;
@@ -546,12 +546,21 @@ static void sil_pass(double diag, const std::vector<Vec3>& base, double cap) {
     }
     for (size_t i=0;i<pos.size();++i){ if(!isrim[i]) continue; double l=dir[i].norm();
         if(l<1e-12 || vote[i]<2.0){isrim[i]=0;continue;} dir[i]/=l; }
+    // v3 (G_SILV3, research reconstruction of the JUDGE-NEGATIVE intensified family, THEORY 9.2):
+    // steps scaled by normalized vote magnitude instead of uniform. v2 (default): weight 1.
+    std::vector<double> sw;
+    if (getenv("G_SILV3")) {
+        double vmax = 0; for (size_t i=0;i<pos.size();++i) if (isrim[i]) vmax = std::max(vmax, vote[i]);
+        sw.assign(pos.size(), 1.0);
+        if (vmax > 0) for (size_t i=0;i<pos.size();++i) if (isrim[i]) sw[i] = vote[i]/vmax;
+    }
+    auto wgt = [&](size_t i){ return sw.empty() ? 1.0 : sw[i]; };
     const double Sn0 = refine_score_grad(nullptr), Sd0 = sil_score_depth();
     double best = 0.5*Sn0 + 0.5*Sd0, bdel = 0.0;
     const std::vector<Vec3> save = pos;
     for (double del : {0.0006, 0.0012, 0.0025, -0.0006, -0.0012}) {
         for (size_t i=0;i<pos.size();++i){ if(!isrim[i]) continue;
-            Vec3 np = save[i] + (del*diag)*dir[i];
+            Vec3 np = save[i] + (del*diag*wgt(i))*dir[i];
             Vec3 off = np - base[i]; double ol = off.norm(); if (ol > cap) np = base[i] + off*(cap/ol);
             pos[i] = np; }
         if (!refine_valid()) { pos = save; continue; }
@@ -561,7 +570,7 @@ static void sil_pass(double diag, const std::vector<Vec3>& base, double cap) {
     }
     if (bdel != 0.0) {
         for (size_t i=0;i<pos.size();++i){ if(!isrim[i]) continue;
-            Vec3 np = save[i] + (bdel*diag)*dir[i];
+            Vec3 np = save[i] + (bdel*diag*wgt(i))*dir[i];
             Vec3 off = np - base[i]; double ol = off.norm(); if (ol > cap) np = base[i] + off*(cap/ol);
             pos[i] = np; }
         if (getenv("G_RDBG")) std::fprintf(stderr, "[sil] delta=%.4f Final %.6f -> %.6f\n", bdel, 0.5*Sn0+0.5*Sd0, best);
@@ -944,6 +953,7 @@ static void refine_positions() {
         g_refine_budget = t1s;
         for (int r = 0; r < 3 && r_elapsed() < g_refine_budget - 2.0; ++r) {
             sil_pass(diag, base, cap);
+            if (getenv("G_SILV3")) sil_pass(diag, base, cap);   // v3 "double round" (research reconstruction)
             stock_pass(step*0.25);
         }
         return;

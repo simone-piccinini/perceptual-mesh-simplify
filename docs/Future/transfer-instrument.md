@@ -1,10 +1,15 @@
 # The transfer instrument — cross-proxy sign-consistency
 
-**Status: FIRST VALIDATION PASSED (2026-07-06).** A local A/B signal that predicts the *sign*
-of a mechanism's judge transfer, validated against two known-outcome mechanisms. This is the
-prerequisite that unblocks Road B (and vets any future position/appearance mechanism before
-spending a judge submission). Research toggle `G_R1` added (judge-inert unset; v109
-byte-identical — verified cow/bunny/fandisk/armadillo).
+**Status: FALSIFIED AT BACKFILL (2026-07-06).** The instrument passed its first N=2
+validation (R1 ✓, SILv2 ✓) but **failed the ground-truth backfill**: it misreads Pivot-A
+(the solver's strongest judge-positive mechanism) as reject, its SILv2 verdict flips with
+panel keep choice, and it cannot distinguish SILv2 (judge-positive) from SILv3
+(judge-negative). See "Backfill results" below for the data and the two root causes
+(per-case mesh-dependence + local noise floor). The first validation was panel luck.
+The process worked as designed — the tool was killed by ground truth *before* it gated any
+decision, at a cost of ~25 local runs and zero judge submissions. Research toggles `G_R1`,
+`G_SILV3` added (judge-inert unset; v109 byte-identical — verified
+cow/bunny/fandisk/armadillo).
 
 ## The problem it solves
 
@@ -62,15 +67,58 @@ This would have blocked R1 before its three wasted submissions.
 - **Panel size vs CPU.** Each mechanism × panel × keep is ~N solver runs; fine for gating,
   budget it if the panel grows.
 
-## Next steps (to make Road B actually buildable)
+## Backfill results (2026-07-06) — the falsification
 
-1. **Backfill the ground-truth table** (768-native, Pivot-A, D3, D5) — confirm the instrument
-   reproduces all known signs. This is the make-or-break; do it before trusting the rule.
-2. **Widen the panel** with a rough-surface / scan-like mesh so the sign test has real dynamic
-   range beyond bunny-vs-cow.
-3. **Then, and only then**, iterate a joint/appearance optimizer (Road B) accepting *only*
-   sign-consistent gains — the first time that class of mechanism can be built without a judge
-   lottery.
+Panel: bunny_c3 & cow_c3 @keep .08, fandisk-sub @keep .02 (probed for real deficit, 0.9933).
+Pivot-A ablated via `G_NOLAMBDA` (gain = ctrl − ablated); 768-native via argv res override;
+SILv3 reconstructed per THEORY §9.2 (`G_SILV3`: radius 14, vote-magnitude-scaled steps,
+double round).
 
-*Evidence trail: D4 (shelved), D5 (shelved), D1 (inert), Road B (measurement-blocked →
-this instrument is the unblock attempt). See roadb-assessment.md.*
+| mechanism | judge truth | bunny | cow | fandisk | panel verdict | correct? |
+|---|---|---|---|---|---|---|
+| R1 (from first val.) | NEGATIVE | +0.00285 | −0.00161 | ~0 | SIGN-FLIP → reject | ✓ |
+| 768-native | NEGATIVE | +0.00025 | −0.00007 | −0.00006 | SIGN-FLIP → reject | (✓)* |
+| **Pivot-A** | **POSITIVE (strong)** | +0.00358 | **−0.00158** | +0.00012 | SIGN-FLIP → reject | **✗** |
+| SILv2 | POSITIVE (~0.3×) | +0.00060 | +0.00201 | −0.00005 | SIGN-FLIP → reject | **✗**† |
+| SILv3 | NEGATIVE | +0.00104 | +0.00175 | −0.00005 | SIGN-FLIP → reject | (✓)* |
+
+\* correct verdict but unreadable data — see noise floor. † SILv2 read CONSISTENT(+) on the
+first panel (fandisk @keep .15, saturated) and SIGN-FLIP on this one (@keep .02): the verdict
+is an artifact of panel/keep choice. v2-vs-v3 are indistinguishable (identical fandisk deltas;
+bunny/cow differences within noise) — the instrument cannot see the one distinction that
+mattered most.
+
+**Root cause 1 — the bar is conceptually wrong.** Judge ground truths are **per-case**, and the
+solver deploys mechanisms **per-case-gated** (Pivot-A on cases 3/5 only, SIL on case 5 only).
+A judge-positive mechanism is *allowed* to hurt unrelated shapes — Pivot-A genuinely hurts
+cow-subdiv (−0.0016, 10× the noise floor) while being the strongest judged win on the real
+case-3/5 meshes. Sign-consistency across arbitrary diverse shapes tests generality, not
+transfer-to-the-one-hidden-mesh. Diversity was the fix for the armadillo monoculture, but it
+overshoots.
+
+**Root cause 2 — the local noise floor swallows the small reads.** Near-null perturbations
+(keep ± 1 vertex) move final SSIM by **|Δ| ≈ 1–3 × 10⁻⁴** on these proxies. 768-native's
+reads (±0.7–2.5 × 10⁻⁴) and every fandisk delta are at/below the floor — those verdicts are
+noise, and any instrument reading gains < ~5 × 10⁻⁴ per mesh is reading static. (This floor
+number is independently useful: it is the minimum effect size any future local screen can
+claim on these proxies.)
+
+## Where this leaves the transfer problem (honest)
+
+Open. Three formulations tried, three falsified: smooth-proxy noise model (roadb-assessment),
+armadillo monoculture (R1's original screen), cross-proxy sign-consistency (this doc). What
+survives from the wreckage:
+
+- **The validation-first process works.** Each formulation died against ground truth in hours
+  of local compute, zero judge submissions. Any future instrument candidate must pass the full
+  5-mechanism table (R1−, 768−, Pivot-A+, SILv2+, SILv3−) before gating anything.
+- **The noise floor (~1–3e-4) is now measured** — a prerequisite fact no prior screen had.
+- The remaining honest instrument idea is **per-case-matched proxies + effects ≫ floor**
+  (predict transfer only for the case a mechanism targets, only when the local gain clears
+  ~5e-4 on that case's proxy) — R1 (+0.0015–0.002 on case-matched proxies) would still have
+  passed that bar and failed the judge, so even this needs something more (e.g. a judge-side
+  S-read instrument per THEORY §9.2's SIL conclusion). Road B stays measurement-blocked.
+
+*Evidence trail: D4 (shelved), D5 (shelved), D1 (inert), Road B (measurement-blocked),
+naive noise instrument (falsified), cross-proxy sign-consistency (falsified at backfill).
+See roadb-assessment.md.*
