@@ -1730,7 +1730,8 @@ int main(int argc, char** argv) {
         int passes = ((int)pos.size() > 100000) ? 3 : 8;   // case6: 3 passes fits the CPU box
         if (const char* e = getenv("G_PASSES")) passes = atoi(e);
         const int start = alive_count;
-        const bool r1_on = false;  // R1 interleave CLOSED JUDGE-NEGATIVE on BOTH tested cases (c3 x2 families 19897009/024; c5 19897122 — all WA'd their BANKED rungs despite +0.0015-0.002 local). The proxies reward what the judge meshes punish. Code kept as archive.
+        bool r1_on = false;  // R1 interleave CLOSED JUDGE-NEGATIVE on BOTH tested cases (c3 x2 families 19897009/024; c5 19897122 — all WA'd their BANKED rungs despite +0.0015-0.002 local). The proxies reward what the judge meshes punish. Code kept as archive.
+        if (const char* e = getenv("G_R1")) r1_on = atoi(e);  // research toggle: re-enable R1 for the transfer-instrument study (roadb-assessment.md); judge-inert (unset)
         for (int pa = 0; pa < passes; ++pa) {
             pivotA_update_importance();
             seed_heap();
