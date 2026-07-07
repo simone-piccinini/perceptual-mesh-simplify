@@ -92,7 +92,15 @@ calibrating it at the banked rung.
 |---|---|---|---|---|---|
 | 2026-07-06 | 4970 | headroom (rung 1) | **WA (case 4)** | 75.956618 | family-shift diagnosis above; other 5 cases bit-exact |
 | 2026-07-06 | 4970 | **v108 (rung 1b)** | **PASS — BANK** | **90.276200** | v110; predicted 90.276199, exact. +0.009446. |
-| 2026-07-06 | 4950 | v108 (rung 2) | _pending_ | | −20 verts; +0.009444 over v110 if it holds |
+| 2026-07-06 | 4950 | v108 (rung 2) | **WA (case 4)** | 75.956618 | 6/7; case-4 zero, rest bit-exact. Bank safe at v110. |
+| 2026-07-06 | 4960 | v108 (rung 2b) | _pending_ | | BISECTION of [4950 fail, 4970 pass]; +0.004722 over v110 if it holds |
+
+**Wall bracket (2026-07-06):** case-4 judge wall is in **(4950, 4970]** — 4970 PASS (v110),
+4950 WA. Bisecting at **4960** (+0.004722 over the v110 bank if it holds). Rung logic switched
+from fixed −20 steps to **bisection** now that the wall is bracketed: 4960 pass → wall ∈
+(4950,4960], try 4955; 4960 WA → wall ∈ (4960,4970], v110 stands and the ladder is essentially
+done (only 4961–4969 left, ≤ +0.0043, sub-coin odds). One WA is a coin, not proof of the wall;
+but with a clean bracket, bisection beats re-rolling the failed rung.
 
 ## Stop condition
 

@@ -1736,7 +1736,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        seed_heap(); Decimate(4950);               // HARVEST rung 2 (v108 family; rung 1b @4970 BANKED 90.276200 v110)
+        seed_heap(); Decimate(4960);               // HARVEST rung 2b: BISECT wall bracket (4950 WA, 4970 PASS v110)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
         mini_refine(1.5);                          // case 4's first 1024 polish
