@@ -62,9 +62,9 @@ The graveyard is full of *cost reweightings* and *vertex-normal preservers*. It 
 > - **Road B (transfer instrument): FALSIFIED.** Three local screens can't predict judge transfer;
 >   structural dev stays measurement-blocked. See [transfer-instrument.md](transfer-instrument.md),
 >   [roadb-assessment.md](roadb-assessment.md).
-> - **Score levers that DID land:** case-4 razor harvest → v110 **90.276200** (bank); the friend's
->   case-3 harvest (6940) stacks with it (master's merged solver targets ~90.2855). See
->   [c4-harvest-ladder.md](c4-harvest-ladder.md).
+> - **Score levers that DID land:** case-4 razor harvest → v110 90.276200, then STACKED with the
+>   friend's case-3 harvest (6941) → **v111 90.285538** (current bank, both passed on the merged
+>   family). See [c4-harvest-ladder.md](c4-harvest-ladder.md).
 
 ### Group 0 — Diagnose first (cheap; tells you where to aim)
 

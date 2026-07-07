@@ -1,9 +1,22 @@
 # Case-4 razor re-harvest ladder
 
-**Status: CLOSED (2026-07-06). Bank = v110 / 90.276200 (+0.009446 vs the prior 90.266754).
-Case-4 wall pinned to (4960, 4970]: 4970 PASS, 4960 & 4950 WA. Harvest exhausted — the branch
-tip is restored to the banked N=4970. Strategic verdict: razor-harvesting cannot close the
-~1.18-pt gap to the leaders (91.46); that gap is structural. See "Verdict" below.**
+**Status: CLOSED for case 4 (2026-07-06). Case-4 rung banked at N=4970; then STACKED with the
+friend's case-3 harvest → current bank = v111 / 90.285538.**
+Case-4 wall pinned to (4960, 4970]: 4970 PASS, 4960 & 4950 WA. The case-4 harvest is exhausted
+on its own. But because it acts on a different case than the friend's case-3 harvest, the two
+combine additively (`master:solver` runs both early-exit blocks by vertex band):
+
+| bank | case 3 | case 4 | score | notes |
+|---|---|---|---|---|
+| v108 | 6954 | 4990 | 90.266754 | prior |
+| v110 | 6954 | 4970 | 90.276200 | our case-4 rung (this ladder) |
+| friend v109-c3 | 6941 | 4990 | 90.276100 | their case-3 rung, solo |
+| **v111** | **6941** | **4970** | **90.285538** | **stacked — current bank** |
+
+Both box-cut razor cases (3 and 4) are fresh coins on the merged binary family, yet both passed
+in one run (see `submissions/v111-stack-c3-6941-c4-4970-90285538/`). Strategic verdict unchanged:
+razor-harvesting (case 3 *or* 4) cannot close the ~1.18-pt gap to the leaders (91.46); that gap is
+structural (concentrated in case 3, still ~70%). See "Verdict" below.
 
 ## The play
 
@@ -95,6 +108,7 @@ calibrating it at the banked rung.
 | 2026-07-06 | 4970 | **v108 (rung 1b)** | **PASS — BANK** | **90.276200** | v110; predicted 90.276199, exact. +0.009446. |
 | 2026-07-06 | 4950 | v108 (rung 2) | **WA (case 4)** | 75.956618 | 6/7; case-4 zero, rest bit-exact. Bank safe at v110. |
 | 2026-07-06 | 4960 | v108 (rung 2b) | **WA (case 4)** | 75.956618 | 6/7; wall confirmed in (4960,4970] |
+| 2026-07-06 | 4970+c3-6941 | stacked (merge) | **PASS — BANK** | **90.285538** | v111; case-4 4970 + friend's case-3 6941, both passed on the merged family |
 
 **Wall pinned (2026-07-06):** case-4 judge wall is in **(4960, 4970]** — 4970 PASS (v110),
 4960 & 4950 WA. The last passing rung IS the bank. Only 4961–4969 remain untested (≤ +0.0043,
