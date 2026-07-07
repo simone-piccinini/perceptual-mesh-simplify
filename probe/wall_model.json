@@ -21,7 +21,7 @@
       "base_target": 6940,
       "marker": "===== PROBE-RC3-READ =====",
       "regime": "box-cut coin",
-      "wall": "BRACKETED (6800, 6941] 2026-07-07 (subs 19912987/19913017: reads at 6800 & 6588 BOTH WA case 3). 6941 PASS (bank). Raw S2=0.9135@6940 implied ~240v headroom -> FALSE: real wall is <=141v below the bank. S2 is badly optimistic/unanchored here; trust judge pass/fail, not S2 magnitude. Case 3 is nearly pinned like case 4 -- thin (<=141v ~ <=0.01 pt), coin-gated headroom.",
+      "wall": "PINNED (6900, 6941] 2026-07-07. Reads WA at 6900 (19913268), 6800 (19912987), 6588 (19913017); 6941 PASS (bank). Headroom below the bank is <=41v (~<=0.003 pt), coin-gated -> effectively pinned at 6941. Raw S2=0.9135@6940 implied ~240v headroom -> WILDLY FALSE (real <=41v): S2 is a relative/optimistic instrument here, useless as an absolute; trust judge pass/fail. Caveat: 6900's single WA could be a lost coin, but EV of chasing <=41v is negligible.",
       "reads": [
         {
           "N": 6940,
@@ -39,7 +39,8 @@
       "suggest": "NEARLY PINNED. If chasing the <=141v: read/bank between 6850-6940 (single WA at 6800 is also a coin loss -- re-read to disambiguate). Low EV.",
       "fails": [
         6800,
-        6588
+        6588,
+        6900
       ]
     },
     "4": {
@@ -60,6 +61,7 @@
       "fails": [
         4950,
         4960,
+        4970,
         4970,
         4970
       ],
@@ -175,6 +177,19 @@
         "3": {
           "mode": "read",
           "N": 6588
+        }
+      }
+    },
+    {
+      "date": "2026-07-07",
+      "id": "19913268",
+      "verdict": "Accepted",
+      "score": 64.284707,
+      "cases": "..xx...",
+      "plan": {
+        "3": {
+          "mode": "read",
+          "N": 6900
         }
       }
     }
