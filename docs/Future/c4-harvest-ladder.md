@@ -1,8 +1,8 @@
 # Case-4 razor re-harvest ladder
 
-**Status: ACTIVE (2026-07-06) — rung 1 WA'd; REBASED onto the v108 binary family (rung 1b,
-N=4970, one-constant diff from v108). See "Rung-1 failure analysis" for why the base
-mattered.**
+**Status: ACTIVE (2026-07-06) — rung 1b BANKED at 90.276200 (v110, +0.009446, NEW BANK).
+Rung 2 (N=4950) prepared, same v108 family. See rung-1 failure analysis for why the binary
+family matters.**
 
 ## The play
 
@@ -91,7 +91,8 @@ calibrating it at the banked rung.
 | date | rung N | base family | verdict | score | notes |
 |---|---|---|---|---|---|
 | 2026-07-06 | 4970 | headroom (rung 1) | **WA (case 4)** | 75.956618 | family-shift diagnosis above; other 5 cases bit-exact |
-| 2026-07-06 | 4970 | **v108 (rung 1b)** | _pending_ | | one-constant diff from the 2/2-proven family |
+| 2026-07-06 | 4970 | **v108 (rung 1b)** | **PASS — BANK** | **90.276200** | v110; predicted 90.276199, exact. +0.009446. |
+| 2026-07-06 | 4950 | v108 (rung 2) | _pending_ | | −20 verts; +0.009444 over v110 if it holds |
 
 ## Stop condition
 
