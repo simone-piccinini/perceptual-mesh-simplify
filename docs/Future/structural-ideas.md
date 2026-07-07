@@ -49,6 +49,23 @@ The graveyard is full of *cost reweightings* and *vertex-normal preservers*. It 
 
 ## New ideas
 
+> **2026-07-06 session outcomes (status of the ideas below):**
+> - **D1 (widen displacement cap): LOCALLY INERT.** Sweeping the stock cap via `G_CAPA` ∈
+>   {0.02…0.5} moves proxy SSIM ≤ 5e-6; the optimizer converges to <1% Hausdorff, far under
+>   the 2% cap — the cap is not the binding constraint. Not worth a submission.
+> - **D4 (probabilistic quadrics): SHELVED.** Implemented (Eigen-free, on
+>   `feat/d4-probabilistic-quadrics`), +0.0009 local on one case, but 4 judge compile-OOMs and
+>   weak-transfer EV. See [../postmortems/d4-compile-oom.md](../postmortems/d4-compile-oom.md).
+> - **D5 (edge flips in the loop): SHELVED.** Cheap `flip_tricost` proxy is anti-correlated with
+>   rendered SSIM (mean-vs-variance trap; even K=1 loses). Real-SSIM version needs a dirty-region
+>   renderer. See [d5-flip-optimizer.md](d5-flip-optimizer.md).
+> - **Road B (transfer instrument): FALSIFIED.** Three local screens can't predict judge transfer;
+>   structural dev stays measurement-blocked. See [transfer-instrument.md](transfer-instrument.md),
+>   [roadb-assessment.md](roadb-assessment.md).
+> - **Score levers that DID land:** case-4 razor harvest → v110 **90.276200** (bank); the friend's
+>   case-3 harvest (6940) stacks with it (master's merged solver targets ~90.2855). See
+>   [c4-harvest-ladder.md](c4-harvest-ladder.md).
+
 ### Group 0 — Diagnose first (cheap; tells you where to aim)
 
 **D0. Per-view, per-channel SSIM breakdown at each wall.** Using the local oracle
