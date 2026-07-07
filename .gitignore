@@ -17,3 +17,5 @@ solver/main_v2
 .DS_Store
 .idea/
 .kattisrc
+probe/out/
+probe/cache/
