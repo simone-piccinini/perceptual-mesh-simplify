@@ -14,15 +14,15 @@ case-3 input V = 23,201 [JUDGE-measured]. Score = 100*(1 - N/23201). The wall is
 | 6941 | 70.08% | PASS x2 (banked v111) | [JUDGE] friend's bank |
 | 6940 | 70.09% | PASS, self-score S2=0.9135 | [JUDGE] friend's S-read 19898572 |
 | 6900..6801 | 70.3-70.7% | **UNTESTED** | -- |
-| 6800 | 70.69% | **IN FLIGHT** (bank-attempt 2026-07-07) | -- |
+| 6800 | 70.69% | **WA** (only case 3 failed; 4/5/6/7 passed) | [JUDGE] 2026-07-07 |
 | 6799..6701 | -- | **UNTESTED** | -- |
 | 6700 | 71.12% | WA (1 run; case-4 also coin-lost) | [JUDGE] 2026-07-07 read |
 | <6700 | -- | **UNTESTED** | -- |
 
-**Verdict: the wall is NOT pinned.** 6941 was banked conservatively (one rung into the coin);
-(6700, 6941] was never probed. Slope 3.5e-5/vert + S2=0.9135@6940 puts the true 0.900 crossing at
-~6700 and the reliable floor at ~6800 (S true ~0.904, ~2.7 sigma) => ~+0.10 of un-harvested limit.
-The @6800 probe (in flight) tests this. To pin the coin fully: 2-3 S-reads at 6800/6850/6900 map S(N).
+**Verdict (updated 2026-07-07): wall in (6800, 6941].** BOTH 6700 and 6800 WA'd -> the S2
+reconstruction is MORE than +0.005 optimistic (S2=0.9135@6940 -> true S ~0.900-0.905, i.e. 6941 is
+already near the razor). Harvest is SMALL (~+0.03-0.05, to ~6850-6900), NOT +0.10. Lesson: trust
+pass/fail over the optimistic S2 near the wall. Probing @6900 to pin the reliable floor.
 
 ## 2. The mechanism limit (can a better simplifier LOWER the wall?)
 The wall is pipeline-relative (WALL-MODEL §1). Leaders sit ~85% on case-3 (INFERRED from the 1.18-pt
