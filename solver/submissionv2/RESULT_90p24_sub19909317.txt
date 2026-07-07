@@ -1,0 +1,7 @@
+r54 (2026-07-07, sub ): PARADIGM SWITCH construct->carve. ALL GREEN, SCORE 90.236753.
+main_v2: 63.84 (r53, construction final) -> 90.24 in ONE submission.
+Engine = repo's banked carve core (sha e0c616aa = judge 90.276093) + one-notch safety margins:
+c2 0.00725 (banked) | c3 keep .3020 + recipe 6990 (+50v) | c4 .1442 (5089, +49v) |
+c5 banked .08453125 (4212) | c6 8705 | c7 .0287 (28973, +151v).
+All margins HELD. Sacrifice vs razor bank: -0.039 (90.276). CASETIME c7 21.2s (known razor).
+Next levers: (a) per-case razor re-rolls, up to +0.039; (b) out-of-family work for 91+.
