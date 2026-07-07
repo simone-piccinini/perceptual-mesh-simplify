@@ -36,3 +36,22 @@ This CONFIRMS WALL-MODEL §7: probing case 3 is marginal; the real 70->85% gap n
 MECHANISM (IDEAS.md #2-4), A/B'd via S-read at a SAFE N (>wall) so the read actually passes.
 Automation note: a box-cut coin loss on an UNTOUCHED case (c4 here) breaks harness auto-decode
 -> the agent must decode manually (attribute the extra WA to the coin).
+
+## Mechanism screens 2026-07-07 (local self-score @6940 on the 21068->6313 proxy)
+The case-3 pipeline is at a MATURE local optimum — every cheap mechanism tweak screens NEGATIVE:
+| variant | S2 (local) | vs banked nmetric=0 (0.894342) |
+|---|---|---|
+| nmetric=3 (true closed-form SSIM-loss) | 0.884266 | -0.010 (matches doc's -0.011) |
+| nmetric=4 (tempered SSIM-loss) | 0.893044 | -0.0013 |
+| SIL on (silhouette/depth channel) | 0.893097 | -0.0012 (depth +0.0005, normal -0.003 — SIL rim damages interior normals) |
+Note: local is a KNOWN-BIASED screen (§9.1) — these could still flip on the judge, but §9.1's evidence
+is local-POSITIVE-not-transferring; a large local loss flipping to a judge win is unsupported. nmetric=4
+(-0.0013) is the only plausible transfer flip, and it's a weak, low-odds one-submission bet.
+depth is nearly saturated (0.984, only +0.0005 reachable via SIL) -> the depth channel is NOT the lever.
+
+## Where that leaves case 3 (measured, this session)
+Cheap mechanism tweaks are exhausted (all local-negative). The +-0.013 better-mesh spread (ENVELOPE
+§6.1) exists but is unreachable by local tweaks — it needs a GLOBALLY-better optimizer (THEORY Road B
+item 2: differentiable co-optimization DURING reduction, not refine-after). That is the one door with
+real headroom, but it is heavy AND §9.1 warns position-space gains transfer poorly -> low odds.
+The leaders' ~2x case-3 efficiency (70->85%) is not explained by anything in our measured mechanism space.
