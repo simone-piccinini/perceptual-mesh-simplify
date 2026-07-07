@@ -586,50 +586,135 @@ static inline double flip_tricost(int a, int b, int c) {
     Vec3 m = nref[a]+nref[b]+nref[c]; double ml = m.norm(); if (ml < 1e-30) return 0.0;
     return 0.5*l*(1.0 - (cr/l).dot(m/ml));
 }
-static void flip_pass(double tbox) {
-    // edge -> the two alive faces sharing it
-    for (int sweep = 0; sweep < 3; ++sweep) {
-        int done = 0;
-        std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
-        const long long NV = (long long)pos.size();
-        for (int f = 0; f < (int)faces.size(); ++f) {
-            if (!face_alive[f]) continue;
-            if (r_elapsed() > tbox) return;
-            const int* t = faces[f].data();
-            for (int e = 0; e < 3; ++e) {
-                int u = t[e], v = t[(e+1)%3]; if (u > v) std::swap(u, v);
-                auto ins = first.emplace((long long)u*NV+v, f);
-                if (ins.second) continue;
-                const int f1 = ins.first->second, f2 = f;
-                if (f1 == f2 || !face_alive[f1]) continue;
-                // orient: find (a,b,c) in f1 with edge a->b == (u,v) order in f1; d = f2's opposite
-                const int* t1 = faces[f1].data(); const int* t2 = faces[f2].data();
-                int a=-1,b=-1,c=-1,d=-1;
-                for (int k = 0; k < 3; ++k) { int x=t1[k], y=t1[(k+1)%3];
-                    if ((x==u&&y==v)||(x==v&&y==u)) { a=x; b=y; c=t1[(k+2)%3]; break; } }
-                for (int k = 0; k < 3; ++k) { int x=t2[k]; if (x!=a&&x!=b) { d=x; } }
-                if (a<0||d<0||c==d) continue;
-                if (EdgeExists(c, d)) continue;                       // flip would create a duplicate edge
-                double oldc = flip_tricost(t1[0],t1[1],t1[2]) + flip_tricost(t2[0],t2[1],t2[2]);
-                double newc = flip_tricost(a,d,c) + flip_tricost(d,b,c);
-                if (newc >= oldc - 1e-15 || newc > 1e17) continue;
-                // orientation guard: both new normals must not oppose the old pair's mean normal
-                Vec3 o1=(pos[t1[1]]-pos[t1[0]]).cross(pos[t1[2]]-pos[t1[0]]);
-                Vec3 o2=(pos[t2[1]]-pos[t2[0]]).cross(pos[t2[2]]-pos[t2[0]]);
-                Vec3 om=o1+o2;
-                Vec3 n1=(pos[d]-pos[a]).cross(pos[c]-pos[a]);
-                Vec3 n2=(pos[b]-pos[d]).cross(pos[c]-pos[d]);
-                if (n1.dot(om) <= 0.0 || n2.dot(om) <= 0.0) continue;
-                // commit: f1 = (a,d,c), f2 = (d,b,c)
-                vfaces_erase(vfaces[b], f1); vfaces[d].push_back(f1);
-                vfaces_erase(vfaces[a], f2); vfaces[c].push_back(f2);
-                faces[f1] = {a,d,c}; faces[f2] = {d,b,c};
-                ++done;
-                break;   // face f rewritten; its remaining edges are stale -> next face
-            }
+// One manifold-safe flip sweep that lowers flip_tricost (area*(1 - n_face.n_ref)); returns the
+// number of flips committed. tbox>0 is a CPU deadline (stop mid-sweep). Shared by flip_pass
+// (cheap pre-pass) and D5's render-gated flip_opt_sweep (docs/Future/d5-flip-optimizer.md).
+static int flip_sweep_once(double tbox) {
+    int done = 0;
+    std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
+    const long long NV = (long long)pos.size();
+    for (int f = 0; f < (int)faces.size(); ++f) {
+        if (!face_alive[f]) continue;
+        if (tbox > 0 && r_elapsed() > tbox) break;
+        const int* t = faces[f].data();
+        for (int e = 0; e < 3; ++e) {
+            int u = t[e], v = t[(e+1)%3]; if (u > v) std::swap(u, v);
+            auto ins = first.emplace((long long)u*NV+v, f);
+            if (ins.second) continue;
+            const int f1 = ins.first->second, f2 = f;
+            if (f1 == f2 || !face_alive[f1]) continue;
+            // orient: find (a,b,c) in f1 with edge a->b == (u,v) order in f1; d = f2's opposite
+            const int* t1 = faces[f1].data(); const int* t2 = faces[f2].data();
+            int a=-1,b=-1,c=-1,d=-1;
+            for (int k = 0; k < 3; ++k) { int x=t1[k], y=t1[(k+1)%3];
+                if ((x==u&&y==v)||(x==v&&y==u)) { a=x; b=y; c=t1[(k+2)%3]; break; } }
+            for (int k = 0; k < 3; ++k) { int x=t2[k]; if (x!=a&&x!=b) { d=x; } }
+            if (a<0||d<0||c==d) continue;
+            if (EdgeExists(c, d)) continue;                       // flip would create a duplicate edge
+            double oldc = flip_tricost(t1[0],t1[1],t1[2]) + flip_tricost(t2[0],t2[1],t2[2]);
+            double newc = flip_tricost(a,d,c) + flip_tricost(d,b,c);
+            if (newc >= oldc - 1e-15 || newc > 1e17) continue;
+            // orientation guard: both new normals must not oppose the old pair's mean normal
+            Vec3 o1=(pos[t1[1]]-pos[t1[0]]).cross(pos[t1[2]]-pos[t1[0]]);
+            Vec3 o2=(pos[t2[1]]-pos[t2[0]]).cross(pos[t2[2]]-pos[t2[0]]);
+            Vec3 om=o1+o2;
+            Vec3 n1=(pos[d]-pos[a]).cross(pos[c]-pos[a]);
+            Vec3 n2=(pos[b]-pos[d]).cross(pos[c]-pos[d]);
+            if (n1.dot(om) <= 0.0 || n2.dot(om) <= 0.0) continue;
+            // commit: f1 = (a,d,c), f2 = (d,b,c)
+            vfaces_erase(vfaces[b], f1); vfaces[d].push_back(f1);
+            vfaces_erase(vfaces[a], f2); vfaces[c].push_back(f2);
+            faces[f1] = {a,d,c}; faces[f2] = {d,b,c};
+            ++done;
+            break;   // face f rewritten; its remaining edges are stale -> next face
         }
-        if (!done) break;
     }
+    return done;
+}
+static void flip_pass(double tbox) {   // cheap-objective pre-pass (judge-inert unless flip_for()); up to 3 sweeps
+    for (int sweep = 0; sweep < 3; ++sweep) if (flip_sweep_once(tbox) == 0) break;
+}
+
+// ===== D5: connectivity in the optimizer loop (render-gated edge flips) =====
+// Run ONE proxy-improving flip sweep, then keep it iff the REAL rendered normal-SSIM improved
+// and the mesh stayed valid; else exact-revert the topology. Never renders per flip (TLE trap):
+// the cheap flip_tricost proxy picks candidates, the render validates the batch -- the same
+// "cheap proposal, monotonic real-render accept" contract the position ascent uses, so this is
+// monotonic-or-revert (never worse than control). Only faces + vfaces change on a flip
+// (face_alive is untouched), so those two are the exact-revert snapshot.
+//
+// FINDING 1 (2026-07-06, CLOSED): the cheap flip_tricost DRIVER is a dead end. The G_FLIPDIAG
+// prefix ladder shows even the single best proxy flip LOSES real SSIM (bunny/cow c3 proxies,
+// K=1 -> -5e-5, monotonically worse) -- flip_tricost maximizes normal ALIGNMENT (mean), but the
+// SSIM structure term rewards normal VARIANCE match: the graveyard's mean-vs-variance trap.
+// Kept env-gated + judge-inert as the scaffold for the viable path: flips selected by a
+// LOCALIZED real-SSIM delta (dirty-region render), not this proxy. See
+// docs/Future/d5-flip-optimizer.md ("The redirect").
+static int g_flipopt = 0;          // D5 enable (env G_FLIPOPT); judge-default OFF -> v109 byte-identical
+static int g_flipopt_rounds = 3;   // interleaved flip/re-settle rounds (env G_FLIPOPT_R)
+static int flipopt_for(int) { return 0; }   // judge-inert until a deliberate per-case promotion
+// D5 diagnostic (G_FLIPDIAG): is ANY proxy-ranked prefix of flips a real-SSIM win, or is the
+// cheap proxy simply the wrong objective? Collect candidate flips + proxy gain, sort desc, apply
+// the top-K greedily (skipping any flip whose two faces an earlier flip in the batch touched),
+// render the REAL SSIM after each K. If even K=1 loses, flip_tricost is the wrong driver.
+static void flip_diag() {
+    struct Cand { double gain; int f1,f2,u,v; };
+    std::vector<Cand> cs;
+    std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
+    const long long NV=(long long)pos.size();
+    for (int f=0; f<(int)faces.size(); ++f){ if(!face_alive[f])continue; const int* t=faces[f].data();
+        for(int e=0;e<3;++e){ int u=t[e],v=t[(e+1)%3]; if(u>v)std::swap(u,v);
+            auto ins=first.emplace((long long)u*NV+v,f); if(ins.second)continue;
+            int f1=ins.first->second,f2=f; if(f1==f2||!face_alive[f1])continue;
+            const int* t1=faces[f1].data(); const int* t2=faces[f2].data();
+            int a=-1,b=-1,c=-1,d=-1;
+            for(int k=0;k<3;++k){int x=t1[k],y=t1[(k+1)%3]; if((x==u&&y==v)||(x==v&&y==u)){a=x;b=y;c=t1[(k+2)%3];break;}}
+            for(int k=0;k<3;++k){int x=t2[k]; if(x!=a&&x!=b)d=x;}
+            if(a<0||d<0||c==d||EdgeExists(c,d))continue;
+            double oldc=flip_tricost(t1[0],t1[1],t1[2])+flip_tricost(t2[0],t2[1],t2[2]);
+            double newc=flip_tricost(a,d,c)+flip_tricost(d,b,c);
+            if(newc>=oldc-1e-15||newc>1e17)continue;
+            Vec3 o1=(pos[t1[1]]-pos[t1[0]]).cross(pos[t1[2]]-pos[t1[0]]);
+            Vec3 o2=(pos[t2[1]]-pos[t2[0]]).cross(pos[t2[2]]-pos[t2[0]]);
+            Vec3 om=o1+o2, n1=(pos[d]-pos[a]).cross(pos[c]-pos[a]), n2=(pos[b]-pos[d]).cross(pos[c]-pos[d]);
+            if(n1.dot(om)<=0.0||n2.dot(om)<=0.0)continue;
+            cs.push_back({oldc-newc,f1,f2,u,v});
+        }
+    }
+    std::sort(cs.begin(),cs.end(),[](const Cand&A,const Cand&B){return A.gain>B.gain;});
+    const double base=refine_score_grad(nullptr);
+    std::fprintf(stderr,"[flipdiag] %zu candidates  base=%.6f\n",cs.size(),base);
+    const std::vector<std::array<int,3>> sf=faces; const std::vector<std::vector<int>> svf=vfaces;
+    for(int K : {1,2,4,8,16,32,64,128,256,512,(int)cs.size()}){
+        faces=sf; vfaces=svf;
+        std::vector<char> touched(faces.size(),0); int applied=0;
+        for(auto& c : cs){ if(applied>=K)break; if(touched[c.f1]||touched[c.f2])continue;
+            const int* t1=faces[c.f1].data(); const int* t2=faces[c.f2].data();
+            int a=-1,b=-1,cc=-1,d=-1;
+            for(int k=0;k<3;++k){int x=t1[k],y=t1[(k+1)%3]; if((x==c.u&&y==c.v)||(x==c.v&&y==c.u)){a=x;b=y;cc=t1[(k+2)%3];break;}}
+            for(int k=0;k<3;++k){int x=t2[k]; if(x!=a&&x!=b)d=x;}
+            if(a<0||d<0)continue;
+            vfaces_erase(vfaces[b],c.f1); vfaces[d].push_back(c.f1);
+            vfaces_erase(vfaces[a],c.f2); vfaces[cc].push_back(c.f2);
+            faces[c.f1]={a,d,cc}; faces[c.f2]={d,b,cc};
+            touched[c.f1]=touched[c.f2]=1; ++applied;
+        }
+        const double s=refine_score_grad(nullptr);
+        std::fprintf(stderr,"[flipdiag] K=%-7d applied=%-5d s=%.6f  d=%+.6f  valid=%d\n",K,applied,s,s-base,(int)refine_valid());
+    }
+    faces=sf; vfaces=svf;
+}
+static bool flip_opt_sweep(double& cur) {
+    const std::vector<std::array<int,3>> save_faces = faces;
+    const std::vector<std::vector<int>>  save_vf    = vfaces;
+    const int nf = flip_sweep_once(-1.0);
+    if (nf == 0) { if (getenv("G_RDBG")) std::fprintf(stderr, "  [flip] 0 candidates\n"); return false; }
+    const double sn = refine_score_grad(nullptr);            // the REAL rendered normal-SSIM
+    if (getenv("G_RDBG")) std::fprintf(stderr, "  [flip] %d flips  cur=%.6f -> sn=%.6f  d=%+.6f  valid=%d\n",
+                                       nf, cur, sn, sn-cur, (int)refine_valid());
+    if (sn > cur && refine_valid()) { cur = sn; return true; }
+    faces = save_faces; vfaces = save_vf;                    // reject -> exact topology revert
+    return false;
 }
 
 // ===== flip-to-unlock: when greedy decimation stalls ABOVE target (link conditions exhaust
@@ -955,6 +1040,15 @@ static void refine_positions() {
         const double save_budget = g_refine_budget; g_refine_budget = std::min(g_refine_budget, t1);
         stock_pass(step);
         g_refine_budget = save_budget;
+    }
+    if (g_flipopt && getenv("G_FLIPDIAG")) { flip_diag(); return; }   // D5 prefix-ladder diagnostic
+    if (g_flipopt) {   // D5: alternate render-gated flip sweeps with position re-settle on the converged mesh
+        for (int r = 0; r < g_flipopt_rounds && r_elapsed() < g_refine_budget - 2.0; ++r) {
+            const bool acc = flip_opt_sweep(cur);          // topology step (monotonic-or-revert in real SSIM)
+            stock_pass(step * 0.25);                       // let vertices re-settle into the new triangulation
+            if (getenv("G_RDBG")) std::fprintf(stderr, "[flipopt r%d] acc=%d cur=%.6f t=%.1f\n", r, (int)acc, cur, r_elapsed());
+            if (!acc) break;                               // no accepted flip this round -> converged
+        }
     }
     if (getenv("G_HOP")) {
         // basin-hop restarts: tiny deterministic normal-jitter from the best snapshot, re-converge,
@@ -1742,6 +1836,9 @@ int main(int argc, char** argv) {
     } else {
         Decimate(target_count);
     }
+    g_flipopt = flipopt_for((int)pos.size());   // D5: connectivity-in-the-loop; judge-default OFF
+    if (const char* e = getenv("G_FLIPOPT"))   g_flipopt = atoi(e);
+    if (const char* e = getenv("G_FLIPOPT_R")) g_flipopt_rounds = atoi(e);
     g_flip = flip_for((int)pos.size());
     if (const char* e = getenv("G_FLIP")) g_flip = atoi(e);
     if (g_flip) flip_pass(g_refine_budget * 0.45);   // flips before refine; refine then re-optimizes positions
