@@ -18,7 +18,14 @@ the prize is real but modest — cheap high-odds bets beat heavy low-odds builds
 ---
 
 ## 1. Current state
-- Bank **90.285538** (7/7). case-3 = 70.083% (N=6941, V=23201).
+- **⚠ BANK CORRECTION (2026-07-08):** the REAL bank = best single 7/7 submission ever =
+  **90.276093** (id 19898599). The **90.285538** cited everywhere is ASPIRATIONAL — the sum of each
+  case's best rung across DIFFERENT submissions; it has NEVER landed in one 7/7 run. Realizing it
+  needs the joint box-cut+timing lottery (c3 6941 ∧ c4 4970 ∧ c5 4212 ∧ 3/5/6/7 all under 21s). So
+  there is **+0.0095 of REAL, unbanked upside sitting in draws** — only the judge realizes it.
+  Draw #1 (2026-07-08, id 19922244): `...x...` — c3/c5/c6/c7 ALL landed (case-7 21.1s), only **c4@4970
+  WA'd** → one coin from the aspiration. Drawing to land c4.
+- case-3 = 70.083% (N=6941, V=23201).
 - case-3 compression wall PINNED at (6912, 6941] `[JUDGE]` — harvest below 6941 = 0 (LIMITS.md §A).
 - The battlefield is the **normal-map STRUCTURE** term (σxy); depth saturated; topology genus-0;
   Hausdorff loose; CPU quality-bound not time-bound (LIMITS.md §C/§D).
