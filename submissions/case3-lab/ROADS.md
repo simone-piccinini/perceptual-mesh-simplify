@@ -40,47 +40,59 @@ the prize is real but modest — cheap high-odds bets beat heavy low-odds builds
 | Depth-complete optimizer | WA'd case4 | `[JUDGE]` |
 | Deficit-guided edge-split reallocation (A/E1) | closed, no transfer | `[LOCAL]` |
 | STAGE-2 free-layout 2D image fit (impostors) | 0.689 vs 0.810 mesh — continuity IS the σxy | `[LOCAL]` |
+| Normal-attribute quadric PLACEMENT (R-α, Hoppe/meshopt) | already maxed: we place pure-normal (qweight=0). Ablation on organic proxy @V=4212: nplace on/off = 0.8497/0.8498 (neutral), qweight 0.1 = 0.8446 (−0.005 worse). No headroom. | `[LOCAL]` |
+| Dynamic in-loop metric steering (R-γ) | already implemented: Pivot-A runs 8 passes (main.cpp:1715), each re-renders the CURRENT mesh's deficit and re-steers; passes tuned (14 = −0.0002). | code |
+| Curvature-adaptive isotropic remesh (R-β) | low-odds by theory: flat-shaded normal-SSIM favors ANISOTROPIC triangles (elongated along low-curvature) which QEM already gives; explicit aniso placement (g_aniso) is banked c4 but DEAD on organic c3/c6/c7. Isotropic is likely worse than our mild anisotropy. Demoted (not built). | `[JUDGE]`/theory |
 
 **Lesson from VSA (steers the queue):** the winning case-3 mesh is **smooth + dense + adaptive**
 (QEM family). Flat/partition topology is the wrong direction for an organic surface. Any road that
 introduces large flat facets is pre-doomed for case-3.
 
 ## 3. QUEUED / ACTIVE roads (ranked by EV = odds × prize ÷ effort)
-Ordering is the execution order. The agent works the top non-DEAD road.
+Ordering is the execution order. The agent works the top non-DEAD road. NOTE: R-α, R-γ, R-β moved
+to §2 (already maxed/implemented/theory-dead). The in-family smooth-QEM levers are now exhausted —
+our pipeline already implements the report's *and* my own proposed improvements. What remains is
+genuinely-new or out-of-family, all low-odds but that's the honest frontier.
 
-### R-α — Curvature/anisotropy-aware PLACEMENT audit — `QUEUED` · cheap · odds med
-Before any heavy build, verify the current normal-placement is actually maxed. `g_nplace` claims
-"normal-optimal collapse placement (+0.0006 c3)". Test on the organic proxy: ablate/strengthen
-placement, and try a Hoppe normal-attribute quadric for the PLACED vertex (IDEAS.md #2). In-family
-(smooth), cheap, reuses main.cpp. If it moves the oracle normal-SSIM at fixed V, it's a judge A/B
-candidate. **Next step:** measure nplace on/off + a normal-quadric placement variant at matched V.
-
-### R-β — Curvature-adaptive isotropic/anisotropic remesh — `QUEUED` · heavy · odds med
-A smooth NEW triangulation (Botsch-Kobbelt loop: split long / collapse short / flip-to-Delaunay /
-tangential relax), edge-length ∝ local feature size, optionally anisotropic (align to principal
-curvature to tile the normal field with fewer facets). In the RIGHT family (smooth, quality
-triangles), unlike VSA. Might beat QEM's error-driven triangle shapes on the normal map. Build
-standalone like vsa_remesh.cpp; score vs QEM on the oracle. **Next step:** build the manifold-safe
-remesh loop, iter 1 = valid output at target V, then compare.
-
-### R-γ — Dynamic in-loop metric — `QUEUED` · cheap · odds low
-Re-render the Pivot-A steering deficit as the mesh decimates (currently frozen on the original), so
-steering tracks the current mesh. Cheap, reuses infra; but a variant of banked steering → likely
-marginal. **Next step:** add periodic re-render to the steering; measure at matched V.
+### R-ζ — TRUE per-collapse box-SSIM-delta selection (incremental render) — `QUEUED` · heavy · odds low-med · TOP
+The one genuinely-new mechanism. Current steering multiplies the QEM cost by a per-vertex importance
+WEIGHT (`imp[i]`, the current SSIM deficit). That is a proxy. R-ζ scores each candidate collapse by
+its ACTUAL effect on the judge's windowed **box-SSIM** — maintain the 6 normal maps incrementally
+(a collapse only dirties faces around the edge → re-raster only the touched screen tiles) and
+recompute SSIM only in the touched 11×11 windows. Pick/skip collapses by the true marginal SSIM cost,
+not the proxy. **Why it's worth it:** it optimizes the REAL objective at the point of the STRUCTURAL
+decision (which collapse), and structural choices TRANSFER to the judge (§9.1) — unlike position
+refine (converged, transfer-walled). VSA-lite (+0.0128) already proved better collapse SELECTION
+transfers; this is the exact-metric version. **Risk:** compute (16k collapses × M candidates ×
+partial-render+windowed-SSIM must fit 21s → needs the incremental/touched-tile trick to be cheap).
+**Next step:** build incremental normal-map + windowed-SSIM-delta for one candidate collapse; validate
+delta bit-matches a full re-score; then use it to re-rank the collapse heap; measure vs banked on the oracle.
 
 ### R-δ — Differentiable co-opt DURING reduction (full) — `QUEUED` · heavy · odds low
 Interleave `refine_score_grad` position-ascent INTO the collapse loop (not refine-after). Stays
-smooth. But ≈ R1 (judge-negative) and refine is already converged post-hoc → low odds. Last resort.
+smooth. But ≈ R1 (judge-negative ×2) and refine is already converged post-hoc → low odds. After R-ζ.
 
-### R-ε — Cross-case gap hunt (premise-correction lens) — `QUEUED` · med · odds med
-The 7.05-pt gap is likely SPREAD, not all case-3. Re-audit c4 (genus floor 85.7), c5 (razor 91.5),
-c6/c7 for a cheap point each — a shared ε across cases may beat squeezing exhausted case-3. Honest
-given the arithmetic; but those walls were measured hard. **Next step:** per-case headroom re-audit.
+### R-ε — Cross-case gap reasoning (premise-correction lens) — `QUEUED` · analysis · odds low
+The 7.05-pt gap is likely SPREAD, not all case-3. BUT we can't measure the leader's per-case scores
+(Kattis 403s script tokens — leader tracking is manual/browser only). So this is reasoning-only:
+our per-case room to 100% is c3=30 > c4=14 > c5=8.5 > c7=2.9 > c6=2.3 > c2=0.7, but every case sits
+behind a MEASURED-hard wall (c3 all-levers-dead, c4 genus, c5 razor). No cheap point identified.
+
+### R-η — OUT-OF-FAMILY ideas (open slot — keep generating) — `QUEUED`
+The in/near-family is exhausted, so real gains (if any) are out-of-family. Candidates to develop:
+metric-exploit of the box-window covariance (normal dithering to match σxy at fewer verts —
+speculative); silhouette-exact interior-starvation (lock the exact fg/bg boundary, starve interior).
+Add here as ideas form. **Policy: this slot never empties — never conclude "at ceiling".**
 
 ## 4. Execution log (newest first)
-- **2026-07-08** — External research report audited (§5): 0 new levers, validates our oracle,
-  reinforces R-α. ROAD 1 (VSA remesh) built + measured DEAD (§2). Premise corrected (85%→77%).
-  Registry created. Next: R-α (placement audit, cheap) → R-β (isotropic remesh) if R-α is flat.
+- **2026-07-08 (cont.)** — R-α CLOSED (placement ablation on organic proxy @V=4212: nplace on/off
+  neutral 0.8497/0.8498, qweight 0.1 worse 0.8446 → pure-normal already optimal). R-γ CLOSED (already
+  implemented: 8-pass dynamic re-steering, main.cpp:1715). R-β demoted (theory: isotropic worse than
+  our anisotropic; g_aniso dead on organic). → the in-family smooth-QEM levers are EXHAUSTED. Queued
+  R-ζ (true per-collapse box-SSIM-delta, the one genuinely-new mechanism) as TOP; opened R-η
+  out-of-family slot (never empties). Next: build R-ζ incremental-render delta.
+- **2026-07-08** — External research report audited (§5): 0 new levers, validates our oracle.
+  ROAD 1 (VSA remesh) built + measured DEAD (§2). Premise corrected (85%→77%). Registry created.
 
 ## 5. External research audit (2026-07-08) — a long report on Problem B, checked vs our measured data
 Verdict: **0 new levers.** The report is a solid synthesis of the PUBLIC spec + generic mesh-simp
