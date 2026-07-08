@@ -18,17 +18,15 @@ the prize is real but modest — cheap high-odds bets beat heavy low-odds builds
 ---
 
 ## 1. Current state
-- **⚠ BANK CORRECTION (2026-07-08):** the REAL bank = best single 7/7 submission ever =
-  **90.276093** (id 19898599). The **90.285538** cited everywhere is ASPIRATIONAL — the sum of each
-  case's best rung across DIFFERENT submissions; it has NEVER landed in one 7/7 run. Realizing it
-  needs the joint box-cut+timing lottery (c3 6941 ∧ c4 4970 ∧ c5 4212 ∧ 3/5/6/7 all under 21s). So
-  there is **+0.0095 of REAL, unbanked upside sitting in draws** — only the judge realizes it.
-  Draws 2026-07-08 (8 submissions): c3/c5/c6/c7 land every time (SUM6 byte-identical 455.795742 →
-  those cases are DETERMINISTIC per-binary), but **c4 is the sole blocker and its wall is HIGH TODAY**:
-  c4@4970 (0/5) and c4@4980 (0/1) deterministic-WA (~16s → quality wall, not TLE); c4@5040 went
-  ALL-GREEN (id 19922403) but only **90.2525 < bank**. So today's c4 wall (~(4980,5040]) is higher
-  than when the bank was set → **cannot reproduce OR beat the bank today**; best-counts protects
-  90.276093. Walls are day/condition-dependent; retry draws on a warmer judge day (lower c4 wall).
+- **Bank = 90.285538 (7/7 Accepted)** — Simone's direct Kattis submission **19911720**. This is REAL,
+  not aspirational. ⚠ NOTE: `handoff/submissions.jsonl` is INCOMPLETE — it logs only judge_submit.py
+  runs; Simone submits on the Kattis web UI, so his (incl. the 90.285538 bank) are NOT in it. **Never
+  infer the team bank from the local ledger** — check Kattis / ask Simone. (On 2026-07-08 I wrongly
+  called 90.285538 "aspirational" from the incomplete ledger — corrected.)
+- Reproducing 90.285538 in a draw is a per-DAY lottery: 2026-07-08 draws (8 subs, judge_submit.py) all
+  landed c3/c5/c6/c7 (SUM6 byte-identical 455.795742 → those cases deterministic per-binary) but WA'd
+  **c4** (c4@4970 0/5, c4@4980 0/1; c4@5040 all-green but only 90.2525). So **c4's wall is higher on a
+  cold judge day** than when Simone banked it — best-counts holds 90.285538 regardless; retry on a warm day.
 - case-3 = 70.083% (N=6941, V=23201).
 - case-3 compression wall PINNED at (6912, 6941] `[JUDGE]` — harvest below 6941 = 0 (LIMITS.md §A).
 - The battlefield is the **normal-map STRUCTURE** term (σxy); depth saturated; topology genus-0;
