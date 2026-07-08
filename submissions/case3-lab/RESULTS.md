@@ -26,15 +26,20 @@ TOGETHER produce 6941. History/why-dead detail: docs/THEORY.md, docs/ATTEMPT_LOG
 ## S-read log (Level B, judge-side self-score)
 | date | N | K | S2 | note |
 |---|---|---|---|---|
-| 2026-07-06 | 6940 | 57 | 0.9135 | friend's read 19898572; anchor of the harvest |
-| 2026-07-07 | 6700 | -- | WA  | read WA'd -> 6700 BELOW the passing wall this run (case 4 also coin-lost, unrelated). Harvest floor > 6700. |
+| 2026-07-06 | 6940 | 57 | 0.9135 | friend's read 19898572; the 0.9135 is FAMILY-ANCHORED, not harvestable |
+| 2026-07-07 | 6700 | -- | WA  | 19912623; c4 also coin-lost that run (unrelated) |
+| 2026-07-07 | 6800 | -- | WA  | 19912949; only c3 failed |
+| 2026-07-07 | 6900 | -- | WA  | 19912982; only c3 failed |
 
-## The open harvest
-MEASURED 2026-07-07: read @6700 WA'd. So the ~+0.005 S2-optimism ate most of the apparent 0.0135
-headroom: true wall is in (6700, 6941], harvest is SMALL (~+0.06-0.10, coin-noisy), NOT +0.17.
-This CONFIRMS WALL-MODEL §7: probing case 3 is marginal; the real 70->85% gap needs a BETTER
-MECHANISM (IDEAS.md #2-4), A/B'd via S-read at a SAFE N (>wall) so the read actually passes.
-Automation note: a box-cut coin loss on an UNTOUCHED case (c4 here) breaks harness auto-decode
+## The open harvest — CLOSED 2026-07-07
+Wall PINNED at **(6912, 6941]**. Four probes below 6941 all WA (6912 friend, 6900/6800/6700 this
+session) + 3 mechanisms falsified below 6941 in prior sessions (ATTEMPT_LOG line 772). The apparent
++0.0135 headroom from S2=0.9135@6940 was NOT real: it is anchored to the banked-primary float family
+(ATTEMPT_LOG line 736), so any deeper cut re-rolls it away — which is exactly why 6900 WA'd. Harvest
+below 6941 = **0**. Lesson: trust judge pass/fail over the optimistic S2 near the wall (S2 ~+0.010
+optimistic here, not the doc's +0.005). The real 70->85% gap needs a BETTER MECHANISM (IDEAS.md
+#2-4), A/B'd via S-read at a SAFE N (>wall) so the read passes. See LIMITS.md for the full map.
+Automation note: a box-cut coin loss on an UNTOUCHED case (c4 @6700) breaks harness auto-decode
 -> the agent must decode manually (attribute the extra WA to the coin).
 
 ## Mechanism screens 2026-07-07 (local self-score @6940 on the 21068->6313 proxy)
