@@ -60,3 +60,35 @@ Cheap mechanism tweaks are exhausted (all local-negative). The +-0.013 better-me
 item 2: differentiable co-optimization DURING reduction, not refine-after). That is the one door with
 real headroom, but it is heavy AND §9.1 warns position-space gains transfer poorly -> low odds.
 The leaders' ~2x case-3 efficiency (70->85%) is not explained by anything in our measured mechanism space.
+
+## ROAD 1 — Full VSA remesh (retriangulation) — log (2026-07-08)
+Standalone `solver/vsa_remesh.cpp`. Reuses the VSA partition (`lloyd_partition`), adds the NEW part:
+anchor-mesher that retriangulates each region into fresh topology. Tested on the ORGANIC proxy
+(armadillo 49990v ~ case-3 class) scored by the local oracle `imc_eval` (per-view normal/depth SSIM).
+
+Iterations:
+1. pipeline end-to-end: partition->anchors->fan-triangulate->validate. 237 bad-loops, 41 non-manifold.
+2. anchor insertion for <3-anchor loops (Cohen-Steiner) + skip zero-area: bad-loops 237->77, degen 31->0.
+3. lens fix (arcs sharing an anchor pair -> m=4 edge). Bug 1: akey overflow -> 5285 false splits.
+4. Bug 2: middle-vertex signature is direction-dependent (arc walked opposite from its 2 regions).
+   Fixed with a reversal-invariant signature (min interior vertex). armadillo: bad-loops=0,
+   boundary=0, non-manifold 25 (residual = 5 multiloop + pinch + unsplittable). ~99.9% manifold.
+5-7. MEASUREMENT vs the banked pipeline at equal V (the decisive test):
+
+| mesh            | V     | normal | depth | FinalSSIM |
+|-----------------|-------|--------|-------|-----------|
+| **QEM banked**  | 4212  | 0.72   | 0.98  | **0.8504** |
+| VSA remesh      | 1925  | ~0.47  | ~0.92 | 0.6615 |
+| VSA remesh      | 4378  | 0.52   | 0.94  | 0.7329 |
+| VSA remesh      | 7233  | 0.60   | 0.965 | 0.7831 |
+| VSA remesh      | 10438 | ~0.66  | ~0.97 | 0.8153 |
+
+**VERDICT: VSA remesh is >2.5x LESS efficient than QEM on organic meshes.** At equal V (4212 vs 4378)
+VSA loses -0.117 FinalSSIM (normal -0.20). It needs >10438 verts just to match QEM's 4212-vert score.
+MECHANISM (fundamental, not a tuning bug): VSA tiles the surface into large piecewise-FLAT facets ->
+a staircased normal map; SSIM's structure term rewards matching the SMOOTH normal gradient of an
+organic surface, which QEM's dense adaptive triangulation does far better per vertex. VSA's strength
+is CAD/mechanical (piecewise-planar), the OPPOSITE of case-3. NOTE: this confirms VSA-*lite* (+0.0128,
+banked) worked by ORDERING collapses of a still-smooth QEM mesh — NOT by flat retriangulation. The
+remaining manifold defects (25 edges) are fixable but irrelevant: no triangulation of the same anchors
+closes a 0.12 normal gap. Road 1 status decision: see IDEAS.md (recommend strike -> Road 2/3).
