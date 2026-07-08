@@ -18,15 +18,13 @@ the prize is real but modest — cheap high-odds bets beat heavy low-odds builds
 ---
 
 ## 1. Current state
-- **Bank = 90.285538 (7/7 Accepted)** — Simone's direct Kattis submission **19911720**. This is REAL,
-  not aspirational. ⚠ NOTE: `handoff/submissions.jsonl` is INCOMPLETE — it logs only judge_submit.py
-  runs; Simone submits on the Kattis web UI, so his (incl. the 90.285538 bank) are NOT in it. **Never
-  infer the team bank from the local ledger** — check Kattis / ask Simone. (On 2026-07-08 I wrongly
-  called 90.285538 "aspirational" from the incomplete ledger — corrected.)
-- Reproducing 90.285538 in a draw is a per-DAY lottery: 2026-07-08 draws (8 subs, judge_submit.py) all
-  landed c3/c5/c6/c7 (SUM6 byte-identical 455.795742 → those cases deterministic per-binary) but WA'd
-  **c4** (c4@4970 0/5, c4@4980 0/1; c4@5040 all-green but only 90.2525). So **c4's wall is higher on a
-  cold judge day** than when Simone banked it — best-counts holds 90.285538 regardless; retry on a warm day.
+- **Bank = 90.285538 (7/7 Accepted).** Real. ⚠ `handoff/submissions.jsonl` is INCOMPLETE — it logs
+  only judge_submit.py runs; web-UI submissions (incl. the bank) are NOT in it. **Never infer the team
+  bank from the local ledger** — check Kattis.
+- Reproducing 90.285538 in a draw is a per-DAY lottery: 2026-07-08 draws (8 subs) all landed c3/c5/c6/c7
+  (SUM6 byte-identical 455.795742 → those cases deterministic per-binary) but WA'd **c4** (c4@4970 0/5,
+  c4@4980 0/1; c4@5040 all-green but only 90.2525). So **c4's wall is higher on a cold judge day**;
+  best-counts holds 90.285538 regardless; retry on a warm day.
 - case-3 = 70.083% (N=6941, V=23201).
 - case-3 compression wall PINNED at (6912, 6941] `[JUDGE]` — harvest below 6941 = 0 (LIMITS.md §A).
 - The battlefield is the **normal-map STRUCTURE** term (σxy); depth saturated; topology genus-0;
