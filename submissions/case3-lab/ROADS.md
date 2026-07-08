@@ -43,6 +43,7 @@ the prize is real but modest — cheap high-odds bets beat heavy low-odds builds
 | Normal-attribute quadric PLACEMENT (R-α, Hoppe/meshopt) | already maxed: we place pure-normal (qweight=0). Ablation on organic proxy @V=4212: nplace on/off = 0.8497/0.8498 (neutral), qweight 0.1 = 0.8446 (−0.005 worse). No headroom. | `[LOCAL]` |
 | Dynamic in-loop metric steering (R-γ) | already implemented: Pivot-A runs 8 passes (main.cpp:1715), each re-renders the CURRENT mesh's deficit and re-steers; passes tuned (14 = −0.0002). | code |
 | Curvature-adaptive isotropic remesh (R-β) | low-odds by theory: flat-shaded normal-SSIM favors ANISOTROPIC triangles (elongated along low-curvature) which QEM already gives; explicit aniso placement (g_aniso) is banked c4 but DEAD on organic c3/c6/c7. Isotropic is likely worse than our mild anisotropy. Demoted (not built). | `[JUDGE]`/theory |
+| **True per-collapse box-SSIM selection (R-ζ)** | built + fail-fast tested (solver/ssim_greedy.cpp, QEM-sel vs true-rendered-SSIM-sel, same gates/placement). cow @700: +0.0022 (K8) / +0.0026 (K16); **organic bunny @800: +0.0001 (~zero)**. Real but tiny and mesh-dependent — ~0 on the SMOOTH-ORGANIC case-3 class (QEM already near-optimal there); won't survive transfer. Closes the collapse-SELECTION-metric family. Code kept. | `[LOCAL]` |
 
 **Lesson from VSA (steers the queue):** the winning case-3 mesh is **smooth + dense + adaptive**
 (QEM family). Flat/partition topology is the wrong direction for an organic surface. Any road that
@@ -54,23 +55,15 @@ to §2 (already maxed/implemented/theory-dead). The in-family smooth-QEM levers 
 our pipeline already implements the report's *and* my own proposed improvements. What remains is
 genuinely-new or out-of-family, all low-odds but that's the honest frontier.
 
-### R-ζ — TRUE per-collapse box-SSIM-delta selection (incremental render) — `QUEUED` · heavy · odds low-med · TOP
-The one genuinely-new mechanism. Current steering multiplies the QEM cost by a per-vertex importance
-WEIGHT (`imp[i]`, the current SSIM deficit). That is a proxy. R-ζ scores each candidate collapse by
-its ACTUAL effect on the judge's windowed **box-SSIM** — maintain the 6 normal maps incrementally
-(a collapse only dirties faces around the edge → re-raster only the touched screen tiles) and
-recompute SSIM only in the touched 11×11 windows. Pick/skip collapses by the true marginal SSIM cost,
-not the proxy. **Why it's worth it:** it optimizes the REAL objective at the point of the STRUCTURAL
-decision (which collapse), and structural choices TRANSFER to the judge (§9.1) — unlike position
-refine (converged, transfer-walled). VSA-lite (+0.0128) already proved better collapse SELECTION
-transfers; this is the exact-metric version. **Risk:** compute (16k collapses × M candidates ×
-partial-render+windowed-SSIM must fit 21s → needs the incremental/touched-tile trick to be cheap).
-**Next step:** build incremental normal-map + windowed-SSIM-delta for one candidate collapse; validate
-delta bit-matches a full re-score; then use it to re-rank the collapse heap; measure vs banked on the oracle.
+### R-ζ — TRUE per-collapse box-SSIM selection — **CLOSED → §2** (fail-fast 2026-07-08)
+Built solver/ssim_greedy.cpp (QEM-sel vs true-rendered-normal-SSIM-sel, same gates/placement).
+cow +0.0022/+0.0026 (K8/K16) but organic bunny +0.0001 (~0) → dead for the smooth-organic case-3
+class. Closes the collapse-SELECTION-metric family. The fail-fast (small-mesh brute-force) avoided
+the heavy incremental build for a signal that isn't there. Code kept for reference.
 
-### R-δ — Differentiable co-opt DURING reduction (full) — `QUEUED` · heavy · odds low
+### R-δ — Differentiable co-opt DURING reduction (full) — `QUEUED` · heavy · odds low · TOP
 Interleave `refine_score_grad` position-ascent INTO the collapse loop (not refine-after). Stays
-smooth. But ≈ R1 (judge-negative ×2) and refine is already converged post-hoc → low odds. After R-ζ.
+smooth. But ≈ R1 (judge-negative ×2) and refine is already converged post-hoc → low odds.
 
 ### R-ε — Cross-case gap reasoning (premise-correction lens) — `QUEUED` · analysis · odds low
 The 7.05-pt gap is likely SPREAD, not all case-3. BUT we can't measure the leader's per-case scores
@@ -85,6 +78,9 @@ speculative); silhouette-exact interior-starvation (lock the exact fg/bg boundar
 Add here as ideas form. **Policy: this slot never empties — never conclude "at ceiling".**
 
 ## 4. Execution log (newest first)
+- **2026-07-08 (cont².)** — R-ζ built (solver/ssim_greedy.cpp) + fail-fast tested + CLOSED: true
+  rendered-SSIM collapse selection beats QEM by +0.0022 on cow but +0.0001 on organic bunny (~0 for
+  the case-3 class). Collapse-selection-metric family definitively closed. R-δ now top (low odds).
 - **2026-07-08 (cont.)** — R-α CLOSED (placement ablation on organic proxy @V=4212: nplace on/off
   neutral 0.8497/0.8498, qweight 0.1 worse 0.8446 → pure-normal already optimal). R-γ CLOSED (already
   implemented: 8-pass dynamic re-steering, main.cpp:1715). R-β demoted (theory: isotropic worse than
