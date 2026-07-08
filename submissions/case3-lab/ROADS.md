@@ -23,8 +23,12 @@ the prize is real but modest — cheap high-odds bets beat heavy low-odds builds
   case's best rung across DIFFERENT submissions; it has NEVER landed in one 7/7 run. Realizing it
   needs the joint box-cut+timing lottery (c3 6941 ∧ c4 4970 ∧ c5 4212 ∧ 3/5/6/7 all under 21s). So
   there is **+0.0095 of REAL, unbanked upside sitting in draws** — only the judge realizes it.
-  Draw #1 (2026-07-08, id 19922244): `...x...` — c3/c5/c6/c7 ALL landed (case-7 21.1s), only **c4@4970
-  WA'd** → one coin from the aspiration. Drawing to land c4.
+  Draws 2026-07-08 (8 submissions): c3/c5/c6/c7 land every time (SUM6 byte-identical 455.795742 →
+  those cases are DETERMINISTIC per-binary), but **c4 is the sole blocker and its wall is HIGH TODAY**:
+  c4@4970 (0/5) and c4@4980 (0/1) deterministic-WA (~16s → quality wall, not TLE); c4@5040 went
+  ALL-GREEN (id 19922403) but only **90.2525 < bank**. So today's c4 wall (~(4980,5040]) is higher
+  than when the bank was set → **cannot reproduce OR beat the bank today**; best-counts protects
+  90.276093. Walls are day/condition-dependent; retry draws on a warmer judge day (lower c4 wall).
 - case-3 = 70.083% (N=6941, V=23201).
 - case-3 compression wall PINNED at (6912, 6941] `[JUDGE]` — harvest below 6941 = 0 (LIMITS.md §A).
 - The battlefield is the **normal-map STRUCTURE** term (σxy); depth saturated; topology genus-0;
