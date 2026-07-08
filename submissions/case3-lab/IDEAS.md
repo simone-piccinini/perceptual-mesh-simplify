@@ -7,45 +7,52 @@ Every WALL idea MUST be A/B'd via an S-read pair on the judge (not local — pro
 
 ## PARADIGM ROADS (tracked — the different-algorithm program)
 
-Within-family is CLOSED (LIMITS.md: wall pinned at 6941, every cheap tweak dead). The only prize
-left (70→85%) needs a *different algorithm*. These roads are worked one at a time.
-**Protocol:** each road gets **≥10 iterations**. If it clearly fails after that, we ~~strike it
-through~~ here (with the reason) and move to the next — so anyone reading knows exactly what has
-been tried and why it died. Update the iteration counter every session.
+Within-family is CLOSED (LIMITS.md: wall pinned at 6941, every cheap tweak dead). The remaining
+prize needs a *different algorithm*. Roads are worked one at a time.
+**Protocol:** each road gets **≥10 iterations**. If it fails after that, we ~~strike it through~~
+here with the reason and move on — so anyone reading knows what was tried and why it died.
 
-### ROAD 1 — Full VSA remesh (RETRIANGULATION) — **iter 7/≥10 · MEASURED DEAD (awaiting strike call)**
-> 2026-07-08: built + validated the mesher (99.9% manifold on organic). MEASURED vs banked QEM at
-> equal V on the organic proxy: VSA loses **−0.117 FinalSSIM** (0.733 vs 0.850 @ ~4200v); the full
-> K-curve shows VSA needs >10438v to match QEM's 4212v score = **>2.5× less efficient**. Mechanism
-> is FUNDAMENTAL (flat facets vs smooth organic normal field), not a bug — see RESULTS.md log.
-> Grinding to iter 10 (better triangulation / anchor-refine) cannot close a 0.12 normal gap.
-Variational Shape Approximation with **new topology**: normal-field L2,1 partition (Lloyd) → one
-anchor per region-corner → **retriangulate** into a fresh watertight manifold. NOT a collapse
-subset — a genuinely different triangulation that can tile the normal field more efficiently
-(plausible source of the leader's ~2× case-3 efficiency).
-- **Why it might transfer where tweaks didn't:** structural changes DO transfer (the banked
-  metric-in-the-loop steering was +0.0128; it's structural). Position-refine tweaks (R1/768) did
-  NOT. VSA changes topology → structural → good transfer story.
-- **What already exists:** the VSA *partition* is built (`lloyd_partition`, main.cpp:240). Two
-  prior probes used it — B2 (soft boundary penalty) and C/`g_vsac` (hard intra-region collapse
-  constraint) — but BOTH explicitly did *"no retriangulation"* and both measured DEAD. **The
-  retriangulation is the unbuilt frontier.** That is exactly ROAD 1.
-- **Build:** standalone `solver/vsa_remesh.cpp` (do NOT touch banked main.cpp — compile-cliff +
-  bank safety). Reuse `load_obj` + `lloyd_partition`; add the anchor-mesher + manifold validator.
-- **Test:** fandisk (6475v, canonical VSA benchmark) for manifold-validity first, then armadillo
-  (organic, case-3-class). Self-score is a weak screen (§9.1) — a valid, competitive VSA mesh gets
-  A/B'd on the judge via an S-read at a SAFE N. Real case-3 mesh is secret → cannot train on it.
-- **Risk:** the retriangulation must stay watertight 2-manifold (judge requirement); anchor
-  meshing is the fragile part (non-disk regions, <3-anchor regions, 4-region junctions).
+**⚠ PREMISE CORRECTION (2026-07-08).** The old motivation "case-3 must reach ~85% (2× efficiency)"
+is arithmetically WRONG. Total gap to the leader (91.46 vs our 90.286) = 1.174 on the MEAN =
+**7.05 summed** across 6 cases. If the *entire* gap were case-3: leader_c3 = 70.08 + 7.05 =
+**77.1%**, not 85%. And it almost certainly spreads across c4/c5/c6/c7 too → the leader's case-3 is
+plausibly **72–77%**, i.e. only **2–7 pts** above ours, not 15. There is no "2× efficiency
+mystery." Case-3's realistic headroom is modest and hard (VSA/tweaks/refine all failed on it).
+This does not kill the case-3 focus, but it right-sizes the prize and argues for cheap bets, not
+heavy builds.
 
-### ROAD 2 — Differentiable co-optimization during reduction — *queued*
+### ~~ROAD 1 — Full VSA remesh (RETRIANGULATION)~~ — **DEAD (iter 10/10, 2026-07-08)**
+> **Struck.** Built the full mesher (standalone `solver/vsa_remesh.cpp`): VSA Lloyd partition →
+> anchor insertion → lens-split → proxy-plane ear-clip → **watertight-manifold** output (valid).
+> MEASURED vs the banked QEM on the organic proxy (armadillo) via the `imc_eval` oracle at equal V:
+> best-VSA (ear-clip) = **0.747 @ 4378v** and **0.803 @ 7233v** vs QEM **0.850 @ 4212v**. VSA needs
+> >2.5× the vertices to match QEM. Richer partition (40 Lloyd iters) added only +0.006; ear-clip
+> +0.02 — nothing closes the −0.10 normal gap. **Mechanism is FUNDAMENTAL:** VSA tiles the surface
+> into large piecewise-FLAT facets → a staircased normal map; case-3 is ORGANIC (smooth normal
+> field), which QEM's dense adaptive triangulation matches far better per vertex. VSA wins on CAD
+> (fandisk), the OPPOSITE of case-3. Confirms VSA-*lite* (+0.0128, banked) worked by *ordering* a
+> smooth mesh, NOT by flat retriangulation. Full log: RESULTS.md. Code kept for reference/CAD reuse.
+> **Lesson that redirects:** the winning case-3 mesh is smooth+dense+adaptive (QEM-family). Any next
+> road must stay in that family — flat/partition topology is the wrong direction for organic.
+
+### ROAD 2 — Differentiable co-optimization during reduction — *queued, but WEAKER than hoped*
 nvdiffmodeling-style: optimize positions DURING reduction on the rendered normal-SSIM gradient
-(`refine_score_grad` exists). Heavy; connectivity isn't differentiable (the hard part); position-
-space → transfer risk (§9.1). Start only if ROAD 1 dies.
+(`refine_score_grad` exists). Stays in the smooth family (good, avoids VSA's flaw). BUT: main.cpp's
+refine already does post-decimation position-gradient ascent (converged, banked), and **R1
+(interleaved decimate↔refine — co-opt-during-reduction in spirit) was judge-NEGATIVE ×2.** So this
+is close to a measured-dead thing; the only new bit is "full" co-opt vs R1's bursts. Heavy build,
+low odds.
 
-### ROAD 3 — Dynamic in-loop metric — *queued*
-Re-render the steering deficit map as the mesh decimates (current steering is frozen on the
-original). Cheapest, reuses infra, but closest to the current pipeline → smallest "different".
+### ROAD 3 — Dynamic in-loop metric — *queued, likely marginal*
+Re-render the steering deficit map as the mesh decimates (current Pivot-A steering is frozen on the
+original). Cheapest, reuses infra. But it's a variant of the already-banked steering, and every
+steering tweak (nmetric/mask/projw/…) is dead → likely marginal. Cheap enough to try as a one-off.
+
+### ROAD 4 — Curvature-adaptive isotropic remesh — *NEW (from the VSA lesson), untested*
+A smooth NEW triangulation (not a QEM coarsening, not flat VSA): split/collapse/flip/tangential-
+relax to a target edge length ∝ local feature size. In the RIGHT family (smooth, small triangles).
+Might beat QEM if QEM's error-driven triangle shapes hurt the normal map. Heavy (manifold-safe
+remesh loop), uncertain — but the only genuinely-untried idea in the smooth family.
 
 ---
 
@@ -54,7 +61,7 @@ original). Cheapest, reuses infra, but closest to the current pipeline → small
    headroom (~+0.17 total). Plan: read @6800, decode S2, anchor with one bank-attempt pass/fail,
    then jump N to the anchored 0.900 crossing and bank. ~3-4 submissions. Do this first.
 
-## WALL-LOWERING mechanisms (the real gap to 85%; each needs an S-read A/B)
+## WALL-LOWERING mechanisms (small prize — leader_c3 ~72–77% not 85%; each needs an S-read A/B)
 2. **Appearance quadric with placement (Hoppe, Vis'99).** Our VSA-lite only ORDERS collapses by
    normal distortion; the QEM PLACEMENT is still position-quadric. Hoppe's normal-attribute quadric
    fixes the placed vertex to minimize normal error too. Could render a better normal map at N=6941.

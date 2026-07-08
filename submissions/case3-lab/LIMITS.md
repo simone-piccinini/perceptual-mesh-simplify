@@ -1,9 +1,10 @@
 # case-3 LIMITS — the honest map of what is tested, what is dead, what is open
 
-**Purpose.** case-3 is the anomaly: we sit at ~70% while every other case is 85–99% and the
-leader implies ~85% is reachable here. This file is the reference for *what we can still do and
-what we cannot*, across every front, with a provenance tag on every claim. Read the TL;DR, then
-the front that matters to your idea. Truthful and English by rule — update it on every probe.
+**Purpose.** case-3 is the anomaly: we sit at ~70% while every other case is 85–99%. (The leader's
+case-3 is plausibly ~72–77%, NOT the ~85% the docs used to claim — see Front B for the arithmetic.)
+This file is the reference for *what we can still do and what we cannot*, across every front, with a
+provenance tag on every claim. Read the TL;DR, then the front that matters to your idea. Truthful
+and English by rule — update it on every probe.
 
 **Provenance legend (applied per line):**
 
@@ -24,16 +25,17 @@ Input V=23,201. Score per case = `100·(1 − N/V)`. Wall is a per-run coin, not
 | front | question | answer | provenance |
 |---|---|---|---|
 | **A. Compression wall** | Can we ship fewer vertices with *this* pipeline? | **No. Wall = (6912, 6941], effectively closed.** 6941 passes; 6912/6900/6800/6700 all WA. | `[JUDGE]` |
-| **B. Mechanism** | Can a *better* simplifier lower the wall (→85%)? | **Not established. Every cheap lever is dead; the one real lever is unbuilt.** | mixed |
+| **B. Mechanism** | Can a *better* simplifier lower the wall? | **Prize is small (leader_c3 ~72–77%, not 85%). Every cheap lever is dead; VSA remesh (paradigm change) now measured dead too.** | mixed |
 | **C. Judge/metric** | What actually binds case-3 at 0.90? | **Normal-map structure (σxy correlation).** Depth saturated, Hausdorff loose, topology genus-0. | `[JUDGE]` |
 | **D. CPU budget** | Is time the wall? | **No.** case-3 refine converges ~13–14s of the 21s box. It is a quality wall, not a time wall. | `[JUDGE]` |
 | **E. Instruments** | Can we trust local screens / the S-read? | **No, near the wall.** S2 self-score ~+0.010 optimistic; local proxy gains transfer ≈ 0. | `[JUDGE]` |
 | **F. Automation** | Can an agent pin this without a human? | **Yes, submit is scripted.** One wrinkle: a coin-loss on an untouched case breaks auto-decode. | `[JUDGE]` |
 
 **Bottom line:** the *compression* limit of the current pipeline is now **pinned and exhausted**
-— there is essentially nothing left to harvest below 6941. The entire remaining opportunity
-(the 70→85% gap to the leader) lives on **Front B: a globally-better optimizer**, which is
-unbuilt and faces the transfer wall (Front E). Cheap tweaks will not move case-3.
+— nothing left to harvest below 6941. The remaining opportunity (Front B) is **smaller than the
+docs claimed** (leader_c3 ~72–77%, a ≤7-pt gap likely shared with other cases, not a 15-pt case-3
+mystery) and **hard**: cheap tweaks are dead and the first paradigm change (VSA remesh) is now
+measured dead too. What's left (isotropic remesh, differentiable co-opt) is heavy and low-odds.
 
 ---
 
@@ -69,10 +71,13 @@ S2.** (This corrected the earlier "+0.10 un-harvested" guess, which was wrong.)
 
 ## Front B — The mechanism limit (can a better simplifier lower the wall itself?)
 
-This is the only front with real prize. Leaders imply ~85% on case-3 (`[INFERRED]` from the
-~1.18-pt total gap) — i.e. a passing normal map at roughly **half** our vertices. The wall is not
-a law of physics; it is *our pipeline's* wall, and history proves it moves when the mechanism
-improves.
+This is the front with the real prize, but the prize is **smaller than the docs claimed**.
+⚠ CORRECTED 2026-07-08: the old "leaders ~85% on case-3" is arithmetically wrong. Total gap to the
+leader (91.46 − 90.286 = 1.174 on the MEAN) = **7.05 summed** over 6 cases; if the *entire* gap were
+case-3, leader_c3 = 70.08 + 7.05 = **77.1%**, and it almost surely spreads across c4/c5/c6/c7 too →
+leader's case-3 is plausibly **72–77%**, only **2–7 pts** above ours. `[INFERRED]`. So there is no
+"2× efficiency" mystery. The wall is still *our pipeline's* (history proves it moves when the
+mechanism improves), but the realistic headroom is modest — favor cheap bets over heavy builds.
 
 ### B.1 — How the wall was lowered historically (past work that WORKED) `[JUDGE]`
 
@@ -115,20 +120,27 @@ Local-screened negative (`[LOCAL]` — weak evidence, see Front E; not judge-tes
 | Lloyd relaxation (G_LLOYDM) | negative | P=1/4 both below baseline |
 | global output scale sweep | peaks at 1.0 | ±0.0005 both directions |
 | deficit-guided edge-split reallocation (A) | closed (E1 proxy) | the "split budget where SSIM hurts" idea — no transfer |
+| **Full VSA remesh (new topology)** — ROAD 1 | **−0.10 at equal V** | **STRUCTURAL** loss (0.75 vs QEM 0.85 @ 4200v on the organic proxy); built + valid, measured >2.5× less efficient. Flat facets are wrong for organic. Struck 2026-07-08. |
 
-**Verdict: the cheap mechanism space is EXHAUSTED.** Everything that costs one knob has been
-tried; the judge-tested ones lost and the local-screened ones lost too. The 70→85% gap is
-**not explained by anything in our measured mechanism space** — it requires a different class of
-optimizer (Front B.3), and that is where the honest uncertainty lives.
+**Verdict: the cheap mechanism space is EXHAUSTED, and now the first paradigm change (VSA) is dead
+too.** Everything that costs one knob lost; VSA (a genuinely different topology) lost STRUCTURALLY
+by −0.10 at equal V — and a structural local loss is strong evidence (unlike position-tweak local
+noise). What VSA taught: the winning case-3 mesh is **smooth + dense + adaptive** (the QEM family);
+flat/partition topology is the wrong direction for an organic surface. So the remaining candidates
+must stay in the smooth family (Front B.3), and the honest odds there are low.
 
-### B.3 — The one lever with real headroom (UNBUILT)
+### B.3 — The remaining doors (all UNBUILT, all low-odds after VSA + the premise correction)
 
-THEORY Road B item 2: **appearance-driven co-optimization à la nvdiffmodeling** — a
-differentiable renderer that optimizes vertex positions *during* reduction (not refine-after),
-directly on the rendered normal-map SSIM. This is the only mechanism consistent with a ~2×
-efficiency jump. Status: **`[UNTESTED]`, heavy to build, and transfer-risky** (Front E: position-
-space gains have transferred at ratio ≈ 0). It is a real bet, not a sure thing — but it is the
-*only* door left to 85% on case-3.
+VSA's death + the 77%-not-85% correction shrink this. The candidates, honestly ranked:
+1. **Curvature-adaptive isotropic remesh** — a smooth NEW triangulation (small quality triangles,
+   edge-length ∝ feature size), NOT flat VSA. In the right (smooth) family; might beat QEM's
+   error-driven triangle shapes. Heavy, untested — the only genuinely-new smooth idea.
+2. **Differentiable co-optimization during reduction** (THEORY Road B item 2) — optimize positions
+   *during* reduction on the rendered-SSIM gradient. But R1 (its burst form) was judge-NEGATIVE ×2,
+   and the refine already does the post-hoc version (converged) → close to measured-dead.
+Both are `[UNTESTED]`, heavy, and transfer-risky (Front E: position-space gains have transferred at
+ratio ≈ 0). Given the corrected prize (≤7 pts, not 15) and VSA's death, neither is an obvious spend
+— the honest read is that case-3's mechanism front may simply be near its practical ceiling.
 
 ---
 
@@ -193,14 +205,16 @@ This is the trap that has burned every "it's +0.002 locally" bet.
 
 ---
 
-## The one door left (and the honest odds)
+## The doors left (and the honest odds)
 
-Everything cheap is measured and closed. The compression wall is pinned at 6941. Cheap mechanism
-tweaks are all dead. The **only** path from 70% to the leader's ~85% is **Front B.3: a
-differentiable-renderer co-optimizer that shapes positions during reduction against the rendered
-normal-map SSIM.** It is unbuilt, heavy, and the transfer wall (Front E) gives it low-but-nonzero
-odds. Nothing in our *measured* space explains the leader's case-3 efficiency — which means the
-answer is out-of-family, and that door is the co-optimizer.
+Everything cheap is measured and closed; the compression wall is pinned at 6941; and the first
+paradigm change (VSA remesh, ROAD 1) is now measured dead — flat/partition topology is the wrong
+direction for an organic surface (the winning mesh is smooth+dense+adaptive, the QEM family). The
+premise is also corrected: leader_c3 ~72–77%, not 85%, so the prize is ≤7 pts and likely shared
+with other cases. What remains (all `[UNTESTED]`, heavy, low-odds): a curvature-adaptive isotropic
+remesh (smooth NEW triangulation — the one genuinely-new idea in the right family) and
+differentiable co-optimization during reduction (≈ the judge-negative R1). The honest read: case-3's
+mechanism front may be near its practical ceiling; big gains, if anywhere, may not be case-3-shaped.
 
 *Sources: WALL-MODEL.md, JUDGE-ENVELOPE.md, THEORY.md §8–§9, PROBLEM-AND-JUDGE.md, ATTEMPT_LOG.md,
 RESULTS.md, and case3-lab judge probes 2026-07-06/07.*

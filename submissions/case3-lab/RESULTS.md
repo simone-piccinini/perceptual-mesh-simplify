@@ -37,8 +37,9 @@ session) + 3 mechanisms falsified below 6941 in prior sessions (ATTEMPT_LOG line
 +0.0135 headroom from S2=0.9135@6940 was NOT real: it is anchored to the banked-primary float family
 (ATTEMPT_LOG line 736), so any deeper cut re-rolls it away — which is exactly why 6900 WA'd. Harvest
 below 6941 = **0**. Lesson: trust judge pass/fail over the optimistic S2 near the wall (S2 ~+0.010
-optimistic here, not the doc's +0.005). The real 70->85% gap needs a BETTER MECHANISM (IDEAS.md
-#2-4), A/B'd via S-read at a SAFE N (>wall) so the read passes. See LIMITS.md for the full map.
+optimistic here, not the doc's +0.005). Lowering the wall needs a BETTER MECHANISM (IDEAS.md
+#2-4), A/B'd via S-read at a SAFE N (>wall) so the read passes — but the prize is small (leader_c3
+~72-77%, see premise correction below) and VSA (the first paradigm try) is dead. See LIMITS.md.
 Automation note: a box-cut coin loss on an UNTOUCHED case (c4 @6700) breaks harness auto-decode
 -> the agent must decode manually (attribute the extra WA to the coin).
 
@@ -59,7 +60,8 @@ Cheap mechanism tweaks are exhausted (all local-negative). The +-0.013 better-me
 §6.1) exists but is unreachable by local tweaks — it needs a GLOBALLY-better optimizer (THEORY Road B
 item 2: differentiable co-optimization DURING reduction, not refine-after). That is the one door with
 real headroom, but it is heavy AND §9.1 warns position-space gains transfer poorly -> low odds.
-The leaders' ~2x case-3 efficiency (70->85%) is not explained by anything in our measured mechanism space.
+(NOTE 2026-07-08: the "~2x case-3 efficiency / 70->85%" framing is RETRACTED — see the premise
+correction below. Leader_c3 is plausibly ~72-77%, a small gap likely shared across cases.)
 
 ## ROAD 1 — Full VSA remesh (retriangulation) — log (2026-07-08)
 Standalone `solver/vsa_remesh.cpp`. Reuses the VSA partition (`lloyd_partition`), adds the NEW part:
@@ -83,12 +85,31 @@ Iterations:
 | VSA remesh      | 7233  | 0.60   | 0.965 | 0.7831 |
 | VSA remesh      | 10438 | ~0.66  | ~0.97 | 0.8153 |
 
-**VERDICT: VSA remesh is >2.5x LESS efficient than QEM on organic meshes.** At equal V (4212 vs 4378)
-VSA loses -0.117 FinalSSIM (normal -0.20). It needs >10438 verts just to match QEM's 4212-vert score.
-MECHANISM (fundamental, not a tuning bug): VSA tiles the surface into large piecewise-FLAT facets ->
-a staircased normal map; SSIM's structure term rewards matching the SMOOTH normal gradient of an
-organic surface, which QEM's dense adaptive triangulation does far better per vertex. VSA's strength
-is CAD/mechanical (piecewise-planar), the OPPOSITE of case-3. NOTE: this confirms VSA-*lite* (+0.0128,
-banked) worked by ORDERING collapses of a still-smooth QEM mesh — NOT by flat retriangulation. The
-remaining manifold defects (25 edges) are fixable but irrelevant: no triangulation of the same anchors
-closes a 0.12 normal gap. Road 1 status decision: see IDEAS.md (recommend strike -> Road 2/3).
+8. proxy-plane EAR-CLIP triangulation (replaces the 3D fan). Two wins: (a) killed the manifold
+   defects -> WATERTIGHT-MANIFOLD (judge-valid, non-manifold 25->0); (b) +0.02 FinalSSIM from better
+   triangle shapes. 9-10. best-VSA (ear-clip) efficiency curve + a richer (40-iter) partition:
+
+| mesh (ear-clip)        | V     | FinalSSIM |
+|------------------------|-------|-----------|
+| **QEM banked**         | 4212  | **0.8504** |
+| VSA iters=12           | 4378  | 0.7472 |
+| VSA iters=40 (richer)  | 4381  | 0.7528  (+0.006 from 3x the Lloyd iters) |
+| VSA                    | 7233  | 0.8027 |
+| VSA                    | 10438 | 0.8322 |
+
+**VERDICT: DEAD (struck iter 10/10, 2026-07-08).** Best-VSA (ear-clip) is >2.5x LESS efficient than
+QEM on organic. At equal V it loses ~-0.10 FinalSSIM (normal -0.20); even at 2.5x the vertices
+(10438) it stays below QEM's 4212 score. Ear-clip lifted the curve +0.017 and made it valid; a 3x
+richer partition added +0.006 -- nothing closes the gap. MECHANISM (fundamental, not a tuning bug):
+VSA tiles the surface into large piecewise-FLAT facets -> a staircased normal map; SSIM's structure
+term rewards matching the SMOOTH normal gradient of an organic surface, which QEM's dense adaptive
+triangulation does far better per vertex. VSA wins on CAD (piecewise-planar), the OPPOSITE of case-3.
+Confirms VSA-*lite* (+0.0128, banked) worked by ORDERING a still-smooth QEM mesh, NOT by flat
+retriangulation. LESSON: the winning case-3 mesh is smooth+dense+adaptive (QEM-family); flat/partition
+topology is wrong for organic. Next-road reassessment in IDEAS.md. Code kept (solver/vsa_remesh.cpp).
+
+## Premise correction (2026-07-08): the "case-3 -> 85%" target is arithmetically wrong
+Total gap to leader (91.46 vs our 90.286) = 1.174 on the MEAN = 7.05 SUMMED over 6 cases. If ALL of
+it were case-3: leader_c3 = 70.08 + 7.05 = 77.1% (NOT 85%). It almost surely spreads across
+c4/c5/c6/c7 too -> leader's case-3 is plausibly 72-77%, only 2-7 pts above ours. No "2x efficiency
+mystery". Right-sizes the prize: case-3 headroom is modest and hard -> favor cheap bets over heavy builds.
