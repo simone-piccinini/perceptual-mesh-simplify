@@ -58,8 +58,9 @@ pipeline-relative wall (moves when the simplifier improves). See `docs/ROADS.md`
 ## NEXT ACTIONS (ranked — full rationale in ARCHITECT-REVIEW.md §3/§7)
 
 - ~~Bonifica main.cpp~~ **DONE r55** (−19.3 KiB source, ~109 MB cc1plus reclaimed; judge-validated).
-- ~~Road 3.B.1 Hoppe attribute-quadric placement~~ **DEAD r55 [JUDGE]** — strip+Hoppe c3 WA vs
-  strip-only c3 PASS (same rung/draw); Hoppe regresses c3. The review's #1 pick is closed.
+- ~~Road 3.B.1 Hoppe attribute-quadric placement~~ **DEAD r55 (neutral, no win)** — built full
+  Hoppe optimum; de-biased-proxy A/B shows Δ≈0 at c3's operating point; the judge c3 WA was the
+  box-cut re-roll, not the mechanism (law 4). Review's #1 pick closed.
 1. **Road 3.C.1 — de-bias the proxy** so local A/B transfers again (ARCHITECT-REVIEW's real lever;
    days of work, multiplies research speed 10–100×). Now unblocked by the bonifica headroom.
 2. **Re-bank the bonifica base at 7/7** on a warm judge day (c4@4970 coin must land) — turns the

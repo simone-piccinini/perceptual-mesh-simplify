@@ -47,7 +47,7 @@ the prize is real but modest — cheap high-odds bets beat heavy low-odds builds
 | Depth-complete optimizer | WA'd case4 | `[JUDGE]` |
 | Deficit-guided edge-split reallocation (A/E1) | closed, no transfer | `[LOCAL]` |
 | STAGE-2 free-layout 2D image fit (impostors) | 0.689 vs 0.810 mesh — continuity IS the σxy | `[LOCAL]` |
-| **Normal-attribute quadric PLACEMENT (R-α, Hoppe/meshopt) — DEAD, JUDGE-confirmed r55** | ARCHITECT-REVIEW §3.B.1 reopened it (prior closure was `[LOCAL]`-only ablation of the discrete picker). Built the FULL Hoppe Vis'99 continuous attribute-quadric optimum (Schur 3×3 position solve, plain doubles) joining g_nplace's candidates under true incident_ndist; c3 band, env G_HOPPE/G_HW. **Clean judge A/B, SAME c3@6940 rung + judge draw: strip+Hoppe (r55 19930143, r55b 19930189) → c3 WA, bit-identical ×2 (deterministic); strip-ONLY (r55c 19930834, Hoppe ablated) → c3 PASS. Only diff = Hoppe ⇒ Hoppe REGRESSES c3.** Confirms the prior local verdict; the review's "never judge-tested" premise is closed. Code removed (regresses + ~6 KiB at the compile cliff). | `[JUDGE]` decisive |
+| **Normal-attribute quadric PLACEMENT (R-α, Hoppe/meshopt) — DEAD (neutral, no win)** | ARCHITECT-REVIEW §3.B.1 reopened it. Built the FULL Hoppe Vis'99 continuous attribute-quadric optimum (Schur 3×3 solve, plain doubles) under true incident_ndist; c3 band, env G_HOPPE. Judge: strip+Hoppe (r55/r55b) c3@6940 WA ×2; strip-ONLY (r55c) c3 PASS. **⚠ NOT cleanly attributable to the mechanism: Hoppe is a code change ⇒ re-rolls c3's box-cut family (law 4), so the WA can be a coin loss, not the mechanism.** The de-biased-proxy A/B (see 3.C.1 below) settles it: at c3's real operating point (proxy SSIM ~0.86) Hoppe Δ ≈ 0 (±0.0003, sign-unstable) — **neutral**, matching the smooth proxy. Verdict: no win (neutral); the r55 WA was the re-roll coin. Code removed (neutral + ~6 KiB at the cliff). | `[LOCAL]`+`[JUDGE]` |
 | Dynamic in-loop metric steering (R-γ) | already implemented: Pivot-A runs 8 passes (main.cpp:1715), each re-renders the CURRENT mesh's deficit and re-steers; passes tuned (14 = −0.0002). | code |
 | Curvature-adaptive isotropic remesh (R-β) | low-odds by theory: flat-shaded normal-SSIM favors ANISOTROPIC triangles (elongated along low-curvature) which QEM already gives; explicit aniso placement (g_aniso) is banked c4 but DEAD on organic c3/c6/c7. Isotropic is likely worse than our mild anisotropy. Demoted (not built). | `[JUDGE]`/theory |
 | **True per-collapse box-SSIM selection (R-ζ)** | built + fail-fast tested (solver/ssim_greedy.cpp, QEM-sel vs true-rendered-SSIM-sel, same gates/placement). cow @700: +0.0022 (K8) / +0.0026 (K16); **organic bunny @800: +0.0001 (~zero)**. Real but tiny and mesh-dependent — ~0 on the SMOOTH-ORGANIC case-3 class (QEM already near-optimal there); won't survive transfer. Closes the collapse-SELECTION-metric family. Code kept. | `[LOCAL]` |
@@ -78,6 +78,19 @@ The 7.05-pt gap is likely SPREAD, not all case-3. BUT we can't measure the leade
 our per-case room to 100% is c3=30 > c4=14 > c5=8.5 > c7=2.9 > c6=2.3 > c2=0.7, but every case sits
 behind a MEASURED-hard wall (c3 all-levers-dead, c4 genus, c5 razor). No cheap point identified.
 
+### R-θ — DE-BIAS the c3 proxy so local A/B transfers (ARCHITECT-REVIEW 3.C.1) — `ACTIVE` iter 1/10 · the review's #1 lever
+The clean proxies are too smooth → position-space gains don't transfer (§9.1). Recipe: add scan-like
+high-frequency displacement ALONG the vertex normal until a known judge A/B reproduces locally with
+the right sign. Tool: `probe/make_noisy.py` (seeded, topology-preserving). iter-1 result
+(2026-07-09, calibrating against the Hoppe/R-α A/B): roughening pulls c3band out of SSIM saturation
+(1.0000 → 0.65–0.86 by amplitude) and the Hoppe Δ goes negative — BUT only when OVER-roughened
+(SSIM ≤0.80, Δ≈−0.002); at c3's REAL operating point (SSIM ~0.86, amp 0.0005) Hoppe Δ ≈ 0
+(sign-unstable across seeds). **So white-noise-along-normal does NOT reproduce the judge signal at
+the right operating point — the transfer story is subtler than "just add noise."** Next (iter 2):
+try STRUCTURED noise (band-limited / curvature-correlated, scan-like) and calibrate against a
+SECOND judge A/B (R1 judge-negative, or SIL) — one calibration point (Hoppe) is too weak, especially
+since Hoppe itself is ~neutral (a poor calibration target). Partial; instrument not yet trustworthy.
+
 ### R-η — OUT-OF-FAMILY ideas (open slot — keep generating) — `QUEUED`
 The in/near-family is exhausted, so real gains (if any) are out-of-family. Candidates to develop:
 metric-exploit of the box-window covariance (normal dithering to match σxy at fewer verts —
@@ -90,9 +103,12 @@ Add here as ideas form. **Policy: this slot never empties — never conclude "at
   judge-validated ~109 MB cc1plus strip that the v111 bank lineage had lost). Byte-identical on
   every deterministic proxy; **judge-validated** (r55/r55c compiled, no OOM; c2/c5/c6/c7 paid
   banked rungs). Then **R-α (Hoppe attribute-quadric placement, the review's top pick #1)**
-  built + judge-A/B'd: strip+Hoppe c3@6940 WA ×2 (deterministic) vs strip-ONLY c3 PASS, same
-  rung/draw ⇒ **Hoppe REGRESSES c3, DEAD [JUDGE]** (§2). Hoppe code removed; bonifica kept as the
-  new dev base. c4 WA'd all three (cold-day coin, bank protected by best-counts).
+  built + judge-A/B'd: strip+Hoppe c3@6940 WA ×2 vs strip-ONLY c3 PASS. First read "Hoppe
+  regresses"; corrected same day — the WA is confounded by the box-cut re-roll (law 4), and the
+  **de-biased-proxy A/B (R-θ) shows Hoppe ≈ 0 at c3's operating point ⇒ NEUTRAL, no win** (§2).
+  Hoppe code removed; bonifica kept as base. Also opened **R-θ (3.C.1 de-bias proxy)**: scan-noise
+  un-saturates c3band but doesn't reproduce the judge signal at the right operating point (§3).
+  c4 WA'd all three (cold-day coin, bank protected by best-counts).
 - **2026-07-08 (cont².)** — R-ζ built (solver/ssim_greedy.cpp) + fail-fast tested + CLOSED: true
   rendered-SSIM collapse selection beats QEM by +0.0022 on cow but +0.0001 on organic bunny (~0 for
   the case-3 class). Collapse-selection-metric family definitively closed. R-δ now top (low odds).
