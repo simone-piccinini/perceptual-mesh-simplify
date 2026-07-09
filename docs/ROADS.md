@@ -47,7 +47,7 @@ the prize is real but modest — cheap high-odds bets beat heavy low-odds builds
 | Depth-complete optimizer | WA'd case4 | `[JUDGE]` |
 | Deficit-guided edge-split reallocation (A/E1) | closed, no transfer | `[LOCAL]` |
 | STAGE-2 free-layout 2D image fit (impostors) | 0.689 vs 0.810 mesh — continuity IS the σxy | `[LOCAL]` |
-| Normal-attribute quadric PLACEMENT (R-α, Hoppe/meshopt) | already maxed: we place pure-normal (qweight=0). Ablation on organic proxy @V=4212: nplace on/off = 0.8497/0.8498 (neutral), qweight 0.1 = 0.8446 (−0.005 worse). No headroom. | `[LOCAL]` |
+| **Normal-attribute quadric PLACEMENT (R-α, Hoppe/meshopt) — DEAD, JUDGE-confirmed r55** | ARCHITECT-REVIEW §3.B.1 reopened it (prior closure was `[LOCAL]`-only ablation of the discrete picker). Built the FULL Hoppe Vis'99 continuous attribute-quadric optimum (Schur 3×3 position solve, plain doubles) joining g_nplace's candidates under true incident_ndist; c3 band, env G_HOPPE/G_HW. **Clean judge A/B, SAME c3@6940 rung + judge draw: strip+Hoppe (r55 19930143, r55b 19930189) → c3 WA, bit-identical ×2 (deterministic); strip-ONLY (r55c 19930834, Hoppe ablated) → c3 PASS. Only diff = Hoppe ⇒ Hoppe REGRESSES c3.** Confirms the prior local verdict; the review's "never judge-tested" premise is closed. Code removed (regresses + ~6 KiB at the compile cliff). | `[JUDGE]` decisive |
 | Dynamic in-loop metric steering (R-γ) | already implemented: Pivot-A runs 8 passes (main.cpp:1715), each re-renders the CURRENT mesh's deficit and re-steers; passes tuned (14 = −0.0002). | code |
 | Curvature-adaptive isotropic remesh (R-β) | low-odds by theory: flat-shaded normal-SSIM favors ANISOTROPIC triangles (elongated along low-curvature) which QEM already gives; explicit aniso placement (g_aniso) is banked c4 but DEAD on organic c3/c6/c7. Isotropic is likely worse than our mild anisotropy. Demoted (not built). | `[JUDGE]`/theory |
 | **True per-collapse box-SSIM selection (R-ζ)** | built + fail-fast tested (solver/ssim_greedy.cpp, QEM-sel vs true-rendered-SSIM-sel, same gates/placement). cow @700: +0.0022 (K8) / +0.0026 (K16); **organic bunny @800: +0.0001 (~zero)**. Real but tiny and mesh-dependent — ~0 on the SMOOTH-ORGANIC case-3 class (QEM already near-optimal there); won't survive transfer. Closes the collapse-SELECTION-metric family. Code kept. | `[LOCAL]` |
@@ -85,6 +85,14 @@ speculative); silhouette-exact interior-starvation (lock the exact fg/bg boundar
 Add here as ideas form. **Policy: this slot never empties — never conclude "at ceiling".**
 
 ## 4. Execution log (newest first)
+- **2026-07-09 (r55)** — ARCHITECT-REVIEW §2 prerequisite DONE: **bonifica** stripped all
+  judged-dead env gates + Eigen/Sparse from main.cpp (115.7→96.4 KiB source; re-applies v109's
+  judge-validated ~109 MB cc1plus strip that the v111 bank lineage had lost). Byte-identical on
+  every deterministic proxy; **judge-validated** (r55/r55c compiled, no OOM; c2/c5/c6/c7 paid
+  banked rungs). Then **R-α (Hoppe attribute-quadric placement, the review's top pick #1)**
+  built + judge-A/B'd: strip+Hoppe c3@6940 WA ×2 (deterministic) vs strip-ONLY c3 PASS, same
+  rung/draw ⇒ **Hoppe REGRESSES c3, DEAD [JUDGE]** (§2). Hoppe code removed; bonifica kept as the
+  new dev base. c4 WA'd all three (cold-day coin, bank protected by best-counts).
 - **2026-07-08 (cont².)** — R-ζ built (solver/ssim_greedy.cpp) + fail-fast tested + CLOSED: true
   rendered-SSIM collapse selection beats QEM by +0.0022 on cow but +0.0001 on organic bunny (~0 for
   the case-3 class). Collapse-selection-metric family definitively closed. R-δ now top (low odds).

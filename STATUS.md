@@ -36,8 +36,11 @@ measured-hard wall. Attack case-3.
 ## LIVE code
 
 ```
-solver/main.cpp   (BANK track — decimation)   sha256 68e22f048d07  = the verified 90.285538 bank
-                  banner: PROBE-RC3-READ 2026-07-06 (c5/c4 recipe on c3, banked-14 + 1024 polish)
+solver/main.cpp   (BANK track — decimation)   sha256 ecbbe3c0b082  = r55 BONIFICA base (96.4 KiB)
+                  Output-identical to the 90.285538 bank on every deterministic proxy (byte-exact)
+                  + judge-validated (r55c 19930834: c2/c3/c5/c6/c7 pass; c4 on a cold-day coin).
+                  Reproduces the bank; not itself re-banked 7/7 yet (waiting a warm c4 draw).
+                  Pre-bonifica bank binary was sha 68e22f048d07 (v111 lineage).
 solver/main_v2.cpp (INDEPENDENT track — construction→carve)  all-green ~90.24 [JUDGE]
                   → best carve snapshot: solver/submissionv2/main_v2_90p24_sub19909317.cpp
                   ⚠ the banner inside main_v2.cpp still says 64.34 (construction era); the 90.24
@@ -54,11 +57,14 @@ pipeline-relative wall (moves when the simplifier improves). See `docs/ROADS.md`
 
 ## NEXT ACTIONS (ranked — full rationale in ARCHITECT-REVIEW.md §3/§7)
 
-1. **Compile/source bonification of main.cpp** (prereq) — strip dead env-gated code + `Eigen/Sparse`,
-   verify byte-identical proxy output. Target ≥250 MB compile-headroom, ≥40 KiB source-headroom.
-2. **Road 3.B.1 — Hoppe attribute-quadric placement**, A/B via S-read (1 submission-pair).
-3. **Road 3.C.1 — de-bias the proxy** so local A/B transfers again (the real bottleneck; days, but
-   multiplies research speed 10–100×).
+- ~~Bonifica main.cpp~~ **DONE r55** (−19.3 KiB source, ~109 MB cc1plus reclaimed; judge-validated).
+- ~~Road 3.B.1 Hoppe attribute-quadric placement~~ **DEAD r55 [JUDGE]** — strip+Hoppe c3 WA vs
+  strip-only c3 PASS (same rung/draw); Hoppe regresses c3. The review's #1 pick is closed.
+1. **Road 3.C.1 — de-bias the proxy** so local A/B transfers again (ARCHITECT-REVIEW's real lever;
+   days of work, multiplies research speed 10–100×). Now unblocked by the bonifica headroom.
+2. **Re-bank the bonifica base at 7/7** on a warm judge day (c4@4970 coin must land) — turns the
+   headroom into the official live base. Free (best-counts).
+3. R-δ (differentiable co-opt during reduction) — `docs/ROADS.md` §3, low odds.
 4. Free, parallel: re-roll c4/c6 box-cut coins on "cold" judge days.
 
 ---
