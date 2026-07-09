@@ -47,7 +47,7 @@ the prize is real but modest — cheap high-odds bets beat heavy low-odds builds
 | Depth-complete optimizer | WA'd case4 | `[JUDGE]` |
 | Deficit-guided edge-split reallocation (A/E1) | closed, no transfer | `[LOCAL]` |
 | STAGE-2 free-layout 2D image fit (impostors) | 0.689 vs 0.810 mesh — continuity IS the σxy | `[LOCAL]` |
-| **Normal-attribute quadric PLACEMENT (R-α, Hoppe/meshopt) — DEAD (neutral, no win)** | ARCHITECT-REVIEW §3.B.1 reopened it. Built the FULL Hoppe Vis'99 continuous attribute-quadric optimum (Schur 3×3 solve, plain doubles) under true incident_ndist; c3 band, env G_HOPPE. Judge: strip+Hoppe (r55/r55b) c3@6940 WA ×2; strip-ONLY (r55c) c3 PASS. **⚠ NOT cleanly attributable to the mechanism: Hoppe is a code change ⇒ re-rolls c3's box-cut family (law 4), so the WA can be a coin loss, not the mechanism.** The de-biased-proxy A/B (see 3.C.1 below) settles it: at c3's real operating point (proxy SSIM ~0.86) Hoppe Δ ≈ 0 (±0.0003, sign-unstable) — **neutral**, matching the smooth proxy. Verdict: no win (neutral); the r55 WA was the re-roll coin. Code removed (neutral + ~6 KiB at the cliff). | `[LOCAL]`+`[JUDGE]` |
+| **Normal-attribute quadric PLACEMENT (R-α, Hoppe) — PARKED: neutral on an unreliable instrument, NOT killed** | Built the FULL Hoppe Vis'99 continuous attribute-quadric optimum (Schur 3×3 solve); c3 band, env G_HOPPE. Judge r55/r55b c3 WA vs r55c PASS is confounded by the box-cut re-roll (law 4), NOT clean. Local Δ≈0 was on the SMOOTH proxy — the very instrument §9.1 says is unreliable for position-space. So "neutral on a broken ruler," which is NOT "dead" (Process Law #2). Code removed for now (6 KiB at the cliff) but the finding is UNPROVEN. **Re-test on the transferring proxy once R-θ iter-3 yields one**, before any final verdict. | `[LOCAL-weak]` |
 | Dynamic in-loop metric steering (R-γ) | already implemented: Pivot-A runs 8 passes (main.cpp:1715), each re-renders the CURRENT mesh's deficit and re-steers; passes tuned (14 = −0.0002). | code |
 | Curvature-adaptive isotropic remesh (R-β) | low-odds by theory: flat-shaded normal-SSIM favors ANISOTROPIC triangles (elongated along low-curvature) which QEM already gives; explicit aniso placement (g_aniso) is banked c4 but DEAD on organic c3/c6/c7. Isotropic is likely worse than our mild anisotropy. Demoted (not built). | `[JUDGE]`/theory |
 | **True per-collapse box-SSIM selection (R-ζ)** | built + fail-fast tested (solver/ssim_greedy.cpp, QEM-sel vs true-rendered-SSIM-sel, same gates/placement). cow @700: +0.0022 (K8) / +0.0026 (K16); **organic bunny @800: +0.0001 (~zero)**. Real but tiny and mesh-dependent — ~0 on the SMOOTH-ORGANIC case-3 class (QEM already near-optimal there); won't survive transfer. Closes the collapse-SELECTION-metric family. Code kept. | `[LOCAL]` |
@@ -78,24 +78,27 @@ The 7.05-pt gap is likely SPREAD, not all case-3. BUT we can't measure the leade
 our per-case room to 100% is c3=30 > c4=14 > c5=8.5 > c7=2.9 > c6=2.3 > c2=0.7, but every case sits
 behind a MEASURED-hard wall (c3 all-levers-dead, c4 genus, c5 razor). No cheap point identified.
 
-### R-θ — DE-BIAS the c3 proxy (ARCHITECT-REVIEW 3.C.1) — simple form FALSIFIED (iter 2/10) · odds dropped
+### R-θ — DE-BIAS the proxy so local A/B transfers (ARCHITECT-REVIEW 3.C.1) — `ACTIVE` iter 3, CORRECTED protocol · the review's #1 lever
 The review's §9.1 diagnosis: proxies too smooth → position-space gains over-rewarded → don't
-transfer. Its cure (§3.C.1): add scan-like high-freq displacement ALONG the normal until a known
-judge A/B reproduces locally. Built `probe/make_noisy_debias.py` (seeded, topology-preserving),
-calibrated against TWO judge signals at c3's operating point (proxy SSIM ~0.86, amp 0.0005):
-- **Hoppe/R-α** (iter 1): Δ ≈ 0 (±0.0003, sign-unstable). Judge: ~neutral (WA confounded by re-roll).
-- **R1** (iter 2, the CLEAN target — R1 is genuinely judge-negative incl. a DETERMINISTIC c5 WA
-  19897122, not just a c3 coin): de-biased proxy reads R1 **+0.0029** (positive!) at the operating
-  point — SAME sign as the smooth proxy, OPPOSITE the judge.
-**Verdict: white-noise-along-normal de-bias does NOT reproduce the judge's transfer failures. 2/2
-mechanisms fail to flip. The simple §3.C.1 recipe is falsified.** Likely because the injected noise
-is RECOVERABLE by refine (it's on the original's vertices, so refine chases it) — unlike the
-judge's real sub-triangle scan detail which the coarse mesh genuinely can't represent. Two deeper
-obstacles: (a) box-cut nondeterminism (law 4) confounds every c3 mechanism A/B on the judge, so
-clean c3 calibration targets barely exist; (b) validating a de-biased proxy needs clean judge
-signals, which c3 (box-cut) denies. iter-3 (band-limited / unrecoverable-detail noise, calibrate
-at c5-scale where signals are deterministic) is the only remaining variant — LOW odds now, and even
-a c5-validated instrument may not transfer to c3. Instrument NOT trustworthy; not a screening tool.
+transfer. **iter 1-2 (2026-07-09) were WRONG-DESIGNED and their "falsified" verdict is RETRACTED**
+(architect handoff / Process Law #2 — don't close on a broken instrument at 2/10):
+- WRONG NOISE: white-noise-along-normal is per-vertex independent → refine recovers it (SSIM's 11×11
+  box averages it into a chaseable signal). That's why R1 still read +0.0029 — the instrument was
+  still broken, not the road.
+- WRONG CASE: calibrated on c3 (box-cut → judge A/B is a coin). The CLEAN target is **R1's
+  DETERMINISTIC c5 WA (19897122)**; c5's proxy is armadillo ≈ the real judge input.
+- WEAK SAMPLE: only R1 is a usable signal (Hoppe Δ≈0 discriminates nothing). 2/10, not DEAD.
+
+**Corrected iter-3 protocol (in progress):**
+1. Noise = COHERENT/band-limited (window-scale correlated, refine-UN-recoverable), not white.
+   Tool: `probe/make_corr_noise.py` (white → graph-Laplacian smoothed S× → correlation length ~S
+   edges → coarse mesh can't reproduce it).
+2. Calibrate on **c5 (deterministic)** against R1's clean c5-negative — NOT c3.
+3. **Decisive free shortcut (handoff C.2b):** a RAW Stanford range scan (real sensor noise) is the
+   literal de-biased proxy, zero synthesis. Test: does R1 read NEGATIVE on a raw/native proxy
+   out-of-the-box? If yes → "too smooth" confirmed + transferring instrument for free.
+Success = R1 flips negative at the c5 operating point on the corrected proxy. Then this becomes the
+offline screen that reopens 1-idea-per-submission → cheap iteration (the true bottleneck).
 
 ### R-η — OUT-OF-FAMILY ideas (open slot — keep generating) — `QUEUED`
 The in/near-family is exhausted, so real gains (if any) are out-of-family. Candidates to develop:

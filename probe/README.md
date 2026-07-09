@@ -59,3 +59,11 @@ python3 probe/harness.py status
 
 State: `wall_model.json` (ledger + reads + fails + log — committed).
 Generated: `probe/out/` and `probe/cache/` (git-ignored).
+
+## ⚠ Proxy hygiene (do not misuse)
+- `probe/cache/c3band.obj`, `c4band.obj` are **FANDISK-subdivided (CAD)** — valid for the preflight's
+  VALIDITY + vertex-count byte-identity check ONLY. **NEVER read an SSIM A/B off them** — wrong
+  geometry class (CAD) and they render SSIM≈1.0000 (saturated). For an organic SSIM screen use an
+  organic proxy (armadillo for c5-scale; a native ~23k organic mesh for c3 — see ARCHITECT-REVIEW
+  §3.C.2 data-sourcing). `probe/make_corr_noise.py` = the R-θ de-bias coherent-noise injector.
+- c6/c7 have NO local proxy (blind offline — acceptable; they're saturated/deterministic).
