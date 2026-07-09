@@ -1601,8 +1601,10 @@ int main(int argc, char** argv) {
                                                // if load+Initialize already ate the margin, skip refine entirely
     if (g_refine) refine_init_orig();          // render the original mesh's 6 normal maps (all alive) before decimation
 
+    /* creating the bounding box */
     Vec3 lo = pos[0], hi = pos[0];
     for (const Vec3& q : pos) { lo = lo.cwiseMin(q); hi = hi.cwiseMax(q); }
+    /* taking the diagonal of the bounding box */
     const double diag = (hi - lo).norm();
 
     int target_count;
