@@ -78,18 +78,24 @@ The 7.05-pt gap is likely SPREAD, not all case-3. BUT we can't measure the leade
 our per-case room to 100% is c3=30 > c4=14 > c5=8.5 > c7=2.9 > c6=2.3 > c2=0.7, but every case sits
 behind a MEASURED-hard wall (c3 all-levers-dead, c4 genus, c5 razor). No cheap point identified.
 
-### R-θ — DE-BIAS the c3 proxy so local A/B transfers (ARCHITECT-REVIEW 3.C.1) — `ACTIVE` iter 1/10 · the review's #1 lever
-The clean proxies are too smooth → position-space gains don't transfer (§9.1). Recipe: add scan-like
-high-frequency displacement ALONG the vertex normal until a known judge A/B reproduces locally with
-the right sign. Tool: `probe/make_noisy.py` (seeded, topology-preserving). iter-1 result
-(2026-07-09, calibrating against the Hoppe/R-α A/B): roughening pulls c3band out of SSIM saturation
-(1.0000 → 0.65–0.86 by amplitude) and the Hoppe Δ goes negative — BUT only when OVER-roughened
-(SSIM ≤0.80, Δ≈−0.002); at c3's REAL operating point (SSIM ~0.86, amp 0.0005) Hoppe Δ ≈ 0
-(sign-unstable across seeds). **So white-noise-along-normal does NOT reproduce the judge signal at
-the right operating point — the transfer story is subtler than "just add noise."** Next (iter 2):
-try STRUCTURED noise (band-limited / curvature-correlated, scan-like) and calibrate against a
-SECOND judge A/B (R1 judge-negative, or SIL) — one calibration point (Hoppe) is too weak, especially
-since Hoppe itself is ~neutral (a poor calibration target). Partial; instrument not yet trustworthy.
+### R-θ — DE-BIAS the c3 proxy (ARCHITECT-REVIEW 3.C.1) — simple form FALSIFIED (iter 2/10) · odds dropped
+The review's §9.1 diagnosis: proxies too smooth → position-space gains over-rewarded → don't
+transfer. Its cure (§3.C.1): add scan-like high-freq displacement ALONG the normal until a known
+judge A/B reproduces locally. Built `probe/make_noisy_debias.py` (seeded, topology-preserving),
+calibrated against TWO judge signals at c3's operating point (proxy SSIM ~0.86, amp 0.0005):
+- **Hoppe/R-α** (iter 1): Δ ≈ 0 (±0.0003, sign-unstable). Judge: ~neutral (WA confounded by re-roll).
+- **R1** (iter 2, the CLEAN target — R1 is genuinely judge-negative incl. a DETERMINISTIC c5 WA
+  19897122, not just a c3 coin): de-biased proxy reads R1 **+0.0029** (positive!) at the operating
+  point — SAME sign as the smooth proxy, OPPOSITE the judge.
+**Verdict: white-noise-along-normal de-bias does NOT reproduce the judge's transfer failures. 2/2
+mechanisms fail to flip. The simple §3.C.1 recipe is falsified.** Likely because the injected noise
+is RECOVERABLE by refine (it's on the original's vertices, so refine chases it) — unlike the
+judge's real sub-triangle scan detail which the coarse mesh genuinely can't represent. Two deeper
+obstacles: (a) box-cut nondeterminism (law 4) confounds every c3 mechanism A/B on the judge, so
+clean c3 calibration targets barely exist; (b) validating a de-biased proxy needs clean judge
+signals, which c3 (box-cut) denies. iter-3 (band-limited / unrecoverable-detail noise, calibrate
+at c5-scale where signals are deterministic) is the only remaining variant — LOW odds now, and even
+a c5-validated instrument may not transfer to c3. Instrument NOT trustworthy; not a screening tool.
 
 ### R-η — OUT-OF-FAMILY ideas (open slot — keep generating) — `QUEUED`
 The in/near-family is exhausted, so real gains (if any) are out-of-family. Candidates to develop:
@@ -98,6 +104,12 @@ speculative); silhouette-exact interior-starvation (lock the exact fg/bg boundar
 Add here as ideas form. **Policy: this slot never empties — never conclude "at ceiling".**
 
 ## 4. Execution log (newest first)
+- **2026-07-09 (R-θ iter 2)** — de-bias proxy (review's #1 lever) simple form **FALSIFIED**: built
+  R1-toggle binary, measured R1 A/B on de-biased c3band across amplitudes. At c3's operating point
+  (SSIM 0.86) R1 = **+0.0029** (positive, matching the SMOOTH proxy, opposite the judge). 2/2
+  mechanisms (Hoppe, R1) fail to flip on the noised proxy. White-noise-along-normal doesn't
+  reproduce the transfer failure (noise is refine-recoverable; judge scan detail isn't). Plus the
+  box-cut confound denies clean c3 calibration targets. R-θ demoted to low-odds iter-3 only (§3).
 - **2026-07-09 (r55)** — ARCHITECT-REVIEW §2 prerequisite DONE: **bonifica** stripped all
   judged-dead env gates + Eigen/Sparse from main.cpp (115.7→96.4 KiB source; re-applies v109's
   judge-validated ~109 MB cc1plus strip that the v111 bank lineage had lost). Byte-identical on
