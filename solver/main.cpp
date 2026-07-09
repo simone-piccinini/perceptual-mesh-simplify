@@ -1,8 +1,8 @@
-// PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
-// + 1024 mini-polish (hybrid already ends at 1024); in-process self-score; mesh + K tetras.
-// K = round((S-0.885)/5e-4) clamp [0,160]; V' = mesh + 4K; mesh base 6940 == 0 mod 4 (stall detectable).
-// collapses + first-ever 1024 mini-refine; in-process 1024 self-score; mesh + K tetras.
-// c5 stays on its banked v106 path (4212). c4 box trimmed 14 -> 10.5 to fund the polish+cal.
+// R55-HOPPE-READ 2026-07-09: bonifica (dead env-gated code stripped, Eigen/Sparse out, byte-
+// identical on all deterministic proxies) + R-alpha Hoppe attribute-quadric PLACEMENT, case-3
+// band only (ARCHITECT-REVIEW 3.B.1). This submission = S-read of the new family at c3@6940:
+// K = round((S2-0.885)/5e-4) clamp [0,160], V' = 6940 + 4K. A/B vs baseline read 19898572
+// (S2=0.9135, K=57). All other cases at banked rungs (family validation).
 // PROBE-RLIVE-C5 2026-07-06: DUAL-RUNG same-binary S-read of the LIVE case-5 family.
 // S1 = Final(mesh@4226 refined), S2 = Final(same run, +14 collapses + 2s refine = the exact
 // mesh a bank-mode twin would emit at 4212). Encode K = 40*q1 + q2 (q1: S1, 2.5e-3 step from
@@ -156,6 +156,21 @@ static int              genA = 0, genB = 0;
 
 // direction-1 guard: per-cluster bounding sphere of represented ORIGINAL vertices.
 static std::vector<Vec3>   nref;   // per-vertex area-weighted sum of ORIGINAL face normals of its cluster
+// ===== R-alpha (r55, ARCHITECT-REVIEW 3.B.1): Hoppe Vis'99 attribute-quadric PLACEMENT =====
+// Extended quadric over (position, normal): per face, the normal field is the linear interpolant
+// of the corner normals (gradient g_j tangent to the face, one per channel). Minimizing jointly
+// over (p, a) and eliminating a (Schur) gives a POSITION solve whose optimum also minimizes the
+// interpolated-normal error. That continuous optimum joins the discrete candidate set of
+// g_nplace (xbar/endpoints/mid) and is judged by the same true incident_ndist -- it only ever
+// wins by lowering real normal distortion. Case-3 band only (alloc gated); env G_HOPPE / G_HW.
+static int g_hoppe = 0;
+static double g_hoppew = 1.0;   // attribute-term weight (unweighted faces, matching Q convention)
+struct HQuad { double P[3][6]; double q[3][3]; double G[3][3]; double h[3]; double W;
+               void add(const HQuad& o) { W += o.W;
+                   for (int j=0;j<3;++j){ h[j]+=o.h[j];
+                       for (int k=0;k<6;++k) P[j][k]+=o.P[j][k];
+                       for (int k=0;k<3;++k){ q[j][k]+=o.q[j][k]; G[j][k]+=o.G[j][k]; } } } };
+static std::vector<HQuad> HQ;
 static std::vector<Vec3>   sc;
 static std::vector<double> sr;
 
@@ -916,6 +931,38 @@ void Initialize() {
         vfaces[b].push_back(f);
         vfaces[c].push_back(f);
     }
+    if (g_hoppe) {   // R-alpha: per-face attribute quadric from corner normals (needs nref filled)
+        HQ.assign(nv, HQuad());
+        std::vector<Vec3> vn(nv);
+        for (int v = 0; v < nv; ++v) { double l = nref[v].norm(); vn[v] = l > 1e-30 ? Vec3(nref[v]/l) : Vec3(0,0,0); }
+        for (int f = 0; f < nf; ++f) {
+            const int a = faces[f][0], b = faces[f][1], c = faces[f][2];
+            Vec3 e1 = pos[b]-pos[a], e2 = pos[c]-pos[a], n = e1.cross(e2);
+            double l = n.norm(); if (l <= 1e-30) continue; n /= l;
+            // invert M = [e1; e2; n] once (Cramer, plain doubles) -- rows are the constraints
+            double M[3][3] = {{e1.x(),e1.y(),e1.z()},{e2.x(),e2.y(),e2.z()},{n.x(),n.y(),n.z()}};
+            double det = M[0][0]*(M[1][1]*M[2][2]-M[1][2]*M[2][1])
+                       - M[0][1]*(M[1][0]*M[2][2]-M[1][2]*M[2][0])
+                       + M[0][2]*(M[1][0]*M[2][1]-M[1][1]*M[2][0]);
+            if (std::fabs(det) < 1e-30) continue;
+            double inv[3][3] = {
+                { (M[1][1]*M[2][2]-M[1][2]*M[2][1])/det, (M[0][2]*M[2][1]-M[0][1]*M[2][2])/det, (M[0][1]*M[1][2]-M[0][2]*M[1][1])/det },
+                { (M[1][2]*M[2][0]-M[1][0]*M[2][2])/det, (M[0][0]*M[2][2]-M[0][2]*M[2][0])/det, (M[0][2]*M[1][0]-M[0][0]*M[1][2])/det },
+                { (M[1][0]*M[2][1]-M[1][1]*M[2][0])/det, (M[0][1]*M[2][0]-M[0][0]*M[2][1])/det, (M[0][0]*M[1][1]-M[0][1]*M[1][0])/det } };
+            HQuad Kf; const double w = g_hoppew;
+            for (int j = 0; j < 3; ++j) {
+                const double r0 = vn[b][j]-vn[a][j], r1 = vn[c][j]-vn[a][j];   // rhs (n-row rhs = 0)
+                Vec3 g(inv[0][0]*r0+inv[0][1]*r1, inv[1][0]*r0+inv[1][1]*r1, inv[2][0]*r0+inv[2][1]*r1);
+                const double d = vn[a][j] - g.dot(pos[a]);
+                Kf.P[j][0]=w*g.x()*g.x(); Kf.P[j][1]=w*g.x()*g.y(); Kf.P[j][2]=w*g.x()*g.z();
+                Kf.P[j][3]=w*g.y()*g.y(); Kf.P[j][4]=w*g.y()*g.z(); Kf.P[j][5]=w*g.z()*g.z();
+                for (int k=0;k<3;++k){ Kf.q[j][k]=w*d*g[k]; Kf.G[j][k]=w*g[k]; }
+                Kf.h[j]=w*d;
+            }
+            Kf.W = w;   // per-channel Sigma w over faces (channels share it)
+            HQ[a].add(Kf); HQ[b].add(Kf); HQ[c].add(Kf);
+        }
+    }
 
     {
         std::vector<HeapEntry> buf;
@@ -1029,6 +1076,36 @@ EvalResult Evaluate(int i, int j) {
     if (g_ndecim && g_nplace) {   // test: place at the target minimizing normal distortion
         Vec3 cand2[12] = { xbar, pos[i], pos[j], 0.5*(pos[i]+pos[j]) };
         int nc = 4;
+        if (g_hoppe) {   // R-alpha: continuous optimum of the joint (position,normal) quadric
+            const HQuad& Hc0 = HQ[i]; const HQuad& Hc1 = HQ[j];
+            double A[3][3] = {{0,0,0},{0,0,0},{0,0,0}}, rhs[3] = {0,0,0};
+            const Eigen::Matrix3d Ag = Qc.topLeftCorner<3,3>();
+            const Vec3 bg = Qc.topRightCorner<3,1>();
+            for (int r=0;r<3;++r){ for(int cc2=0;cc2<3;++cc2) A[r][cc2]=Ag(r,cc2); rhs[r]=-bg[r]; }
+            const double W = Hc0.W + Hc1.W;
+            if (W > 1e-30) {
+                for (int j2 = 0; j2 < 3; ++j2) {
+                    double P[6], q[3], G[3], h;
+                    for(int k=0;k<6;++k) P[k]=Hc0.P[j2][k]+Hc1.P[j2][k];
+                    for(int k=0;k<3;++k){ q[k]=Hc0.q[j2][k]+Hc1.q[j2][k]; G[k]=Hc0.G[j2][k]+Hc1.G[j2][k]; }
+                    h = Hc0.h[j2]+Hc1.h[j2];
+                    // A += P - G G^T/W ; rhs -= q - (h/W) G
+                    A[0][0]+=P[0]-G[0]*G[0]/W; A[0][1]+=P[1]-G[0]*G[1]/W; A[0][2]+=P[2]-G[0]*G[2]/W;
+                    A[1][1]+=P[3]-G[1]*G[1]/W; A[1][2]+=P[4]-G[1]*G[2]/W; A[2][2]+=P[5]-G[2]*G[2]/W;
+                    for(int k=0;k<3;++k) rhs[k] -= q[k]-(h/W)*G[k];
+                }
+                A[1][0]=A[0][1]; A[2][0]=A[0][2]; A[2][1]=A[1][2];
+                double det = A[0][0]*(A[1][1]*A[2][2]-A[1][2]*A[2][1])
+                           - A[0][1]*(A[1][0]*A[2][2]-A[1][2]*A[2][0])
+                           + A[0][2]*(A[1][0]*A[2][1]-A[1][1]*A[2][0]);
+                if (std::fabs(det) > 1e-10) {
+                    Vec3 xh((rhs[0]*(A[1][1]*A[2][2]-A[1][2]*A[2][1]) + rhs[1]*(A[0][2]*A[2][1]-A[0][1]*A[2][2]) + rhs[2]*(A[0][1]*A[1][2]-A[0][2]*A[1][1]))/det,
+                            (rhs[0]*(A[1][2]*A[2][0]-A[1][0]*A[2][2]) + rhs[1]*(A[0][0]*A[2][2]-A[0][2]*A[2][0]) + rhs[2]*(A[0][2]*A[1][0]-A[0][0]*A[1][2]))/det,
+                            (rhs[0]*(A[1][0]*A[2][1]-A[1][1]*A[2][0]) + rhs[1]*(A[0][1]*A[2][0]-A[0][0]*A[2][1]) + rhs[2]*(A[0][0]*A[1][1]-A[0][1]*A[1][0]))/det);
+                    cand2[nc++] = xh;
+                }
+            }
+        }
         if (g_aniso) {
             // B (session 3, curvature-tensor aniso): line-search placement along the merged
             // star's FLAT tangent direction (min normal variation). Aniso regions want vertices
@@ -1131,6 +1208,7 @@ void Collapse(int i, int j, const Vec3& xbar) {
     pos[i]   = xbar;
     Q[i]    += Q[j];
     nref[i] += nref[j];
+    if (g_hoppe) HQ[i].add(HQ[j]);
     alive[j] = 0;
 
     int shared[2], nshared = 0;
@@ -1308,6 +1386,9 @@ int main(int argc, char** argv) {
     if (argc > 3) { floor_frac = std::atof(argv[3]); keep = std::atof(argv[3]); }
     if (argc > 4) g_refine_res = std::atoi(argv[4]);   // local test only: override optimizer render res
 
+    g_hoppe = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 1 : 0;   // R-alpha (3.B.1): case-3 band only; must precede Initialize (HQ built there)
+    if (const char* e = getenv("G_HOPPE")) g_hoppe = atoi(e);
+    if (const char* e = getenv("G_HW")) g_hoppew = atof(e);
     Initialize();
 
     g_refine = refine_for((int)pos.size());
@@ -1448,7 +1529,7 @@ int main(int argc, char** argv) {
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
-        const long K = 0;   // BANK-TWIN-C3 of read 19898572 (S=0.9135 at V=6941, K=57 decoded)
+        const long K = std::lround(std::min(160.0, std::max(0.0, (S2 - 0.885) / 5e-4)));   // r55 READ: S2 of the strip+Hoppe family at 6940 (A/B vs 0.9135 = read 19898572)
         Vec3 bary = Vec3::Zero(); int nba=0;
         for(size_t i=0;i<pos.size();++i) if(alive[i]) { bary+=pos[i]; ++nba; }
         bary/=(double)nba;
