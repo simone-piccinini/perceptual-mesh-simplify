@@ -1,5 +1,9 @@
 # IMC 2026 — Problem B: Mesh Simplification
 
+> **New here? Read in this order:** [`STATUS.md`](STATUS.md) (where we are now) →
+> [`CLAUDE.md`](CLAUDE.md) (how to work without hallucinating) → [`docs/`](docs/README.md)
+> (judge facts, theory, roads). The authoritative score is on Kattis, never a local file.
+
 Tooling for the contest *Perception-Aware Simplification of Million-Vertex 3D
 Meshes*. The goal: simplify a mesh to the fewest vertices possible while the
 judge's multi-view perceptual score stays `FinalSSIM >= 0.9` and the mesh stays
@@ -8,9 +12,11 @@ a valid closed 2-manifold within 5% Hausdorff of the original.
 The repo has two halves. The **C++ solver** in `solver/` is the single file that
 is actually uploaded to the judge. The **local evaluator (oracle)** in
 `src/imc_eval/` is a faithful, offline reimplementation of the judge used to
-score candidate simplifications without spending submissions. The oracle is
-complete; `solver/main.cpp` is currently an empty scaffold where the Phase 1 QEM
-engine goes next.
+score candidate simplifications without spending submissions. Both are complete:
+`solver/main.cpp` is the mature banked decimation solver (all 7 cases green,
+~90.28), and `solver/main_v2.cpp` is an independent construction/carve solver.
+For current state and per-case scores see `docs/` (JUDGE-ENVELOPE, V2-CONSTRUCTION)
+and `handoff/submissions.jsonl`; the number on Kattis is authoritative.
 
 ## Why an oracle first
 
@@ -22,7 +28,8 @@ decision depends on being able to measure the score ourselves.
 
 ```
 solver/           C++ — the submission (the single file uploaded to the judge)
-  main.cpp        Phase 1 QEM engine (+ embedded scorer/search later)
+  main.cpp        banked decimation solver (VSA-lite + QEM + s-def + refine)
+  main_v2.cpp     independent construction/carve solver
                   Eigen is provided by the judge; vendor it locally for dev builds
 src/imc_eval/     Python — the oracle (truth + validation), local only
   geometry.py   fixed camera constants, face normals, AABB diagonal, 6 views

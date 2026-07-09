@@ -1,2 +1,0 @@
-# v77 — JUDGE: Accepted 90.048679, 7/7 ✓ NEW BANK
-case3 69.75 PASSED w/ λ16. Walls: 99.268|69.75|85.4375|91|97.6875|97.145.

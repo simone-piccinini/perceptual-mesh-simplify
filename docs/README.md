@@ -7,22 +7,26 @@ theory it rests on, and the record of what we tried that failed.
 > as possible while the judge's 6-view perceptual score stays `FinalSSIM ≥ 0.9`
 > and the mesh stays a valid 2-manifold within 5% Hausdorff. Score per case =
 > compression `100·(1 − V'/V)`, averaged over the 6 hidden cases.
-> **Current best on the judge: 88.67, 7/7 valid** (submission v38).
+> **Current best: all 7 green, ~90.28** — the authoritative number is on Kattis
+> (`handoff/submissions.jsonl` is a partial ledger; it does not log web-UI submits).
 
 ## Read in this order
 
-If you are new to the project, read these three top-level docs first — they are
-the orientation layer:
+If you are new to the project, read these top-level docs first — the orientation
+layer (these files exist; earlier drafts of this index pointed at three that
+never did — `problem-statement-summary.md` / `judge-map.md` /
+`architecture-roadmap.md` — removed):
 
-1. **[problem-statement-summary.md](problem-statement-summary.md)** — the IMC
-   Problem B statement, distilled. *What the judge measures and what counts.*
-2. **[judge-map.md](judge-map.md)** — the living, authoritative model of the
-   judge's behavior: per-case walls, which constraint binds, and the failure-mode
-   decoder. *Updated every submission — the single source of truth for "where are
-   we and why."*
-3. **[architecture-roadmap.md](architecture-roadmap.md)** — the strategy: the
-   current pipeline, its structural limits, the ranked pivots, and the
-   **never-do list** (dead ends not to revisit).
+1. **[PROBLEM-AND-JUDGE.md](PROBLEM-AND-JUDGE.md)** — the IMC Problem B statement +
+   the four output-validity rules, distilled. *What the judge measures and counts.*
+2. **[JUDGE-ENVELOPE.md](JUDGE-ENVELOPE.md)** — the authoritative model of judge
+   behavior: per-case walls, which constraint binds, the failure-mode decoder.
+   *Updated every probe — "where are we and why."*
+3. **[THEORY.md](THEORY.md)** + **[WALL-MODEL.md](WALL-MODEL.md)** — the metric
+   math (what's proven) and the wall/S-read model.
+4. **[SOLVER-INTERNALS.md](SOLVER-INTERNALS.md)** — line-by-line map of
+   `solver/main.cpp`; **[V2-CONSTRUCTION.md](V2-CONSTRUCTION.md)** — the
+   independent `main_v2.cpp` construction/carve solver history.
 
 Then dive into `theory/` for the derivations, or `postmortems/` for the full
 story of how we got here.
@@ -45,13 +49,12 @@ story of how we got here.
   dispatch, the in-loop rasterizer, Pivot-A steering, visibility culling, the
   inverse-rendering optimizer, and the validity invariants). Start here for the
   live `solver/main.cpp`.
-- [ALGORITHM.MD](theory/ALGORITHM.MD) — the base QEM edge-collapse algorithm
-  adapted to this problem (lazy deletion, version stamps, the manifold-safety gate).
-- [qem-pseudocode.md](theory/qem-pseudocode.md) — the manifold-safe QEM engine in pseudocode.
-- [wang-ssim.md](theory/wang-ssim.md) — Wang-2004 SSIM applied to our wall: **why
-  the variance/contrast term, not the mean, is what caps compression.** The key
-  theoretical result of the project.
-- [paper-notes.md](theory/paper-notes.md) — working notes on the literature
+- The metric math (why the SSIM variance/structure term, not the mean, caps
+  compression) lives in the top-level [THEORY.md](THEORY.md) — the key theoretical
+  result of the project.
+- [theory/perception-aware-solver.md](theory/perception-aware-solver.md) — the
+  base QEM edge-collapse algorithm adapted to this problem, end to end.
+- [theory/paper-notes.md](theory/paper-notes.md) — working notes on the literature
   (Lindstrom-Turk, VSA, probabilistic quadrics, …) with actionable takeaways.
 
 ### postmortems/ — what we tried and why it failed
@@ -83,7 +86,7 @@ behind the never-do list. Read these before reviving any "clever" idea.
 | The solver | [../solver/main.cpp](../solver/main.cpp) | the single C++ file uploaded to the judge |
 | The oracle | [../src/imc_eval/README.md](../src/imc_eval/README.md) | local reimplementation of the judge, file by file |
 | Submissions log | [../submissions/README.md](../submissions/README.md) | versioned solver snapshots + judge results |
-| Calibration | [../calibration/README.md](../calibration/README.md) | pinning the oracle's ambiguous params against real verdicts |
+| Calibration | [../calibration/](../calibration/) | sphere cases for pinning the oracle's ambiguous params against real verdicts |
 
 ## Conventions
 
@@ -97,6 +100,6 @@ behind the never-do list. Read these before reviving any "clever" idea.
   add an entry to [references/README.md](references/README.md) saying what it is
   and where in our code/theory we rely on it.
 - **The living state** (per-case walls, current operating point) → keep
-  [judge-map.md](judge-map.md) current; it is updated every submission.
+  [JUDGE-ENVELOPE.md](JUDGE-ENVELOPE.md) current; it is updated every probe.
 - **Per-submission write-ups** (what scored, what failed, why) → the relevant
   `submissions/vN-.../RESULT.md`, not here.
