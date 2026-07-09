@@ -61,12 +61,16 @@ pipeline-relative wall (moves when the simplifier improves). See `docs/ROADS.md`
 - ~~Road 3.B.1 Hoppe attribute-quadric placement~~ **DEAD r55 (neutral, no win)** — built full
   Hoppe optimum; de-biased-proxy A/B shows Δ≈0 at c3's operating point; the judge c3 WA was the
   box-cut re-roll, not the mechanism (law 4). Review's #1 pick closed.
-1. **Road 3.C.1 — de-bias the proxy** so local A/B transfers again (ARCHITECT-REVIEW's real lever;
-   days of work, multiplies research speed 10–100×). Now unblocked by the bonifica headroom.
-2. **Re-bank the bonifica base at 7/7** on a warm judge day (c4@4970 coin must land) — turns the
-   headroom into the official live base. Free (best-counts).
-3. R-δ (differentiable co-opt during reduction) — `docs/ROADS.md` §3, low odds.
-4. Free, parallel: re-roll c4/c6 box-cut coins on "cold" judge days.
+- ~~Road 3.C.1 de-bias the proxy~~ **SIMPLE FORM FALSIFIED r55 (R-θ)** — white-noise-along-normal
+  doesn't reproduce the judge's transfer failures (R1 stays +0.0029 at c3's operating point; 2/2
+  mechanisms fail to flip). Box-cut nondeterminism also denies clean c3 calibration targets. Only
+  low-odds iter-3 (structured/unrecoverable noise at c5-scale) remains. `docs/ROADS.md` §3.
+1. **Send the SSIM-window judge question** — `docs/JUDGE-QUESTION.md`, ready to post. HUMAN action;
+   free; could reopen the case-3 structure front (ARCHITECT-REVIEW §6/§7.7).
+2. **Re-bank the bonifica base at 7/7** on a warm judge day (c4@4970 coin must land). Free.
+3. Frontier is now genuinely-new / out-of-family (ROADS §3 R-η) — no cheap in-family lever left;
+   all are DEAD (§2, incl. Hoppe r55). The architecture file's actionable plan (§7 items 1–6) is
+   COMPLETE; item 7 is the human judge-question above.
 
 ---
 
