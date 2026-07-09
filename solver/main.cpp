@@ -32,7 +32,6 @@
 // Build: g++ -O2 -std=c++17 solver/main.cpp -o solver/main   (Eigen alongside)
 
 #include "Eigen/Dense"
-#include "Eigen/Sparse"
 #include <vector>
 #include <array>
 #include <queue>
@@ -167,14 +166,6 @@ static double g_margin   = std::numeric_limits<double>::infinity();
 static std::priority_queue<HeapEntry, std::vector<HeapEntry>,
                            std::greater<HeapEntry>> heap;
 
-// ===== C probe (session 3): VSA-constrained contraction =====
-// Lloyd/VSA partition on the ORIGINAL mesh (g_flabel), then HARD-constrain collapses to stay
-// intra-region until each region contracts toward a point; finish unconstrained. Unlike B2's
-// soft penalty (which only distorted the greedy order), this REPLACES the nested-greedy
-// partition with the Lloyd optimum while keeping every collapse manifold-safe.
-static int              g_vsac = 0;
-static std::vector<int> g_vlab;       // per-vertex dominant region label (-1 = none)
-
 // --- Pivot A (metric-in-the-loop) state: render the current mesh's 6 normal maps, measure
 // the SSIM CONTRAST DEFICIT (1-c) per window vs the original, steer collapse cost by it.
 static int                 g_res    = 160;   // render resolution for the in-loop normal maps
@@ -184,11 +175,7 @@ static double              g_qweight = 0.0;  // blend weight on the position qua
 static double qweight_for(int) { return 0.0; }  // qweight 0.05@c3-70 WA'd #19885312 -> off
 static int                 g_nplace = 0;     // test: pick collapse target minimizing normal distortion
 static int                 g_aniso = 0;      // B: curvature-aligned placement candidates (env G_ANISO)
-static int                 g_tcand = 0;      // constructive off-surface tilt candidates (env G_TCAND)
-static int tcand_for(int) { return 0; }  // JUDGED: c3 70.0625+tcand WA (R-d)
 static int aniso_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }  // c4 JUDGE-PROVEN (+0.20 compression); c6/c7 WA'd (organic)
-static int                 g_nplace2 = 0;    // edge-blend placement candidates (judge probe: case6)
-static int nplace2_for(int) { return 0; }  // JUDGED #19885133: c6 97.71875 WA with nplace2 -> no wall move; off
 static double              g_2stage = 0.0;   // >1: bulk QEM-collapse to (this x target) first, then VSA (case7 speed)
 static double twostage_for(int V) { return (V > 400000) ? 5.0 : 0.0; }  // case7 only (x5 beat x3 and full-VSA locally)
 static int                 g_nmetric = 0;    // test: 0=area*(1-cos) 1=(1-cos) 2=area*(1-cos)^2
@@ -196,9 +183,6 @@ static std::vector<float>  g_sigx[6];        // original mesh per-pixel contrast
 static std::vector<double> imp;              // per-vertex importance (normalized contrast deficit)
 static std::vector<float>  g_sigxc[6][3];    // per-channel (nx,ny,nz) original contrast, 6 views
 static int                 g_perchan = 0;    // 1 = steer by per-channel normal deficit (sharper than grayscale)
-static int                 g_mask = 0;       // divisive-normalization masking prior (env G_MASK; 2=sqrt-tempered)
-static int mask_for(int) { return 0; }  // JUDGED DEAD x3: c3/c5/c4 rungs all WA with mask (R-a/b/c)
-static int                 g_maskres = 0;    // res of the sigma maps sampled by mask_factor
 static int                 g_perchan_force = -1; // env override (-1 = use per_chan_for)
 
 // smallest sphere enclosing both (c1,r1) and (c2,r2).
@@ -227,56 +211,6 @@ bool       SafeToCollapse(int i, int j, const Vec3& xbar);
 void       Collapse(int i, int j, const Vec3& xbar);
 bool       EdgeExists(int i, int j);
 const std::vector<int>& Neighbors(int i);
-
-// ===== B2: Lloyd-converged VSA partition as a collapse-protection signal =====
-// Full VSA (Cohen-Steiner 2004) flooding + proxy update, but the converged partition is used
-// ONLY to penalize collapses that straddle region boundaries — no retriangulation, so the
-// manifold-safe collapse machinery is untouched. Targets the SSIM *structure* term: a globally
-// coordinated piecewise-flat partition explains more normal-field variance per surviving facet
-// than the greedy per-collapse ordering alone (see ATTEMPT_LOG 2026-07-02 l/c/s decomposition).
-static std::vector<int> g_flabel;      // per-face region label from the ORIGINAL mesh (-1 = none)
-static double g_lloydP = 4.0;          // boundary-crossing cost multiplier strength
-static int    g_lloydM = 0;            // penalty mode: 0 = label-mix fraction, 1 = dominant-label crossing only
-static void lloyd_partition(int k, int iters) {
-    const int nf = (int)faces.size();
-    if (k < 1 || nf == 0 || iters < 1) return;
-    if (k > nf) k = nf;
-    std::vector<Vec3> fn(nf); std::vector<double> fa(nf);
-    for (int f = 0; f < nf; ++f) { const int* t = faces[f].data();
-        Vec3 c = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]); double l = c.norm();
-        fa[f] = 0.5*l; fn[f] = (l > 0.0) ? Vec3(c/l) : Vec3(0,0,1); }
-    std::unordered_map<long long,int> emap; emap.reserve((size_t)nf*2);
-    std::vector<std::array<int,3>> adj(nf, {-1,-1,-1});
-    const long long NV = (long long)pos.size();
-    for (int f = 0; f < nf; ++f) { const int* t = faces[f].data();
-        for (int e = 0; e < 3; ++e) { int a = t[e], b = t[(e+1)%3]; if (a > b) std::swap(a,b);
-            auto ins = emap.emplace((long long)a*NV+b, f);
-            if (!ins.second) { const int g = ins.first->second;
-                for (int s = 0; s < 3; ++s) if (adj[f][s] < 0) { adj[f][s] = g; break; }
-                for (int s = 0; s < 3; ++s) if (adj[g][s] < 0) { adj[g][s] = f; break; } } } }
-    std::vector<int>  seed(k);
-    std::vector<Vec3> proxy(k);
-    for (int r = 0; r < k; ++r) { seed[r] = (int)((long long)r*nf/k); proxy[r] = fn[seed[r]]; }
-    g_flabel.assign(nf, -1);
-    struct QE { double c; int f, r; bool operator>(const QE& o) const { return c > o.c; } };
-    for (int it = 0; it < iters; ++it) {
-        std::priority_queue<QE, std::vector<QE>, std::greater<QE>> pq;
-        std::fill(g_flabel.begin(), g_flabel.end(), -1);
-        for (int r = 0; r < k; ++r) { g_flabel[seed[r]] = r;
-            for (int s = 0; s < 3; ++s) { const int g = adj[seed[r]][s];
-                if (g >= 0) pq.push({ fa[g]*(1.0-fn[g].dot(proxy[r])), g, r }); } }
-        while (!pq.empty()) { const QE e = pq.top(); pq.pop();
-            if (g_flabel[e.f] >= 0) continue; g_flabel[e.f] = e.r;
-            for (int s = 0; s < 3; ++s) { const int g = adj[e.f][s];
-                if (g >= 0 && g_flabel[g] < 0) pq.push({ fa[g]*(1.0-fn[g].dot(proxy[e.r])), g, e.r }); } }
-        std::vector<Vec3> acc(k, Vec3::Zero());
-        for (int f = 0; f < nf; ++f) { const int r = g_flabel[f]; if (r >= 0) acc[r] += fa[f]*fn[f]; }
-        for (int r = 0; r < k; ++r) { const double l = acc[r].norm(); if (l > 0.0) proxy[r] = acc[r]/l; }
-        std::vector<double> best(k, 1e300);
-        for (int f = 0; f < nf; ++f) { const int r = g_flabel[f]; if (r < 0) continue;
-            const double c = fa[f]*(1.0-fn[f].dot(proxy[r])); if (c < best[r]) { best[r] = c; seed[r] = f; } }
-    }
-}
 
 // ===================== Pivot A: metric-in-the-loop rasterizer =====================
 // Flat-shaded normal-map rasterizer matching the judge oracle (6 axial cams, D=2.5, focal 800
@@ -737,7 +671,6 @@ static int vertex_remove_pass(int want) {
 // solve (I + lambda*L) g_smooth = g_raw with L the combinatorial graph Laplacian of the
 // decimated mesh, factored once. Diffuses sparse render gradients across the surface so
 // ascent takes large coherent steps instead of stalling on per-vertex noise.
-static double g_lapl = 0.0;   // lambda; 0 = raw gradient (current behaviour)
 // re-render the ORIGINAL maps at a new res AFTER decimation: swap in the pristine copy.
 static void render_orig_hires(int res) {
     std::swap(pos, o_pos); std::swap(faces, o_faces);
@@ -776,108 +709,10 @@ static void refine_positions() {
     g_res = g_refine_res;
     Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} double diag=(hi-lo).norm();
     const std::vector<Vec3> base=pos; double cap=0.02*diag; double step=0.02*diag;
-    if (const char* e = getenv("G_CAPA")) cap = atof(e)*diag;   // arm-A test: widen the FULL-gradient cap
-    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> ldlt;
-    std::vector<int> idx(pos.size(), -1), rev;
-    bool use_lapl = g_lapl > 0.0;
-    if (use_lapl) {
-        for (size_t v=0; v<pos.size(); ++v) if (alive[v]) { idx[v]=(int)rev.size(); rev.push_back((int)v); }
-        const int n = (int)rev.size();
-        std::unordered_set<long long> eset; eset.reserve((size_t)n*4);
-        std::vector<Eigen::Triplet<double>> trip; trip.reserve((size_t)n*8);
-        std::vector<double> deg(n, 0.0);
-        for (int f=0; f<(int)faces.size(); ++f) { if(!face_alive[f]) continue; const int* t=faces[f].data();
-            for (int e=0;e<3;++e){ int a=idx[t[e]], b=idx[t[(e+1)%3]]; if(a<0||b<0) continue; if(a>b) std::swap(a,b);
-                if(!eset.insert((long long)a*n+b).second) continue;
-                trip.push_back({a,b,-g_lapl}); trip.push_back({b,a,-g_lapl}); deg[a]+=1.0; deg[b]+=1.0; } }
-        for (int i=0;i<n;++i) trip.push_back({i,i,1.0+g_lapl*deg[i]});
-        Eigen::SparseMatrix<double> M(n,n); M.setFromTriplets(trip.begin(), trip.end());
-        ldlt.compute(M);
-        if (ldlt.info()!=Eigen::Success) use_lapl=false;
-    }
+    // (bonifica r55: judged-dead env gates removed — G_LAPL/Eigen-Sparse Sobolev preconditioner
+    // (~109 MB cc1plus), G_CAPA, G_ADAM, G_SHARP, G_HOP, G_TCAND, G_NPLACE2, G_MASK, G_LLOYD,
+    // G_VSAC. History: docs/postmortems/compile-headroom.md + docs/ROADS.md §2.)
     double cur=refine_score_grad(nullptr);
-    // ===== Adam + basin-hop ascent (session 3, env G_ADAM) =====
-    // The stock loop is normalized-gradient with step halving: "converged" = ITS plateau.
-    // Same analytic gradient, per-component adaptive moments + patience + deterministic
-    // normal-jitter restarts from the best snapshot -> deeper optima at identical CPU.
-    // Fused: refine_score_grad(&g) returns the score of the CURRENT state AND its gradient,
-    // so each iteration costs ONE pass instead of grad+accept-score.
-    if (getenv("G_ADAM")) {
-        double alpha = 0.02*diag;   if (const char* e = getenv("G_ALPHA")) alpha = atof(e)*diag;
-        int patience = 25;          if (const char* e = getenv("G_PAT"))   patience = atoi(e);
-        const double amin = 1e-6*diag, amax = 0.05*diag;
-        std::vector<Vec3> m(pos.size(), Vec3::Zero());
-        std::vector<Vec3> best = pos; double bestS = cur; double prev = cur;
-        std::minstd_rand rng(12345);
-        int since = 0;
-        for (int it = 0; it < 1000000; ++it) {
-            if (r_elapsed() > g_refine_budget) break;
-            std::vector<Vec3> g; const double sc = refine_score_grad(&g);
-            if (sc > bestS && refine_valid()) { bestS = sc; best = pos; since = 0; }
-            else ++since;
-            if (getenv("G_RDBG") && it % 10 == 0)
-                std::fprintf(stderr, "[ad %d] sc=%.6f best=%.6f a=%.5f valid=%d\n", it, sc, bestS, alpha, (int)refine_valid());
-            if (sc >= prev) alpha = std::min(amax, alpha*1.1); else alpha = std::max(amin, alpha*0.6);
-            prev = sc;
-            if (since >= patience) {
-                pos = best;                                   // basin hop: jitter the best along vertex normals
-                std::vector<Vec3> vn(pos.size(), Vec3::Zero());
-                for (int f = 0; f < (int)faces.size(); ++f) { if (!face_alive[f]) continue;
-                    const int* t = faces[f].data();
-                    Vec3 c = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
-                    vn[t[0]] += c; vn[t[1]] += c; vn[t[2]] += c; }
-                std::uniform_real_distribution<double> U(-1.0, 1.0);
-                const double eta = 2.0*alpha;
-                for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
-                    double l = vn[v].norm(); if (l < 1e-30) continue;
-                    Vec3 np = pos[v] + (eta*U(rng))*(vn[v]/l);
-                    Vec3 off = np - base[v]; double ol = off.norm(); if (ol > cap) np = base[v] + off*(cap/ol);
-                    pos[v] = np; }
-                for (auto& q : m) q.setZero();
-                alpha = 0.01*diag; prev = -1.0; since = 0; continue;
-            }
-            double mmax = 0.0;
-            for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
-                m[v] = 0.85*m[v] + 0.15*g[v]; double l = m[v].norm(); if (l > mmax) mmax = l; }
-            if (mmax < 1e-30) break;
-            const double sc2 = alpha/mmax;
-            for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
-                Vec3 np = pos[v] + sc2*m[v];
-                Vec3 off = np - base[v]; double ol = off.norm(); if (ol > cap) np = base[v] + off*(cap/ol);
-                pos[v] = np; }
-        }
-        pos = best;
-        if (getenv("G_RDBG")) std::fprintf(stderr, "[adam] best %.6f (start %.6f) %.1fs\n", bestS, cur, r_elapsed());
-        return;
-    }
-    if (getenv("G_SHARP")) {
-        // unsharp mask: decimation smooths the normal field and the SSIM contrast term
-        // punishes the lost variance; v' = v + alpha*(v - neighbor_mean(v)) restores
-        // dispersion. Sweep alpha under the REAL rendered SSIM, keep the best (monotonic).
-        std::vector<Vec3> sm(pos.size(), Vec3::Zero());
-        for (size_t v=0; v<pos.size(); ++v) {
-            if (!alive[v]) continue;
-            Vec3 s = Vec3::Zero(); int n = 0;
-            ++genA;
-            for (int f : vfaces[v]) { const int* t = faces[f].data();
-                for (int k=0;k<3;++k){ int w=t[k]; if(w!=(int)v && markA[w]!=genA){ markA[w]=genA; s+=pos[w]; ++n; } } }
-            sm[v] = n ? Vec3(s/n) : pos[v];
-        }
-        const std::vector<Vec3> b0 = pos; double bestA = 0.0;
-        for (double alpha : {0.1, 0.2, 0.35, 0.5, -0.1}) {
-            if (r_elapsed() > g_refine_budget) break;
-            for (size_t v=0; v<pos.size(); ++v) { if (!alive[v]) continue;
-                Vec3 np = b0[v] + alpha*(b0[v]-sm[v]);
-                Vec3 off = np - base[v]; double ol = off.norm(); if (ol > cap) np = base[v] + off*(cap/ol);
-                pos[v] = np; }
-            double s = refine_score_grad(nullptr);
-            if (s > cur && refine_valid()) { cur = s; bestA = alpha; }
-        }
-        for (size_t v=0; v<pos.size(); ++v) { if (!alive[v]) continue;
-            Vec3 np = b0[v] + bestA*(b0[v]-sm[v]);
-            Vec3 off = np - base[v]; double ol = off.norm(); if (ol > cap) np = base[v] + off*(cap/ol);
-            pos[v] = np; }
-    }
     auto stock_pass = [&](double step0){
         double stp = step0;
         // R3a fused accept: the gradient is evaluated AT THE TRIAL POINT together with its score.
@@ -891,12 +726,6 @@ static void refine_positions() {
         for(int it=0; it<1000; ++it){
             if(r_elapsed() > g_refine_budget) break;                 // HARD CPU time-box -> never TLE
             if (fresh) {
-                if (use_lapl) {
-                    Eigen::MatrixXd G((int)rev.size(), 3);
-                    for (size_t r=0;r<rev.size();++r) G.row((int)r) = g[rev[r]].transpose();
-                    Eigen::MatrixXd X = ldlt.solve(G);
-                    for (size_t r=0;r<rev.size();++r) g[rev[r]] = X.row((int)r).transpose();
-                }
                 if (g_tiltmode) {   // project the gradient onto current vertex normals: depth/silhouette-blind moves only
                     std::vector<Vec3> vn(pos.size(), Vec3::Zero());
                     for (int f = 0; f < (int)faces.size(); ++f) { if (!face_alive[f]) continue;
@@ -936,34 +765,6 @@ static void refine_positions() {
         const double save_budget = g_refine_budget; g_refine_budget = std::min(g_refine_budget, t1);
         stock_pass(step);
         g_refine_budget = save_budget;
-    }
-    if (getenv("G_HOP")) {
-        // basin-hop restarts: tiny deterministic normal-jitter from the best snapshot, re-converge,
-        // keep-if-better. Uses whatever budget the first convergence left over.
-        double eta = 2e-4*diag; if (const char* e = getenv("G_ETA")) eta = atof(e)*diag;
-        std::vector<Vec3> best = pos; double bestS = cur;
-        std::minstd_rand rng(12345);
-        int hops = 0, wins = 0;
-        while (r_elapsed() < g_refine_budget - 0.5) {
-            ++hops;
-            std::vector<Vec3> vn(pos.size(), Vec3::Zero());
-            for (int f = 0; f < (int)faces.size(); ++f) { if (!face_alive[f]) continue;
-                const int* t = faces[f].data();
-                Vec3 c = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
-                vn[t[0]] += c; vn[t[1]] += c; vn[t[2]] += c; }
-            std::uniform_real_distribution<double> U(-1.0, 1.0);
-            for (size_t v = 0; v < pos.size(); ++v) { if (!alive[v]) continue;
-                double l = vn[v].norm(); if (l < 1e-30) continue;
-                Vec3 np = pos[v] + (eta*U(rng))*(vn[v]/l);
-                Vec3 off = np - base[v]; double ol = off.norm(); if (ol > cap) np = base[v] + off*(cap/ol);
-                pos[v] = np; }
-            cur = refine_score_grad(nullptr);        // re-baseline after jitter (jitter lowers score)
-            stock_pass(4.0*eta);
-            if (cur > bestS && refine_valid()) { bestS = cur; best = pos; ++wins; }
-            else pos = best;
-        }
-        pos = best; cur = bestS;
-        if (getenv("G_RDBG")) std::fprintf(stderr, "[hop] %d hops %d wins best=%.6f %.1fs\n", hops, wins, bestS, r_elapsed());
     }
     if (g_hybrid && !o_pos.empty() && g_refine_res < 1024 && r_elapsed() < g_refine_budget - 5.0) {
         // phase B: judge-exact 1024 polish from the 512-converged state (ST form of session-3 hybrid;
@@ -1017,7 +818,7 @@ static void lum_map(const std::vector<int>& fid, std::vector<float>& out) {
     for(size_t k=0;k<(size_t)W*W;++k){ int f=fid[k]; if(f>=0) out[k]=(float)face_lum(f); }
 }
 static int g_vstride = 1;   // render every k-th view for steering (c7 CPU: 6 orig renders too dear)
-static void pivotA_init_original() { g_maskres = g_res; for (int v = 0; v < 6; v += g_vstride) { std::vector<int> fid; render_faceid(v, fid); contrast_map(fid, g_sigx[v]);
+static void pivotA_init_original() { for (int v = 0; v < 6; v += g_vstride) { std::vector<int> fid; render_faceid(v, fid); contrast_map(fid, g_sigx[v]);
     if (g_sdef) { lum_map(fid, g_lumx[v]); if (g_perchan) for (int c=0;c<3;++c) chan_map(fid,c,g_valx[v][c]); }
     if (g_perchan) for (int c=0;c<3;++c){ std::vector<float> cv; chan_map(fid,c,cv); contrast_vals(cv,g_sigxc[v][c]); } } }
 // render the current mesh, accumulate per-vertex SSIM contrast deficit (1 - c), normalize to [0,1].
@@ -1153,28 +954,6 @@ static inline double proj_factor(const Vec3& n, const Vec3& cen) {
     }
     return w;
 }
-// SSIM divisive-normalization masking prior (Wang, TIP: SSIM-optimal distortion = error / (2sigma^2+C2)).
-// Weight each new face's normal distortion by the ORIGINAL render's local inverse-variance at its
-// projection: smooth regions pay more per unit error, rough regions mask it. Static prior, sampled
-// from g_sigx (filled by pivotA_init_original at res g_maskres on lambda-enabled cases).
-static inline double mask_factor(const Vec3& cen, const Vec3& n) {
-    if (!g_maskres) return 1.0;
-    const int W = g_maskres; const double F = 800.0*(W/1024.0), Cc = W/2.0;
-    double w = 0.0; int cnt = 0;
-    for (int v = 0; v < 6; ++v) {
-        Vec3 eye, right, up, fwd; view_basis(v, eye, right, up, fwd);
-        Vec3 r = cen - eye; const double cvis = n.dot(eye.normalized());
-        if (cvis <= 0.0) continue;
-        const double d = r.dot(fwd); if (d <= 0.1) continue;
-        int px = (int)(F*r.dot(right)/d + Cc), py = (int)(F*r.dot(up)/d + Cc);
-        if (px < 0 || py < 0 || px >= W || py >= W) continue;
-        const double sg = g_sigx[v][(size_t)py*W + px];
-        w += 1.0/(2.0*sg*sg + 0.0009); ++cnt;      // C2 at [0,1] luminance scale
-    }
-    if (!cnt) return 1.0;
-    const double m = w/(cnt*1111.11);              // full-strength ratio (flat ~1, rough ~1/13)
-    return (g_mask == 2) ? std::sqrt(m) : m;       // mask=2: tempered (sqrt) prior
-}
 static double incident_ndist(int i, int j, const Vec3& xbar) {
     double nd = 0.0;
     auto acc = [&](int moved, int other){
@@ -1189,7 +968,6 @@ static double incident_ndist(int i, int j, const Vec3& xbar) {
             if (lo<=0.0||ln<=0.0) continue;
             double aw = 0.5*ln;   // world area of the new face
             if (g_projw) aw *= proj_factor(cn/ln, (Pn[0]+Pn[1]+Pn[2])/3.0);
-            if (g_mask)  aw *= mask_factor((Pn[0]+Pn[1]+Pn[2])/3.0, cn/ln);
             double cs = (co/lo).dot(cn/ln), oneminus = 1.0-cs;
             if (g_nmetric==1) nd += oneminus;
             else if (g_nmetric==2) nd += aw*oneminus*oneminus;
@@ -1251,7 +1029,6 @@ EvalResult Evaluate(int i, int j) {
     if (g_ndecim && g_nplace) {   // test: place at the target minimizing normal distortion
         Vec3 cand2[12] = { xbar, pos[i], pos[j], 0.5*(pos[i]+pos[j]) };
         int nc = 4;
-        if (g_nplace2) { cand2[nc++] = 0.25*pos[i]+0.75*pos[j]; cand2[nc++] = 0.75*pos[i]+0.25*pos[j]; }
         if (g_aniso) {
             // B (session 3, curvature-tensor aniso): line-search placement along the merged
             // star's FLAT tangent direction (min normal variation). Aniso regions want vertices
@@ -1277,17 +1054,6 @@ EvalResult Evaluate(int i, int j) {
                 }
             }
         }
-        if (g_tcand) {   // constructive tilt: off-surface candidates along the ORIGINAL cluster
-            // normal (nref). Buys normal-channel accuracy in the depth-blind direction (measured
-            // sensitivity asymmetry ~6.8e3:1) at DECIMATION time, where the choice is
-            // combinatorial -- the refine-time version is provably stuck at the local optimum.
-            Vec3 nr = nref[i] + nref[j]; double nl = nr.norm();
-            if (nl > 1e-30) { nr /= nl;
-                const double sc = (pos[i]-pos[j]).norm();
-                cand2[nc++] = xbar + 0.15*sc*nr; cand2[nc++] = xbar - 0.15*sc*nr;
-                cand2[nc++] = xbar + 0.35*sc*nr; cand2[nc++] = xbar - 0.35*sc*nr;
-            }
-        }
         double bnd=1e300; Vec3 bx=xbar;
         for (int cc = 0; cc < nc; ++cc) { double nd=incident_ndist(i,j,cand2[cc]); if (nd<bnd){bnd=nd; bx=cand2[cc];} }
         xbar = bx;
@@ -1296,37 +1062,6 @@ EvalResult Evaluate(int i, int j) {
     if (g_ndecim) cost = incident_ndist(i,j,xbar) + g_qweight*cost;   // VSA-lite normal-error ordering
     if (g_lambda > 0.0 && !imp.empty())                  // Pivot-A: protect contrast-deficit regions
         cost *= (1.0 + g_lambda * (imp[i] + imp[j]));
-    if (!g_flabel.empty() && g_lloydP > 0.0) {           // B2: penalize collapses straddling Lloyd regions
-        if (g_lloydM == 1) {
-            // mode 1: penalize only when i and j's DOMINANT region labels differ (a true
-            // cross-boundary collapse); sliding along a boundary stays free.
-            int dom[2];
-            for (int vtx = 0; vtx < 2; ++vtx) {
-                int lab[64], cnt[64], nl = 0, bi = -1, bc = 0;
-                for (int f : vfaces[vtx == 0 ? i : j]) {
-                    if (!face_alive[f]) continue; const int L = g_flabel[f]; if (L < 0) continue;
-                    bool found = false;
-                    for (int s = 0; s < nl; ++s) if (lab[s] == L) { if (++cnt[s] > bc) { bc = cnt[s]; bi = L; } found = true; break; }
-                    if (!found && nl < 64) { lab[nl] = L; cnt[nl] = 1; if (bc < 1) { bc = 1; bi = L; } ++nl; }
-                }
-                dom[vtx] = bi;
-            }
-            if (dom[0] >= 0 && dom[1] >= 0 && dom[0] != dom[1]) cost *= (1.0 + g_lloydP);
-        } else {
-            // mode 0: penalty grows with the label mix of the merged star
-            int lab[64], cnt[64], nl = 0, tot = 0;
-            for (int vtx = 0; vtx < 2; ++vtx) {
-                for (int f : vfaces[vtx == 0 ? i : j]) {
-                    if (!face_alive[f]) continue; const int L = g_flabel[f]; if (L < 0) continue;
-                    ++tot; bool found = false;
-                    for (int s = 0; s < nl; ++s) if (lab[s] == L) { ++cnt[s]; found = true; break; }
-                    if (!found && nl < 64) { lab[nl] = L; cnt[nl] = 1; ++nl; }
-                }
-            }
-            if (tot > 0) { int mx = 0; for (int s = 0; s < nl; ++s) if (cnt[s] > mx) mx = cnt[s];
-                cost *= (1.0 + g_lloydP * (1.0 - (double)mx/tot)); }
-        }
-    }
     if (!g_hidvert.empty() && g_hidvert[i] && g_hidvert[j]) cost *= 1e-4;  // both hidden -> collapse first (free, no SSIM impact)
     return EvalResult{ cost, xbar };
 }
@@ -1451,7 +1186,6 @@ void Decimate(int target_count) {
         if (!alive[i] || !alive[j])           continue;
         if (e.vi != ver[i] || e.vj != ver[j]) continue;
         if (!EdgeExists(i, j))                continue;
-        if (g_vsac && (g_vlab[i] < 0 || g_vlab[i] != g_vlab[j])) continue;   // C probe: intra-region only
 
         const EvalResult r = Evaluate(i, j);
         const Vec3 xb = r.target;
@@ -1574,16 +1308,6 @@ int main(int argc, char** argv) {
     if (argc > 3) { floor_frac = std::atof(argv[3]); keep = std::atof(argv[3]); }
     if (argc > 4) g_refine_res = std::atoi(argv[4]);   // local test only: override optimizer render res
 
-    if (const char* e = getenv("G_LLOYD")) {   // B2 test gate (judge sets no env)
-        const int iters = atoi(e);
-        if (iters > 0 && (int)pos.size() >= kSmallMeshSkip) {
-            double kf = 1.0; if (const char* e2 = getenv("G_LLOYDK")) kf = atof(e2);
-            if (const char* e3 = getenv("G_LLOYDP")) g_lloydP = atof(e3);
-            if (const char* e4 = getenv("G_LLOYDM")) g_lloydM = atoi(e4);
-            lloyd_partition((int)(kf * keep * pos.size()), iters);
-        }
-    }
-
     Initialize();
 
     g_refine = refine_for((int)pos.size());
@@ -1624,10 +1348,6 @@ int main(int argc, char** argv) {
         if (const char* e = getenv("G_NPLACE")) g_nplace = atoi(e);
         g_aniso = aniso_for((int)pos.size());
         if (const char* e = getenv("G_ANISO")) g_aniso = atoi(e);
-        g_tcand = tcand_for((int)pos.size());
-        if (const char* e = getenv("G_TCAND")) g_tcand = atoi(e);
-        g_nplace2 = nplace2_for((int)pos.size());
-        if (const char* e = getenv("G_NPLACE2")) g_nplace2 = atoi(e);
         g_sdef = sdef_for((int)pos.size());
         if (const char* e = getenv("G_SDEF")) g_sdef = atoi(e);
         g_sdefr = sdefr_for((int)pos.size());
@@ -1640,13 +1360,10 @@ int main(int argc, char** argv) {
         if (const char* e = getenv("G_NMETRIC")) g_nmetric = atoi(e);
         if (const char* e = getenv("G_NOLAMBDA")) g_lambda = 0.0;            // ablate Pivot-A for a clean VSA test
         if (const char* e = getenv("G_LAMBDA")) g_lambda = atof(e);          // test override: force Pivot-A strength
-        g_mask = mask_for((int)pos.size());
-        if (const char* e = getenv("G_MASK")) g_mask = atoi(e);              // divisive-normalization masking prior
         if (const char* e = getenv("G_PERCHAN")) g_perchan_force = atoi(e);  // test override: per-channel steering
         g_2stage = twostage_for((int)pos.size());
         if (const char* e = getenv("G_2STAGE")) g_2stage = atof(e);          // 2-stage decimation factor
         if (const char* e = getenv("G_PROJW")) g_projw = atoi(e);            // projected-area VSA weighting
-        if (const char* e = getenv("G_LAPL")) g_lapl = atof(e);              // Laplacian-preconditioned optimizer
     }
 
     {   // view-aware: free the hidden (never-rendered) geometry so the budget goes to visible faces
@@ -1656,28 +1373,6 @@ int main(int argc, char** argv) {
         if (vis) { compute_visibility(); if (g_lambda <= 0.0) seed_heap(); }
     }
 
-    if (const char* e = getenv("G_VSAC")) {   // C probe: VSA-constrained contraction (local test)
-        const int iters = atoi(e);
-        if (iters > 0) {
-            double kf = 1.0; if (const char* e2 = getenv("G_VSACK")) kf = atof(e2);
-            lloyd_partition((int)(kf * target_count), iters);
-            g_vlab.assign(pos.size(), -1);
-            for (int v = 0; v < (int)pos.size(); ++v) {
-                int lab[64], cnt[64], nl = 0, bi = -1, bc = 0;
-                for (int f : vfaces[v]) { const int L = g_flabel[f]; if (L < 0) continue;
-                    bool fo = false;
-                    for (int t2 = 0; t2 < nl; ++t2) if (lab[t2] == L) { if (++cnt[t2] > bc) { bc = cnt[t2]; bi = L; } fo = true; break; }
-                    if (!fo && nl < 64) { lab[nl] = L; cnt[nl] = 1; if (bc < 1) { bc = 1; bi = L; } ++nl; } }
-                g_vlab[v] = bi;
-            }
-            g_flabel.clear();              // disable B2's soft-penalty path; we use the labels HARD
-            g_vsac = 1;
-            Decimate(target_count);        // contracts regions (stalls when only cross-region edges remain)
-            g_vsac = 0;
-            std::fprintf(stderr, "[vsac] after constrained: V=%d (target %d)\n", alive_count, target_count);
-            seed_heap();                   // finish unconstrained with the normal VSA-lite ordering
-        }
-    }
     if (g_ndecim && g_2stage > 1.0) {
         const bool sdef7 = (g_lambda > 0.0);   // R6: one-pass s-def steering on the 2-stage remnant (c7)
         if (sdef7) { g_res = 320; g_perchan = 0; g_vstride = 2; pivotA_init_original(); }  // 160 blind >30k faces (12k fg px)
