@@ -163,7 +163,15 @@ the judge's actual STANDARD models at its vertex counts, not decimations-of-clea
 Net access confirmed (graphics.stanford.edu 200). Effort: hours (download+reprocess). Highest-value
 concrete task (handoff Part E.3). Identify ab_orig too — it may already be a usable rougher proxy.
 
-### R-κ — DETERMINISTIC REFINE (kill the box-cut coin) — `ACTIVE` iter 2 · c4 SHIPPED + Accepted
+### R-κ — DETERMINISTIC REFINE (kill the box-cut coin) — `ACTIVE` iter 3 · c4 + c3 SHIPPED + Accepted
+**c3 DETERMINISM SHIPPED 2026-07-10 (sub 19934300, ACCEPTED 90.285538 7/7, SUM6 bit-identical).**
+c3 refine = 3 loops: phase-A(512)=27 converges (uncapped), phase-B(1024)=18 = coin → `g_phaseb_maxit`
+cap 16, RC3 mini_refine=2 → `g_mini_maxit` cap 2 (both c3-band default, env G_PHASEB/G_MINI). c3 mesh
+UNCHANGED (16 vs 18 = trailing rejects) → deterministic at zero cost. **This is the PORTFOLIO UNLOCK:
+c3 A/Bs are now clean (variant−control = the lever, not the coin).** ⚠ c7 21.0s (margin 0.0) = TLE
+live — c7 is unaffected by this diff (deterministic/no-refine); needs a throughput/decimation-speed
+pass, not a refine cap. Next: run σxy/nmetric=3 + Hoppe-retest as clean c3 reads on this base.
+Below = earlier iters:
 **SHIPPED 2026-07-10 (sub 19934022, ACCEPTED 90.285538 7/7).** `maxit_for(V)` caps c4-band
 stock_pass at 36 iters (default; env `G_MAXIT` overrides). c4 = the box-cut coin, JUDGE-ONLY (dev
 converges at 38 iters/7.7s; judge ~1.4× slower → wall-box cuts ~37 jittered). Cap 36 (near-converged,

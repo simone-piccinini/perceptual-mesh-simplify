@@ -36,7 +36,12 @@ measured-hard wall. Attack case-3.
 ## LIVE code
 
 ```
-solver/main.cpp   (BANK track — decimation)   sha256 32b9f515d2ce  = det-refine c4 (98.5 KiB)
+solver/main.cpp   (BANK track — decimation)   sha256 b940d1aadf0c  = det-refine c4 + C3 DETERMINISM (98 KiB)
+                  c3 1024 phase-B capped at 16 iters + RC3 mini_refine at 2 (c3 band only) →
+                  c3 deterministic BY CONSTRUCTION. ACCEPTED 7/7 [JUDGE 19934300]: 90.285538, SUM6
+                  541.713228 BIT-IDENTICAL to bank (zero score cost). Enables CLEAN c3 A/Bs (the
+                  portfolio unlock). Prior base:
+solver/main.cpp   (superseded)                 sha256 32b9f515d2ce  = det-refine c4 only (98.5 KiB)
                   = bonifica base + C3 DETERMINISTIC REFINE on c4 (stock_pass capped at 36 iters).
                   ACCEPTED 7/7 [JUDGE 19934022, 2026-07-10]: 90.285538, c4 V'=4970 (banked rung),
                   CASETIME c4 16.2s. c4 refine now deterministic by construction (cap, not the

@@ -4,6 +4,15 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-10 (newest first)
+- **C3 DETERMINISM shipped + ACCEPTED 7/7 (sub 19934300, 90.285538) — the portfolio unlock.**
+  Extended the c4 det-refine to c3 (3 loops): phase-A(512)=27 iters converges (uncapped); phase-B
+  (1024)=18 = the judge-only coin → capped at 16 (2 below conv, like c4's 36/38); RC3 mini_refine=2 →
+  capped at 2. New globals `g_phaseb_maxit`/`g_mini_maxit` (env `G_PHASEB`/`G_MINI`), default-on for
+  the c3 band only (7000<V≤30000 = c3's 23201). Judge: **Accepted, SUM6 541.713228 BIT-IDENTICAL to
+  bank** (c3 mesh unchanged — 16 vs 18 were trailing rejects) → c3 now deterministic BY CONSTRUCTION
+  at zero score cost. Safe new bank base; enables CLEAN c3 A/Bs (variant−control differ only by the
+  lever, not the coin). c5 byte-identical; c4 cap 36 intact. ⚠ c7 21.0s (margin 0.0) — TLE live. Repro
+  force-re-roll in flight. R-κ. Next: run the c3 portfolio (σxy/nmetric=3, Hoppe-retest) as clean reads.
 - **HOPPE placement JUDGE-TESTED at last (R-α) — no win; portfolio blocker exposed.** Recovered the
   Hoppe attribute-quadric placement code (af42bed, reverted fcbc353), re-applied onto det-refine base
   (--3way clean), env `G_HOPPE`, c3 band, c3 S-read @6940. Clean A/B pair:
