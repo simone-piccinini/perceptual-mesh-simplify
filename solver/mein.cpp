@@ -1,4 +1,4 @@
-// C3C5-HALFSTEP 2026-07-10: c3@6870 (half-step, slope 1.17e-5/v) + c5@4160 wide-flip. c2 branch OFF (27 WA'd final), c4@4930 bank. Q: 2 independent reads; both = +0.0105 over 90.361534.
+// C6-REMESH 2026-07-10: NEW RLIVE-C6 (flips at 512 on existing orig maps; TLE-guarded). c6 8684->8600 (+0.0046). c3@6880+c4@4930+c5@4170 bank. Q: c6@8600 with 512-flips passes?
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -582,36 +582,9 @@ static double remesh_flip_local(int rounds, int K, double tbox) {
     return cur;   // applied flips are 2-ring-independent + eval-exact -> net gain guaranteed
 }
 
-// closest point on the ORIGINAL surface (o_pos/o_faces pristine copy) — split placement that adds REAL
-// curvature: a midpoint split is coplanar (VACUOUS, 0 new normal, ROADS R-nu); projecting the midpoint
-// onto the original recovers the curvature the collapse flattened, and stays v2v-Hausdorff-safe.
-static Vec3 orig_project(const Vec3& p) {
-    double bd=1e300; Vec3 best=p;
-    for(size_t f=0; f<o_faces.size(); ++f){ const int* t=o_faces[f].data();
-        const Vec3 &a=o_pos[t[0]], &b=o_pos[t[1]], &c=o_pos[t[2]];
-        Vec3 ab=b-a, ac=c-a, ap=p-a;
-        double d1=ab.dot(ap), d2=ac.dot(ap);
-        Vec3 q;
-        if(d1<=0&&d2<=0) q=a;
-        else { Vec3 bp=p-b; double d3=ab.dot(bp), d4=ac.dot(bp);
-        if(d3>=0&&d4<=d3) q=b;
-        else { double vc=d1*d4-d3*d2;
-        if(vc<=0&&d1>=0&&d3<=0) q=a+(d1/(d1-d3))*ab;
-        else { Vec3 cp=p-c; double d5=ab.dot(cp), d6=ac.dot(cp);
-        if(d6>=0&&d5<=d6) q=c;
-        else { double vb=d5*d2-d1*d6;
-        if(vb<=0&&d2>=0&&d6<=0) q=a+(d2/(d2-d6))*ac;
-        else { double va=d3*d6-d5*d4;
-        if(va<=0&&(d4-d3)>=0&&(d5-d6)>=0) q=b+((d4-d3)/((d4-d3)+(d5-d6)))*(c-b);
-        else { double den=1.0/(va+vb+vc); q=a+ab*(vb*den)+ac*(vc*den); } } } } } }
-        double d=(p-q).squaredNorm(); if(d<bd){bd=d; best=q;}
-    }
-    return best;
-}
 // SPLIT operator: add a vertex at the midpoint of the top-K highest rendered-DEFICIT edges (grows N by <=K).
 // Adds DOF in the interior where structure is missing; the new midpoint verts are then MOVED by the refine
 // gradient (caller). 2-ring independence so the splits don't collide. Returns count split.
-static int g_split_proj = 0;   // 1 = place the new vertex on the ORIGINAL surface (real curvature, not coplanar)
 static int remesh_split(int K) {
     const int W=g_res;
     remesh_cache_render();
@@ -641,8 +614,7 @@ static int remesh_split(int K) {
         for(int k=0;k<3;++k){int x=t2[k]; if(x!=A&&x!=B) D=x;}
         if(A<0||D<0||C==D) continue;
         const int m=(int)pos.size();
-        Vec3 mp = 0.5*(pos[A]+pos[B]); if(g_split_proj && !o_faces.empty()) mp = orig_project(mp);
-        pos.push_back(mp); alive.push_back(1); nref.push_back(nref[A]+nref[B]); vfaces.push_back({});
+        pos.push_back(0.5*(pos[A]+pos[B])); alive.push_back(1); nref.push_back(nref[A]+nref[B]); vfaces.push_back({});
         const int nf1=(int)faces.size(); faces.push_back({m,B,C}); face_alive.push_back(1);   // f1=(A,B,C)->(A,m,C)+(m,B,C)
         const int nf2=(int)faces.size(); faces.push_back({m,A,D}); face_alive.push_back(1);   // f2=(B,A,D)->(B,m,D)+(m,A,D)
         faces[f1]={A,m,C}; faces[f2]={B,m,D};
@@ -653,44 +625,6 @@ static int remesh_split(int K) {
         ++done;
     }
     if(getenv("G_RDBG")) std::fprintf(stderr,"[split] %d/%d edges split -> N=%d\n",done,lim,(int)pos.size());
-    return done;
-}
-
-// SATURATION-guided COLLAPSE: remove DOF where the RENDERED normal error is LOWEST (saturated flats).
-// This is the reallocation fix: Decimate's QEM-cheapest edge is NOT the rendered-saturated one, so a
-// QEM collapse costs more SSIM than a deficit split recovers (measured net-negative). Ranking the
-// collapse by the same per-face ferr the split uses makes the swap coherent in ONE currency (rendered
-// error): take DOF from ferr-min edges, give it to ferr-max edges. QEM-optimal placement, validity-
-// guarded (SafeToCollapse), vertex-ring independence. Returns count collapsed (caller fixes alive_count).
-static int remesh_collapse_sat(int K) {
-    const int W=g_res;
-    remesh_cache_render();
-    std::vector<double> ferr(faces.size(),0.0); std::vector<int> npix(faces.size(),0);
-    for(int v=0;v<6;++v){ const std::vector<int>& fsb=g_rfs[v];
-        for(size_t k=0;k<(size_t)W*W;++k){ int f=fsb[k]; if(f<0) continue; Vec3 n=face_nrm(f); ++npix[f];
-            ferr[f]+=std::fabs((n[0]+1.0)*127.5-g_orig_n[v][0][k])+std::fabs((n[1]+1.0)*127.5-g_orig_n[v][1][k])+std::fabs((n[2]+1.0)*127.5-g_orig_n[v][2][k]); } }
-    std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
-    const long long NVv=(long long)pos.size();
-    struct Cd{ double d; int u,v,f1,f2; };
-    std::vector<Cd> cand;
-    for(int f=0;f<(int)faces.size();++f){ if(!face_alive[f])continue; const int* t=faces[f].data();
-        for(int e=0;e<3;++e){ int u=t[e],vv=t[(e+1)%3]; int aa=u,bb=vv; if(aa>bb)std::swap(aa,bb);
-            auto ins=first.emplace((long long)aa*NVv+bb,f); if(ins.second)continue;
-            int f1=ins.first->second; if(!face_alive[f1]||f1==f)continue;
-            // rank = PER-PIXEL rendered error (sum-ferr biases to small faces = dense/curved zones, the
-            // opposite of saturation). Unseen faces (0 px) are back-facing everywhere -> free, rank first.
-            cand.push_back({ (ferr[f1]+ferr[f])/(double)(npix[f1]+npix[f]+1), aa,bb,f1,f }); } }
-    std::sort(cand.begin(),cand.end(),[](const Cd&x,const Cd&y){return x.d<y.d;});   // ASCENDING: most saturated first
-    std::vector<char> vtouched(pos.size(),0); int done=0;
-    for(size_t ci=0;ci<cand.size() && done<K;++ci){
-        const int u=cand[ci].u, vv=cand[ci].v;
-        if(!alive[u]||!alive[vv]||vtouched[u]||vtouched[vv]) continue;
-        EvalResult ev = Evaluate(u,vv);
-        if(!SafeToCollapse(u,vv,ev.target)) continue;
-        Collapse(u,vv,ev.target); ++done;
-        vtouched[u]=1; for(int f : vfaces[u]){ const int* t=faces[f].data(); vtouched[t[0]]=1; vtouched[t[1]]=1; vtouched[t[2]]=1; }
-    }
-    if(getenv("G_RDBG")) std::fprintf(stderr,"[satcol] %d/%d collapsed\n",done,K);
     return done;
 }
 
@@ -1773,7 +1707,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6870;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6880;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1820,38 +1754,6 @@ int main(int argc, char** argv) {
         if (g_remesh && g_remesh != 7) {   // REMESHER: fast local-delta flip selection on the FINAL mesh at 1024
             g_force_nocrop = 1;                                  // local eval is no-crop; optimize the no-crop (judge-accurate) SSIM
             remesh_flip_local(8, 1000, r_elapsed() + 3.0);      // flip pass (bounded box)
-            { int alt = getenv("G_ALT") ? atoi(getenv("G_ALT")) : 0;   // flip<->move alternation: flips open new positional ascent and vice versa
-              for (int ai=0; ai<alt; ++ai) {
-                  const int _sm=g_mini_maxit; g_mini_maxit=4; mini_refine(0.8); g_mini_maxit=_sm;
-                  remesh_flip_local(2, 1000, r_elapsed() + 1.0);
-              } }
-            if (g_remesh >= 2) {   // SPLIT-REALLOCATE v2: collapse the RENDERED-SATURATED edges (ferr-min, NOT QEM-cheapest),
-                                   // split the deficit edges (ferr-max), move the new DOF, re-flip; gate by rendered SSIM + validity.
-                int srounds = 3; if(const char* e=getenv("G_SR")) srounds=atoi(e);
-                int sk = 200; if(const char* e=getenv("G_SK")) sk=atoi(e);
-                for (int it=0; it<srounds; ++it) {
-                    const double before = refine_score_grad(nullptr);
-                    std::vector<Vec3> spos=pos; std::vector<char> sal=alive; std::vector<Vec3> snr=nref;
-                    std::vector<std::vector<int>> svf=vfaces; std::vector<std::array<int,3>> sfc=faces; std::vector<char> sfa=face_alive; int sac=alive_count;
-                    std::vector<Quadric> sQ=Q;                  // Collapse mutates Q — snapshot for the revert
-                    int nc=0, ns=0;   // diagnostics: G_NOCOL=split-only, G_NOSPLIT=collapse-only, G_QCOL=QEM-order collapse
-                    if (!getenv("G_NOCOL")) {
-                        if (getenv("G_QCOL")) { seed_heap(); Decimate(c3t - sk); nc = sk; }
-                        else { nc = remesh_collapse_sat(sk); alive_count -= nc; }         // saturation-order collapse
-                    }
-                    g_split_proj = getenv("G_NOPROJ") ? 0 : 1;   // project new verts onto the ORIGINAL surface
-                    if (!getenv("G_NOSPLIT")) { ns = remesh_split(getenv("G_NOCOL") ? sk : nc); alive_count += ns; }
-                    g_split_proj = 0;
-                    const int _sm=g_mini_maxit; g_mini_maxit=8; // det cap 2 starves the new midpoints; 8 fixed iters (still deterministic)
-                    mini_refine(3.0);                           // MOVE the new midpoint verts up the SSIM gradient (non-vacuous DOF)
-                    g_mini_maxit=_sm;
-                    remesh_flip_local(6, 1000, r_elapsed()+12.0);
-                    const double after = refine_score_grad(nullptr);
-                    if(getenv("G_RDBG")) std::fprintf(stderr,"[realloc] it%d -%d/+%d, N=%d, %.6f -> %.6f t=%.1f\n", it, nc, ns, alive_count, before, after, r_elapsed());
-                    if (after <= before + 1e-7 || !refine_valid()) {   // revert this round
-                        pos.swap(spos); alive.swap(sal); nref.swap(snr); vfaces.swap(svf); faces.swap(sfc); face_alive.swap(sfa); Q.swap(sQ); alive_count=sac; break; }
-                }
-            }
             g_force_nocrop = 0;
         }
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
@@ -1886,6 +1788,22 @@ int main(int argc, char** argv) {
             out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+1,b0+3,b0+4));
             out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+2,b0+4,b0+3)); }
         std::fwrite(out.data(),1,out.size(),stdout);
+        return 0;
+    }
+    if ((int)pos.size() > 100000 && (int)pos.size() <= 400000) {   // ===== PROBE-RLIVE-C6 ===== flips at 512 (orig 1024 re-render too costly; 512 maps exist from refine)
+        int c6t = 8600; if(const char* e=getenv("G_C6T")) c6t=atoi(e);   // 0 = OFF (banked smooth path, keep-target 8684 + stall = ~8705)
+        if (c6t > 0 && !g_orig_n[0][0].empty()) {   // maps missing = refine was TLE-guarded off -> stay banked
+            seed_heap(); Decimate(c6t);
+            for (int rw = 0; rw < 3 && alive_count > c6t; ++rw) {
+                if (vertex_remove_pass(alive_count - c6t) == 0) break;
+                seed_heap(); Decimate(c6t);
+            }
+            g_res = 512; g_refine_res = 512;       // optimize on the existing 512 originals
+            { const int _sm=g_mini_maxit; g_mini_maxit=3; mini_refine(1.0); g_mini_maxit=_sm; }
+            remesh_flip_local(6, 800, r_elapsed() + 2.0);   // crop already off for V>100k
+            if(getenv("G_RDBG")) std::fprintf(stderr, "RC6 V=%d S2n=%.6f t=%.1f\n", alive_count, refine_score_grad(nullptr), r_elapsed());
+        }
+        save_obj();
         return 0;
     }
     if ((int)pos.size() > 1000 && (int)pos.size() <= 7000) {   // ===== PROBE-RLIVE-C2 ===== (dust case: 1 vert = +0.004 total; 13s CPU headroom)
@@ -1960,7 +1878,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4160; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // c5 N-push (flip remesher; c5 has time headroom)
+        int c5t = 4170; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // c5 N-push (flip remesher; c5 has time headroom)
         seed_heap(); Decimate(c5t);                // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
         g_res = 1024; g_refine_res = 1024;
