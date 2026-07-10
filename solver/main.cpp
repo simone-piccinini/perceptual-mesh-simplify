@@ -1,4 +1,4 @@
-// REMESH-C3C5 2026-07-10: flip remesher extended to c5 (organic, +8.7e-4 headroom). c3@6900 (bank) + c5 4212->4190. Both fit ~18s judge. Judge: does c5 pass @4190 = +0.005?
+// REMESH-C5PUSH 2026-07-10: c3@6900 + c5@4170 (deeper, judge-margin test; proxy +1e-4). Bank 90.321608 -> ?
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1850,7 +1850,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4190; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // c5 N-push (flip remesher; c5 has time headroom)
+        int c5t = 4170; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // c5 N-push (flip remesher; c5 has time headroom)
         seed_heap(); Decimate(c5t);                // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
         g_res = 1024; g_refine_res = 1024;
