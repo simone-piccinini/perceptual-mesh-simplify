@@ -4,6 +4,13 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-10 (newest first)
+- **REMESHER milestone 1 (SSIM-gated edge FLIP): judge WA at N=6940 (sub 19935835).** FACT: c3 WA
+  (base passes 6940), c3 CASETIME 16.3s (margin 4.7s — no TLE, room to spare). Mechanism functions
+  (gradient-targeted flips, each gated by true rendered SSIM; 2-4/sweep accepted, local 512-SSIM
+  +2.3e-5) but the 512-flips made the judge's 1024 c3 worse — tiny topology change below the transfer
+  floor (§9.1). Cheap-objective flip_pass proposed nothing (mesh already normal-aligned). Next: SPLIT
+  (adds DOF where structure is missing → the new vertex MOVES → real structure, not vacuous; bigger
+  structural change, done at 1024 to match the read). Milestone 2. `G_REMESH`.
 - **c7 SPEED pass → ACCEPTED 7/7 (sub 19934494) — TLE risk FIXED.** Profiled c7 (800k proxy): bulk-QEM
   (800k→114k) = 2.33s dominates (VSA only 0.71s). 2-stage sweep: x3=3.39s speed optimum (x5=3.72,
   x8=4.34 — higher = more expensive VSA). Shipped `twostage_for` 5→3 (c7 only, >400000). Judge: c7

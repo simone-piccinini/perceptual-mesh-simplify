@@ -1,4 +1,4 @@
-// REMESH-M1 2026-07-10: SSIM-gated edge FLIP in c3 refine (top-12 deficit edges/sweep, gated by true rendered normal-SSIM). Bank base + G_REMESH on (c3). Judge-test milestone 1.
+// BANK 2026-07-10: c3-det + c4-det + c7-speed (Accepted 90.285538 7/7). Remesher code present but G_REMESH default OFF (full-render unworkable; needs incremental SSIM eval). c3 rung 6940. env G_C3T/G_REMESH.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -634,6 +634,87 @@ static double remesh_flip_sweep(int K, double tbox) {
     return cur;
 }
 
+// REMESHER milestone 2: edge SPLIT in high-deficit interior. Adds a vertex at the midpoint of the top-K
+// worst-rendered edges (grows N by up to K); the new vertices then MOVE under the refine gradient
+// (non-vacuous — coplanar densify is worthless, a MOVED vertex adds real normal structure where the
+// interior sigma_xy deficit lives). Net-N-neutral downstream: the RC3 Decimate(N) collapses the cheapest
+// (saturated) edges back. Returns count split.
+static int remesh_split_sweep(int K) {
+    std::vector<Vec3> g; refine_score_grad(&g);
+    std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
+    const long long NV = (long long)pos.size();
+    struct Cand { double d; int u,v,f1,f2; };
+    std::vector<Cand> cand;
+    for (int f = 0; f < (int)faces.size(); ++f) {
+        if (!face_alive[f]) continue;
+        const int* t = faces[f].data();
+        for (int e = 0; e < 3; ++e) {
+            int u = t[e], v = t[(e+1)%3]; int a=u,b=v; if (a>b) std::swap(a,b);
+            auto ins = first.emplace((long long)a*NV+b, f);
+            if (ins.second) continue;
+            const int f1 = ins.first->second;
+            if (!face_alive[f1] || f1 == f) continue;
+            cand.push_back({ g[a].norm()+g[b].norm(), a, b, f1, f });
+        }
+    }
+    if ((int)cand.size() > K)
+        std::partial_sort(cand.begin(), cand.begin()+K, cand.end(), [](const Cand&x, const Cand&y){ return x.d > y.d; });
+    const int lim = std::min(K, (int)cand.size());
+    int done = 0;
+    for (int ci = 0; ci < lim; ++ci) {
+        const int f1 = cand[ci].f1, f2 = cand[ci].f2;
+        if (!face_alive[f1] || !face_alive[f2]) continue;   // touched by an earlier split this sweep
+        const int* t1 = faces[f1].data(); const int* t2 = faces[f2].data();
+        int a=-1,b=-1,c=-1,d=-1;                            // f1 winding (a,b,c) with edge a->b; f2 opposite = d
+        for (int k=0;k<3;++k){ int x=t1[k], y=t1[(k+1)%3]; if((x==cand[ci].u&&y==cand[ci].v)||(x==cand[ci].v&&y==cand[ci].u)){ a=x;b=y;c=t1[(k+2)%3]; break; } }
+        for (int k=0;k<3;++k){ int x=t2[k]; if(x!=a&&x!=b) d=x; }
+        if (a<0||d<0) continue;
+        const int m = (int)pos.size();
+        pos.push_back(0.5*(pos[a]+pos[b])); alive.push_back(1); nref.push_back(nref[a]+nref[b]); vfaces.push_back({});
+        const int nf1=(int)faces.size(); faces.push_back({m,b,c}); face_alive.push_back(1);   // f1=(a,b,c)->(a,m,c)+(m,b,c)
+        const int nf2=(int)faces.size(); faces.push_back({m,a,d}); face_alive.push_back(1);   // f2=(b,a,d)->(b,m,d)+(m,a,d)
+        faces[f1] = {a,m,c}; faces[f2] = {b,m,d};
+        vfaces_erase(vfaces[b], f1);  vfaces_erase(vfaces[a], f2);
+        vfaces[m].push_back(f1); vfaces[m].push_back(f2); vfaces[m].push_back(nf1); vfaces[m].push_back(nf2);
+        vfaces[b].push_back(nf1); vfaces[c].push_back(nf1); vfaces[a].push_back(nf2); vfaces[d].push_back(nf2);
+        ++done;
+    }
+    if (getenv("G_RDBG")) std::fprintf(stderr, "[split] %d/%d edges split -> N=%d\n", done, lim, (int)pos.size());
+    return done;
+}
+
+// BATCH flip: apply up to K top-deficit interior flips (validity-checked, NO per-op render); the CALLER
+// snapshots + gates the whole batch by ONE rendered-SSIM eval. 2 renders/sweep instead of K -> scales to
+// hundreds of flips within the TLE box. Returns count applied.
+static int remesh_flip_batch(int K) {
+    std::vector<Vec3> g; refine_score_grad(&g);
+    std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
+    const long long NV = (long long)pos.size();
+    struct Cand { double d; int u,v,f1,f2; };
+    std::vector<Cand> cand;
+    for (int f=0; f<(int)faces.size(); ++f){ if(!face_alive[f]) continue; const int* t=faces[f].data();
+        for (int e=0;e<3;++e){ int u=t[e],v=t[(e+1)%3]; int a=u,b=v; if(a>b)std::swap(a,b);
+            auto ins=first.emplace((long long)a*NV+b,f); if(ins.second) continue;
+            const int f1=ins.first->second; if(!face_alive[f1]||f1==f) continue;
+            cand.push_back({ g[a].norm()+g[b].norm(), a,b,f1,f }); } }
+    if((int)cand.size()>K) std::partial_sort(cand.begin(),cand.begin()+K,cand.end(),[](const Cand&x,const Cand&y){return x.d>y.d;});
+    const int lim=std::min(K,(int)cand.size()); int done=0;
+    for (int ci=0; ci<lim; ++ci){
+        const int f1=cand[ci].f1,f2=cand[ci].f2; if(!face_alive[f1]||!face_alive[f2]) continue;
+        const int* t1=faces[f1].data(); const int* t2=faces[f2].data();
+        int a=-1,b=-1,c=-1,d=-1;
+        for(int k=0;k<3;++k){int x=t1[k],y=t1[(k+1)%3]; if((x==cand[ci].u&&y==cand[ci].v)||(x==cand[ci].v&&y==cand[ci].u)){a=x;b=y;c=t1[(k+2)%3];break;}}
+        for(int k=0;k<3;++k){int x=t2[k]; if(x!=a&&x!=b) d=x;}
+        if(a<0||d<0||c==d) continue; if(EdgeExists(c,d)) continue;
+        Vec3 om=(pos[t1[1]]-pos[t1[0]]).cross(pos[t1[2]]-pos[t1[0]])+(pos[t2[1]]-pos[t2[0]]).cross(pos[t2[2]]-pos[t2[0]]);
+        if(((pos[d]-pos[a]).cross(pos[c]-pos[a])).dot(om)<=0.0||((pos[b]-pos[d]).cross(pos[c]-pos[d])).dot(om)<=0.0) continue;
+        vfaces_erase(vfaces[b],f1); vfaces[d].push_back(f1);
+        vfaces_erase(vfaces[a],f2); vfaces[c].push_back(f2);
+        faces[f1]={a,d,c}; faces[f2]={d,b,c}; ++done;
+    }
+    return done;
+}
+
 // ===== flip-to-unlock: when greedy decimation stalls ABOVE target (link conditions exhaust
 // on thin tubes / CAD edges — the c2/c4 TOPOLOGICAL floor), flip edges between high-valence
 // vertices to re-open legal collapses, then re-decimate. Legality: no duplicate edge, no
@@ -856,8 +937,14 @@ static void refine_positions() {
         stock_pass(step);
         g_refine_budget = save_budget;
     }
-    if (g_remesh && g_hybrid) {   // REMESHER m1: SSIM-gated flips at 512 BEFORE the 1024 polish (cheap renders)
-        const double rbud = r_elapsed() + 1.0;   // CPU box (c3 is TLE-tight; each flip = 1 render)
+    if (g_remesh >= 5 && g_hybrid) {   // DISABLED: remesh here ran on the PRE-decimation 23k mesh (RC3 decimates it away / perturbs the trajectory = m1 WA). Remesh relocated to the RC3 section (final 6940 mesh). Kept for reference under G_REMESH>=5.
+        const double rbud = r_elapsed() + 1.0;   // CPU box (c3 is TLE-tight; each render is the cost)
+        if (g_remesh >= 2) {   // m2: SPLIT the worst-rendered interior edges, then MOVE the new vertices (refine)
+            const double b0 = refine_score_grad(nullptr);
+            const int ns = remesh_split_sweep(60);   // grow N by ~ns in deficit regions; RC3 Decimate(N) collapses back (net-neutral)
+            const int _sm=g_refine_maxit; g_refine_maxit=10; stock_pass(step*0.5); g_refine_maxit=_sm;  // the new midpoint vertices ascend the SSIM gradient
+            if (getenv("G_RDBG")) std::fprintf(stderr, "[split] %d split, %.6f -> %.6f (N=%d)\n", ns, b0, refine_score_grad(nullptr), (int)pos.size());
+        }
         for (int rr = 0; rr < 4 && r_elapsed() < rbud; ++rr) {
             const double before = refine_score_grad(nullptr);
             const double after = remesh_flip_sweep(12, rbud);   // top-12 deficit edges, each gated by TRUE rendered SSIM
@@ -1426,7 +1513,8 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
     g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
-    g_remesh = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 1 : 0;                 // REMESHER m1: SSIM-gated flips (c3 band)
+    g_remesh = 0;   // REMESHER default OFF (bank). Env G_REMESH enables it (c3 band). Full-render flip is unworkable
+                    // (per-op too slow -> TLE; batch net-negative). Needs incremental/local SSIM eval to matter. R-remesh.
     if (const char* e = getenv("G_REMESH")) g_remesh = atoi(e);
     g_hybrid = hybrid_for((int)pos.size());
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
@@ -1564,6 +1652,19 @@ int main(int argc, char** argv) {
         if (g_refine_res < 1024) render_orig_hires(1024);   // hybrid phase B may not have fired
         g_res = 1024; g_refine_res = 1024;
         mini_refine(1.2);                          // repair the collapse damage at judge res
+        if (g_remesh) {   // REMESHER on the FINAL 6940 mesh at 1024: BATCH-gated flips (2 renders/sweep -> scales to 100s of flips)
+            const double rb = r_elapsed() + 2.2;   // CPU box (c3 TLE-tight)
+            double cr = refine_score_grad(nullptr);
+            int K = 300;
+            for (int rr = 0; rr < 5 && r_elapsed() < rb; ++rr) {
+                std::vector<std::array<int,3>> sf = faces; std::vector<std::vector<int>> svf = vfaces;   // snapshot connectivity
+                const int nf = remesh_flip_batch(K);
+                const double sn = refine_score_grad(nullptr);
+                if (sn > cr && refine_valid()) { cr = sn; if (getenv("G_RDBG")) std::fprintf(stderr, "[rc3-batch] r%d +%d flips -> %.6f t=%.2f\n", rr, nf, cr, r_elapsed()); }
+                else { faces.swap(sf); vfaces.swap(svf); K /= 2; if (getenv("G_RDBG")) std::fprintf(stderr, "[rc3-batch] r%d %d flips REVERTED (%.6f); K->%d\n", rr, nf, sn, K); if (K < 8) break; }
+            }
+            mini_refine(0.6);   // re-converge positions on the accepted connectivity
+        }
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
