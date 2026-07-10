@@ -100,6 +100,39 @@ transfer. **iter 1-2 (2026-07-09) were WRONG-DESIGNED and their "falsified" verd
 Success = R1 flips negative at the c5 operating point on the corrected proxy. Then this becomes the
 offline screen that reopens 1-idea-per-submission → cheap iteration (the true bottleneck).
 
+**iter 3-4 results (2026-07-09), clean c5 R1 baseline = +0.0004 on smooth armadillo (judge c5 =
+deterministic NEGATIVE → a genuine transfer failure, the right target):**
+| proxy | roughness | R1 Δ |
+|-------|-----------|------|
+| clean armadillo (smooth) | 0.0180 | +0.0004 |
+| coherent-noise armadillo (make_corr_noise, amp .002-.004 sm6-12) | synthetic | **+0.0018 … +0.0043** |
+| ab_orig (natural, rougher, on-hand) | 0.0302 | **−0.0003** |
+
+**Two findings.** (1) SYNTHETIC displacement noise (white iter1-2 AND coherent iter3) makes R1 read
+MORE positive, not negative — it ADDS refine-recoverable structure (the coarse mesh CAN chase
+window-scale bumps; SSIM's 11×11 box averages sub-window white noise into a chaseable signal). So
+synthetic-noise de-bias is the WRONG tool — retired. (2) The one NATURAL rougher closed mesh on
+hand (ab_orig, 62938 v, unknown provenance) is the ONLY proxy where R1 flips NEGATIVE, matching the
+judge. Tiny (−0.0003) + unidentified mesh ⇒ suggestive, not conclusive — but it points the road at
+**real rougher judge-class meshes (DATA-SOURCING §3.C.2), NOT synthesis.** Mechanistic reason the
+transfer-killer is narrow-band (sub-coarse-triangle yet box-surviving detail) that real scans have
+intrinsically and displacement noise misses. Road ACTIVE; next = §3.C.2 data-sourcing (below).
+
+### R-ι — DATA-SOURCING: real judge-class meshes (ARCHITECT-REVIEW §3.C.2) — `QUEUED` TOP · make-or-break
+The de-bias's RIGHT form (R-θ iter-4 showed synthesis is wrong; natural roughness flips R1). Get
+the judge's actual STANDARD models at its vertex counts, not decimations-of-clean-armadillo:
+- c5=49,987 ≈ Stanford armadillo (49,990) — ours reads "+0.055 friendlier" ⇒ judge uses a DIFFERENT
+  (rougher) processing. Source a rougher/native ~50k armadillo, re-run the R1 A/B — the clean
+  deterministic calibration target.
+- c6≈377k→dragon(~437-566k) decimated; c7≈1M→dragon/buddha/lucy/thai to 1M; c3≈23k→a NATIVE ~23k
+  organic (not decimated-from-50k) for a faithful c3 SSIM screen; c4→CAD/ABC class.
+- **Decisive free shortcut:** a RAW Stanford range scan (real sensor noise) = literal de-biased
+  proxy. Does R1 read NEGATIVE out-of-the-box? If yes → "too smooth" confirmed, transferring
+  instrument for free. (Caveat: raw scans are OPEN/partial; the judge input is closed — closing via
+  Poisson re-smooths, so use the native scan directly for the SSIM A/B, not as solver input.)
+Net access confirmed (graphics.stanford.edu 200). Effort: hours (download+reprocess). Highest-value
+concrete task (handoff Part E.3). Identify ab_orig too — it may already be a usable rougher proxy.
+
 ### R-η — OUT-OF-FAMILY ideas (open slot — keep generating) — `QUEUED`
 The in/near-family is exhausted, so real gains (if any) are out-of-family. Candidates to develop:
 metric-exploit of the box-window covariance (normal dithering to match σxy at fewer verts —
@@ -107,6 +140,13 @@ speculative); silhouette-exact interior-starvation (lock the exact fg/bg boundar
 Add here as ideas form. **Policy: this slot never empties — never conclude "at ceiling".**
 
 ## 4. Execution log (newest first)
+- **2026-07-09 (R-θ iter 3-4, CORRECTED per handoff)** — "falsified" RETRACTED. Rebuilt with
+  coherent noise (`make_corr_noise.py`) + calibrated on the CLEAN deterministic target (R1's c5
+  WA). Clean c5 R1 = +0.0004; coherent-noise armadillo R1 = +0.0018..+0.0043 (synthesis ADDS
+  recoverable structure → wrong way, retired); **ab_orig (natural rougher mesh) R1 = −0.0003, the
+  ONLY sign-match to the judge.** ⇒ de-bias direction confirmed ("too smooth" real), synthetic
+  noise is the wrong tool, path = DATA-SOURCING (R-ι, real rougher meshes). Road stays ACTIVE
+  (not buried — Process Law #2). Audited refine_score_grad (Part E.1): sound + fused, no bug.
 - **2026-07-09 (R-θ iter 2)** — de-bias proxy (review's #1 lever) simple form **FALSIFIED**: built
   R1-toggle binary, measured R1 A/B on de-biased c3band across amplitudes. At c3's operating point
   (SSIM 0.86) R1 = **+0.0029** (positive, matching the SMOOTH proxy, opposite the judge). 2/2
