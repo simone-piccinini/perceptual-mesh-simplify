@@ -11,16 +11,18 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, main.cpp decimation track)
 
 ```
-BANK      90.335775  (7/7)   [JUDGE 20019185, 2026-07-10] — flip remesher RAZOR-MAXED across the three
-                               1024-refine cases: c3@6900 + c4@4940 + c5@4190. +0.050237 this session.
-                               Bank chain: 90.285538 → 90.314273 (c3@6900) → 90.321608 (c5@4190) →
-                               90.331053 (c4@4950) → 90.335775 (c4@4940). WALLS (judge-confirmed):
-                               c3 6900 (6880 breakeven), c4 4940 (4930 WA), c5 4190 (4180 WA).
-                               Flip remesher (incremental SSIM eval, validated) = the working lever.
-                               ⚠ c6/c7 remesh does NOT apply (refine at res 160, won't transfer to 1024).
-                               90.40 (+0.064) needs the SPLIT lever below the flip walls (representation
-                               wall: split gives ~+2e-4/vert, net-neutral realloc is net-negative because
-                               QEM-collapse != rendered-saturated; needs a rendered-saturation collapse).
+BANK      90.361534  (7/7)   [JUDGE 20020177, 2026-07-10] — c3@6880+pB14 + c4@4930 + c5@4170, all via
+                               the WIDE-FLIP lever (bigger remesh boxes fund deeper rungs). Session chain:
+                               90.285538 → .314273 (c3 6900) → .321608 (c5 4190) → .331053 (c4 4950) →
+                               .335775 (c4 4940) → .350143 (c3 6880+pB14) → .358199 (c4 4930+c5 4180 wide)
+                               → .361534 (c5 4170). +0.076 session. WIDE-FLIP WALLS [JUDGE]: c3 6880
+                               (6860 x2 'x'), c4 4930 (4920 WA 18.3s clean), c5 4170 (4160 untested).
+                               DEAD this session: split-realloc (all rank/placement variants net-negative
+                               locally, incl. orig-projected splits); flip<->move alternation (zero delta);
+                               c4 extra refine iters (non-monotone, 36 optimal, 32 = same S2n -0.8s).
+                               LIVE probe: c2@27 via NEW RLIVE-C2 branch (1024 polish + wide flips; 1 c2
+                               vert = +0.004; 27 WA'd pre-remesher). File: solver/mein.cpp (127.4 KiB ⚠
+                               662 B under the 128 KiB limit).
 LEADER    91.48      [JUDGE, leaderboard 2026-07-09]   #1 希望ヶ峰学園 CG研究会.  gap to #1 = 1.17
                                                        (top-3 cluster 91.46; we were rank 12)
 ```
