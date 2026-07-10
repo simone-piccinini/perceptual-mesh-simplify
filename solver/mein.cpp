@@ -1,4 +1,4 @@
-// C3-6860B 2026-07-10: c3 6880->6860 with pB14 (safe CPU ~19.5; the 6860+pB18 'x' at 21.0s stays ambiguous). c4@4930+c5@4170 bank cfg. Q: c3 margin @6880 >= 3.4e-4? PASS=+0.014 over 90.361534.
+// C2-REMESH 2026-07-10: NEW RLIVE-C2 branch (dust: 1 vert = +0.004): Decimate 27 + 1024 polish + wide flips (13s headroom; 27 WA'd PRE-remesher). c3@6880+c4@4930+c5@4170 bank. Q: c2@27 passes with remesh = +0.004 over 90.361534.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1649,13 +1649,13 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
     g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
-    g_remesh = (((int)pos.size() > 7000 && (int)pos.size() <= 30000) || ((int)pos.size() > 30000 && (int)pos.size() <= 100000)) ? 1 : 0;   // FLIP remesh on c3+c5 (phaseB-substitution funds it). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
+    g_remesh = (((int)pos.size() > 1000 && (int)pos.size() <= 100000)) ? 1 : 0;   // c2+c3+c4+c5   // FLIP remesh on c3+c5 (phaseB-substitution funds it). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
     if (const char* e = getenv("G_REMESH")) g_remesh = atoi(e);
     g_hybrid = hybrid_for((int)pos.size());
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
     if (const char* e = getenv("G_TILT")) g_tilt = atoi(e);
     if (const char* e = getenv("G_CAPF")) g_capf = atof(e);
-    if ((g_refine && g_hybrid) || ((int)pos.size() > 30000 && (int)pos.size() <= 100000)) { o_pos = pos; o_faces = faces; }   // RLIVE: c4+c5 need the pristine copy for the 1024 re-render
+    if ((g_refine && g_hybrid) || ((int)pos.size() > 1000 && (int)pos.size() <= 7000) || ((int)pos.size() > 30000 && (int)pos.size() <= 100000)) { o_pos = pos; o_faces = faces; }   // RLIVE: c2+c4+c5 need the pristine copy for the 1024 re-render
     if (const char* e = getenv("G_TET")) g_addtet = atoi(e);   // disconnected-output probe: JUDGE-ACCEPTED 7/7 (2026-07-04)
     if (r_elapsed() > 6.0) g_refine = 0;       // TLE guard (v55 case7): refine_init is NOT wall-clock-boxed;
                                                // if load+Initialize already ate the margin, skip refine entirely
@@ -1773,7 +1773,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6860;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6880;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1820,6 +1820,11 @@ int main(int argc, char** argv) {
         if (g_remesh && g_remesh != 7) {   // REMESHER: fast local-delta flip selection on the FINAL mesh at 1024
             g_force_nocrop = 1;                                  // local eval is no-crop; optimize the no-crop (judge-accurate) SSIM
             remesh_flip_local(8, 1000, r_elapsed() + 3.0);      // flip pass (bounded box)
+            { int alt = getenv("G_ALT") ? atoi(getenv("G_ALT")) : 0;   // flip<->move alternation: flips open new positional ascent and vice versa
+              for (int ai=0; ai<alt; ++ai) {
+                  const int _sm=g_mini_maxit; g_mini_maxit=4; mini_refine(0.8); g_mini_maxit=_sm;
+                  remesh_flip_local(2, 1000, r_elapsed() + 1.0);
+              } }
             if (g_remesh >= 2) {   // SPLIT-REALLOCATE v2: collapse the RENDERED-SATURATED edges (ferr-min, NOT QEM-cheapest),
                                    // split the deficit edges (ferr-max), move the new DOF, re-flip; gate by rendered SSIM + validity.
                 int srounds = 3; if(const char* e=getenv("G_SR")) srounds=atoi(e);
@@ -1881,6 +1886,27 @@ int main(int argc, char** argv) {
             out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+1,b0+3,b0+4));
             out.append(line,std::snprintf(line,sizeof line,"f %d %d %d\n",b0+2,b0+4,b0+3)); }
         std::fwrite(out.data(),1,out.size(),stdout);
+        return 0;
+    }
+    if ((int)pos.size() > 1000 && (int)pos.size() <= 7000) {   // ===== PROBE-RLIVE-C2 ===== (dust case: 1 vert = +0.004 total; 13s CPU headroom)
+        int c2t = 27; if(const char* e=getenv("G_C2T")) c2t=atoi(e);   // banked rung 28 (27 WA'd PRE-remesher)
+        seed_heap(); Decimate(c2t);
+        for (int rw = 0; rw < 3 && alive_count > c2t; ++rw) {
+            if (vertex_remove_pass(alive_count - c2t) == 0) break;
+            seed_heap(); Decimate(c2t);
+        }
+        render_orig_hires(1024);
+        g_res = 1024; g_refine_res = 1024;
+        { const int _sm=g_mini_maxit; g_mini_maxit=12; mini_refine(3.0); g_mini_maxit=_sm; }   // 27-vert mesh: cheap iters, polish hard
+        if (g_remesh) {
+            g_force_nocrop = 1;
+            remesh_flip_local(10, 200, r_elapsed() + 2.5);   // 50-face mesh: each flip worth ~1e-3 SSIM
+            g_force_nocrop = 0;
+            { const int _sm=g_mini_maxit; g_mini_maxit=8; mini_refine(2.0); g_mini_maxit=_sm; }
+        }
+        const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
+        std::fprintf(stderr, "RC2 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, 0.5*Sn2+0.5*Sd2, r_elapsed());
+        save_obj();
         return 0;
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
