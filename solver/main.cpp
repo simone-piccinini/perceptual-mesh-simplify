@@ -1,4 +1,4 @@
-// C7-SPEED 2026-07-10: c3-det base + c7 2-stage factor 5->3 (bulk-QEM speed optimum, local -9%)
+// C3-NPUSH 2026-07-10: c7-speed+c3-det base + c3 rung 6940->6900 (deterministic N-push on the prize)
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1480,14 +1480,16 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        seed_heap(); Decimate(6940);               // banked 6954 minus 14 extra collapses (on refined geometry)
-        for (int uw = 0; uw < 2 && alive_count > 6940; ++uw) {
-            if (flip_unlock_sweep(4*(alive_count - 6940)) == 0) break;
-            seed_heap(); Decimate(6940);
+        int c3t = 6900;                            // C3 N-PUSH on the deterministic base (was 6940). env G_C3T
+        if (const char* e = getenv("G_C3T")) c3t = atoi(e);
+        seed_heap(); Decimate(c3t);
+        for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
+            if (flip_unlock_sweep(4*(alive_count - c3t)) == 0) break;
+            seed_heap(); Decimate(c3t);
         }
-        for (int rw = 0; rw < 3 && alive_count > 6940; ++rw) {
-            if (vertex_remove_pass(alive_count - 6940) == 0) break;
-            seed_heap(); Decimate(6940);
+        for (int rw = 0; rw < 3 && alive_count > c3t; ++rw) {
+            if (vertex_remove_pass(alive_count - c3t) == 0) break;
+            seed_heap(); Decimate(c3t);
         }
         if (g_refine_res < 1024) render_orig_hires(1024);   // hybrid phase B may not have fired
         g_res = 1024; g_refine_res = 1024;
