@@ -1,4 +1,4 @@
-// REMESH-LOCAL 2026-07-10: incremental flip-delta remesher (validated ratio=1.00 vs full-render) on the final c3 mesh; c3 N pushed 6940->6920 (base WA'd there). Does topology surgery let 6920 pass?
+// BANK 2026-07-10: c3-det + c4-det + c7-speed (Accepted 90.285538 7/7). Incremental SSIM evaluator + flip remesher present, env G_REMESH default OFF (evaluator VALIDATED ratio 1.0; flip remesher +1.6e-4 c3 but TLE-tight -> continuation).
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -453,7 +453,10 @@ static double flip_delta_local(int a,int b,int c,int d,int f1,int f2) {
                 float yb = (fid>=0)? enc(face_nrm(fid)[ch]) : 127.5f;
                 float yo=yb, yn=yb;
                 if(fid==f1||fid==f2){ yo = enc((fid==f1?on1:on2)[ch]);
-                    double cx=xx+0.5, cy=yy+0.5; yn = enc((inTri(0,3,2,cx,cy)? nn1 : nn2)[ch]); }  // (a,d,c)=idx0,3,2 else (d,b,c)
+                    double cx=xx+0.5, cy=yy+0.5;
+                    bool t1n=inTri(0,3,2,cx,cy), t2n=inTri(3,1,2,cx,cy);   // (a,d,c) / (d,b,c)
+                    if(!t1n && !t2n) return -1e30;                          // quad pixel in NEITHER new tri = non-convex (coverage changes) -> eval inexact, reject
+                    yn = enc((t1n? nn1 : nn2)[ch]); }
                 size_t li=(size_t)(yy-ry0)*rw+(xx-rx0); Yo[li]=yo; Yn[li]=yn; }
             // recompute affected windows (centers in [bx0-R,bx1+R], foreground) from X,Yo,Yn
             const int wx0=std::max(R,bx0-R), wx1=std::min(W-R-1,bx1+R), wy0=std::max(R,by0-R), wy1=std::min(W-R-1,by1+R);
@@ -477,9 +480,10 @@ static double flip_delta_local(int a,int b,int c,int d,int f1,int f2) {
 // LOCAL flip-delta (no per-flip render), apply the INDEPENDENT positive-delta flips, then VERIFY the whole
 // round with a single full render (revert if it didn't net-improve — guards the non-convex eval error).
 static double remesh_flip_local(int rounds, int K, double tbox) {
-    std::vector<Vec3> g; double cur = refine_score_grad(&g);   // gradient/deficit once; reused for ranking all rounds
+    std::vector<Vec3> g; double cur = refine_score_grad(&g);   // 1 expensive render: rank + baseline
+    std::vector<std::array<int,3>> sf=faces; std::vector<std::vector<int>> svf=vfaces;   // full snapshot (final safety revert)
     for (int rr=0; rr<rounds && r_elapsed()<tbox; ++rr) {
-        remesh_cache_render();
+        remesh_cache_render();   // render_faceid x6 (cheap; NO box-SSIM) — the validated eval needs no per-round verify render
         std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
         const long long NVv=(long long)pos.size();
         struct Cd{ double d; int u,v,f1,f2; };
@@ -491,7 +495,6 @@ static double remesh_flip_local(int rounds, int K, double tbox) {
                 cand.push_back({ g[aa].norm()+g[bb].norm(), aa,bb,f1,f }); } }
         if((int)cand.size()>K) std::partial_sort(cand.begin(),cand.begin()+K,cand.end(),[](const Cd&x,const Cd&y){return x.d>y.d;});
         const int lim=std::min(K,(int)cand.size());
-        std::vector<std::array<int,3>> sf=faces; std::vector<std::vector<int>> svf=vfaces;   // round snapshot
         std::vector<char> touched(faces.size(),0); int applied=0;
         for(int ci=0;ci<lim;++ci){ if(r_elapsed()>tbox) break;
             const int f1=cand[ci].f1,f2=cand[ci].f2; if(touched[f1]||touched[f2]||!face_alive[f1]||!face_alive[f2]) continue;
@@ -507,11 +510,12 @@ static double remesh_flip_local(int rounds, int K, double tbox) {
             vfaces_erase(vfaces[A],f2); vfaces[C].push_back(f2);
             faces[f1]={A,D,C}; faces[f2]={D,B,C}; touched[f1]=touched[f2]=1; ++applied;
         }
-        const double sn = refine_score_grad(nullptr);   // one render verifies the whole round
-        if(sn>cur && refine_valid()){ cur=sn; if(getenv("G_RDBG")) std::fprintf(stderr,"[locflip] r%d +%d flips -> %.6f t=%.2f\n",rr,applied,cur,r_elapsed()); }
-        else { faces.swap(sf); vfaces.swap(svf); if(getenv("G_RDBG")) std::fprintf(stderr,"[locflip] r%d %d flips REVERTED (%.6f)\n",rr,applied,sn); break; }
+        if(getenv("G_RDBG")) std::fprintf(stderr,"[locflip] r%d +%d flips t=%.2f\n",rr,applied,r_elapsed());
+        if(applied==0) break;   // trust the VALIDATED local eval: no expensive per-round verify render
     }
-    return cur;
+    const double sn = refine_score_grad(nullptr);   // ONE final verify (net safety for accumulated non-convex eval error)
+    if(sn>cur && refine_valid()) return sn;
+    faces.swap(sf); vfaces.swap(svf); return cur;
 }
 // SIL: depth-SSIM of the current mesh vs stored originals (judge formula, union-center coverage)
 static double sil_score_depth() {
@@ -1622,7 +1626,7 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
     g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
-    g_remesh = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 1 : 0;   // REMESHER on c3 (judge test) (bank). Env G_REMESH enables it (c3 band). Full-render flip is unworkable
+    g_remesh = 0;   // REMESHER default OFF (bank); env G_REMESH enables (c3 band). Incremental evaluator VALIDATED (ratio 1.0); flip remesher gives +1.6e-4 c3 but TLE-tight. Env G_REMESH enables it (c3 band). Full-render flip is unworkable
                     // (per-op too slow -> TLE; batch net-negative). Needs incremental/local SSIM eval to matter. R-remesh.
     if (const char* e = getenv("G_REMESH")) g_remesh = atoi(e);
     g_hybrid = hybrid_for((int)pos.size());
@@ -1747,7 +1751,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6920;                            // C3 N-PUSH on the deterministic base (was 6940). env G_C3T
+        int c3t = 6940;                            // C3 N-PUSH on the deterministic base (was 6940). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1793,9 +1797,9 @@ int main(int argc, char** argv) {
         }
         if (g_remesh && g_remesh != 7) {   // REMESHER: fast local-delta flip selection on the FINAL 6940 mesh at 1024
             g_force_nocrop = 1;                                  // local eval is no-crop; optimize the no-crop (judge-accurate) SSIM
-            remesh_flip_local(3, 1500, r_elapsed() + 1.6);      // up to 3 rounds, top-1500 deficit edges/round, tight CPU box
+            remesh_flip_local(6, 600, r_elapsed() + 1.8);
             g_force_nocrop = 0;
-            mini_refine(0.6);                                   // re-converge positions on the accepted connectivity
+            // (no extra mini_refine: flips are position-neutral; the pre-remesh mini_refine sufficed)
         }
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
