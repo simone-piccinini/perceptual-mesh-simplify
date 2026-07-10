@@ -68,7 +68,22 @@ cow +0.0022/+0.0026 (K8/K16) but organic bunny +0.0001 (~0) → dead for the smo
 class. Closes the collapse-SELECTION-metric family. The fail-fast (small-mesh brute-force) avoided
 the heavy incremental build for a signal that isn't there. Code kept for reference.
 
-### R-ν — Content-adaptive densify/prune (vertex-budget REALLOCATION) — `QUEUED` · **TOP to BUILD** · the untested axis
+### R-ξ — Silhouette-priority allocation (OUT-OF-FAMILY) — `QUEUED` · **COMMITTED next build**
+The SSIM structure term is dominated by the per-view fg/bg SILHOUETTE (sharp normal discontinuity at
+the boundary); the interior smooth-normal regions are near-saturated. Hypothesis: at fixed N, spend
+the budget on the boundary — PROTECT vertices that project near a per-view coverage edge (lock/expensive
+collapse), STARVE the interior (cheap collapse). Genuinely out-of-family: not selection (R-ζ dead),
+not placement/position (refine maxed), and ≠ projw (projected-AREA protects grazing faces, not the
+exact fg/bg boundary). Build: reuse the refine 6-view coverage render (g_orig_cov); mark a vertex
+"silhouette" if it projects within k px of a coverage boundary in any view; multiply its collapse
+cost. Env-gate `G_SILA`. Process (user): write env-gated → **screen ONCE on the rough ruler** (does
+it beat VSA-lite 0.7039 at equal N?) → if yes, **JUDGE-TEST via an S-read pair on c3**. Alt if flat:
+a direct box-window σxy-correlation objective (but refine already ascends full SSIM incl. s, and
+s-def steers s — so verify that premise first). NOTE R-ν (densify/prune) is VACUOUS — coplanar
+sub-faces = zero rendered-normal content (judge sees face normals); the non-vacuous part = Pivot-A
+(done). Skip R-ν.
+
+### R-ν — Content-adaptive densify/prune (vertex-budget REALLOCATION) — **DEAD (vacuous by construction)**
 The discriminating ruler showed SELECTION is maxed and our edge is PLACEMENT — so the un-tried axis
 is WHERE the budget is spent. Mechanism: after decimating to N, render the per-region rendered-normal
 SSIM deficit, then reallocate net-neutral — extra-collapse in SATURATED regions, split/keep verts in

@@ -78,18 +78,19 @@ pipeline-relative wall (moves when the simplifier improves). See `docs/ROADS.md`
 - **meshopt (LEGGIMI/) → not worth porting (R-μ); numbers SUSPECT.** Offline-eval scored below our
   VSA-lite on both proxies, BUT output non-manifold (driver missing lock-border flags) → confounded.
   Firm: not shippable (101 KiB + non-manifold). Soft: Hoppe (R-α) LOW-EV, **not dead-forever**. R-μ.
-1. **RE-SCREEN THE GRAVEYARD on the discriminating ruler (MAIN THRUST).** Every road killed on the
-   saturated smooth proxy was closed with a BLIND instrument (Process Law #2). Re-test on ab_orig
-   (rough): **R-ζ** (true rendered-SSIM collapse selection — top pick, was "+0.0001 on smooth"),
-   R1 interleave, SIL variants, nmetric, + the untested content-adaptive densify/prune (MeshSplatting).
-   Any mechanism beating VSA-lite by a real margin → judge-test on c3 via S-read pair. `docs/ROADS.md`.
-2. **PARALLEL: source a c3-NATIVE (~23k) rough organic proxy (R-ι)** for final confirmation — but do
-   NOT block screening on it; the c5-scale rough ruler is a valid ORGANIC-CLASS screen NOW.
-3. **Deterministic refine (R-κ)** — de-confounds future A/Bs + dev-base reproducibility, NOT bank
-   harvest (best-counts already re-rolls the coin free). ⚠ do NOT determinize a razor case (c4/c6) at
-   a sub-wall iter count (converts a passing coin → deterministic WA); determinize the DEV base with
-   margin, keep bank attempts on the free coin. Cheap/parallel; NOT the focus (Process Law #1).
-4. **Send the SSIM-window judge question** — `docs/JUDGE-QUESTION.md`, ready. HUMAN action; free.
+- ~~Graveyard re-screen on the ruler~~ **DONE**: R-ζ confirmed dead (selection maxed; our edge is
+  placement); no wrongly-buried lever. R-ν densify/prune ruled VACUOUS (coplanar splits = 0 normal).
+- ~~Deterministic refine c4~~ **DONE + SHIPPED + LOCKED** (sub 19934022/19934036, R-κ): c4 refine
+  capped at 36 iters, Accepted 7/7 ×2 bit-identical. The session's judge-tested main.cpp diff.
+1. **OUT-OF-FAMILY BUILD (the score lever — committed next).** In-family + selection are exhausted
+   (proven on the ruler). Candidate committed: **silhouette-priority allocation** — protect per-view
+   fg/bg-boundary vertices (the SSIM-dominant sharp normal discontinuity), starve the near-saturated
+   interior, at fixed N. Genuinely out-of-family (not selection/placement/position; ≠ projw's
+   projected-area). Env-gated in main.cpp → screen once on the rough ruler → JUDGE-TEST via S-read
+   pair. Session-sized build. Alt: direct box-window σxy-correlation objective. `docs/ROADS.md` R-ξ.
+2. **⚠ TLE risk surfaced:** c3/c6/c7 CASETIME 19.5–19.9s (margins 1.1–1.5s). A warm day could TLE
+   the bank. Latent (not from any diff). Consider a small safety trim — but razor rungs, so judge-gate.
+3. **Send the SSIM-window judge question** — `docs/JUDGE-QUESTION.md`, ready. HUMAN action; free.
 
 ---
 
