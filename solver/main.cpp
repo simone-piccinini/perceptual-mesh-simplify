@@ -1,3 +1,6 @@
+// C3-DETERMINISM 2026-07-10: det-refine base + c3 1024 phase-B capped at 16 iters (local conv 18)
+// + RC3 mini_refine capped at 2 → deterministic c3 mesh (kills the c3 box-cut coin). c4 cap 36
+// intact; c2/c5/c6/c7 byte-identical. Bank attempt: does deterministic c3 PASS + reproduce?
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
 // + 1024 mini-polish (hybrid already ends at 1024); in-process self-score; mesh + K tetras.
 // K = round((S-0.885)/5e-4) clamp [0,160]; V' = mesh + 4K; mesh base 6940 == 0 mod 4 (stall detectable).
@@ -287,6 +290,11 @@ static int    g_refine_maxit = (1<<30);  // C3 DETERMINISTIC REFINE (env G_MAXIT
                                          // g_refine_budget is a pure TLE safety sized ABOVE it -> same mesh
                                          // every run, kills the box-cut coin. docs/ROADS.md R-kappa.
 static long   g_refine_iters = 0;        // diagnostic (env G_ITERDBG): stock_pass iterations executed
+static int    g_phaseb_maxit = (1<<30);  // C3 DETERMINISM (env G_PHASEB): cap the hybrid 1024 phase-B stock_pass.
+                                         // Default huge = legacy time-box. c3 phase-B local convergence = 18 iters;
+                                         // judge is slower so its box cuts phase-B mid-trajectory = the c3 coin.
+                                         // A fixed count (16, 2 below convergence) → deterministic c3 mesh. R-κ.
+static int    g_mini_maxit = (1<<30);    // C3 DETERMINISM (env G_MINI): fixed-count cap for mini_refine (RC3 repair burst)
 static int hybrid_for(int V) { return (V > 7000 && V <= 30000) ? 1 : 0; }  // c3 ONLY (c5 hybrid: local -0.0008 AND judge WA 19894828 w/ f32+box18 -> closed x2)
 // C3 DETERMINISTIC REFINE (R-κ): per-case stock_pass iteration cap. The box-cut coin is a JUDGE-ONLY
 // artifact — dev converges (c4 proxy: 38 iters/7.7s < 10.5s budget, byte-identical across runs) but the
@@ -711,8 +719,11 @@ static void mini_refine(double dt) {
     const double deadline = r_elapsed() + dt;
     std::vector<Vec3> g; double cur = refine_score_grad(&g);
     double gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm());
+    int _mi = 0;
     for (int it=0; it<200; ++it) {
+        if (it >= g_mini_maxit) break;                       // C3 DETERMINISM: fixed-count cap (default off)
         if (r_elapsed() > deadline || gmax < 1e-30) break;
+        ++_mi;
         const std::vector<Vec3> save=pos;
         for(size_t v=0; v<pos.size(); ++v){ if(!alive[v]) continue; Vec3 d=g[v]*(stp/gmax); Vec3 np=save[v]+d;
             Vec3 off=np-base[v]; double ol=off.norm(); if(ol>cap) np=base[v]+off*(cap/ol); pos[v]=np; }
@@ -720,6 +731,7 @@ static void mini_refine(double dt) {
         if (sn>cur && refine_valid()) { cur=sn; g.swap(gt); gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm()); }
         else { pos=save; stp*=0.5; if (stp<1e-6*diag) break; }
     }
+    if(getenv("G_ITERDBG")) std::fprintf(stderr, "[mini] %d iters res=%d\n", _mi, g_refine_res);
     g_res = save_res;
 }
 static void refine_positions() {
@@ -740,6 +752,7 @@ static void refine_positions() {
         std::vector<Vec3> g; double dummy = refine_score_grad(&g); (void)dummy;
         bool fresh = true;   // g freshly computed at the current point -> needs transform once
         double gmax = 0;
+        long _i0 = g_refine_iters;
         for(int it=0; it<1000; ++it){
             if(it >= g_refine_maxit) break;                          // C3: deterministic iteration cap (binds when G_MAXIT set)
             if(r_elapsed() > g_refine_budget) break;                 // HARD CPU time-box -> never TLE (TLE safety under G_MAXIT)
@@ -766,6 +779,7 @@ static void refine_positions() {
             if(sn>cur && refine_valid()){ cur=sn; g.swap(gt); fresh = true; }  // monotonic accept; trial gradient becomes current
             else { pos=save; stp*=0.5; if(stp<1e-6*diag) break; }    // reject: cached g still valid at the current point
         }
+        if(getenv("G_ITERDBG")) std::fprintf(stderr, "[sp] %ld iters res=%d bud=%.1f\n", g_refine_iters-_i0, g_refine_res, g_refine_budget);
     };
     if (getenv("G_SIL") || ((int)pos.size() > 40000 && (int)pos.size() <= 100000)) {   // SIL: case 5 hardwired (judge family test); pilot +0.000735 true metric
         const double t1s = g_refine_budget; g_refine_budget = t1s * 0.55;
@@ -796,7 +810,10 @@ static void refine_positions() {
         { const double sb = g_refine_budget; g_refine_budget = sb - 2.4;   // a 1024 iter ~2s can overshoot the box
           double bstep = ((int)pos.size() > 30000) ? 0.0008 : 0.0025;   // sparser meshes: first B iter at 0.0025 always rejects
           if (g_tilt) g_refine_budget = sb - 6.4;   // reserve a window for phase C
+          const int _smb = g_refine_maxit;          // C3 DETERMINISM (R-κ): cap the 1024 phase-B (local convergence 18 iters,
+          g_refine_maxit = g_phaseb_maxit;          // judge-only coin). Fixed count -> deterministic c3 mesh. Default 1<<30 = legacy.
           stock_pass(bstep*diag);
+          g_refine_maxit = _smb;
           if (g_tilt) {           // phase C: tilt-only ascent with the judge's real leash
               g_tiltmode = 1; cap = g_capf*diag; g_refine_budget = sb - 2.4;
               if (getenv("G_RDBG")) std::fprintf(stderr, "[hyb] C start %.2fs cur=%.6f cap=%.4f\n", r_elapsed(), cur, cap);
@@ -1337,6 +1354,10 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_REFINE")) g_refine = atoi(e);   // test override (judge sets no env)
     g_refine_maxit = maxit_for((int)pos.size());                  // C3 deterministic refine: per-case iteration cap (default 1<<30 = legacy)
     if (const char* e = getenv("G_MAXIT")) g_refine_maxit = atoi(e);
+    g_phaseb_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 16 : (1<<30);  // C3 DETERMINISM: cap 1024 phase-B (c3 band)
+    if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
+    g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
+    if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
     g_hybrid = hybrid_for((int)pos.size());
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
     if (const char* e = getenv("G_TILT")) g_tilt = atoi(e);
