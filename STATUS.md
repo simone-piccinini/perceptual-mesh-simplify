@@ -11,7 +11,7 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, main.cpp decimation track)
 
 ```
-BANK      90.321608  (7/7)   [JUDGE 20019038, 2026-07-10] — flip remesher extended to c5: c3@6900 +
+BANK      90.331053  (7/7)   [JUDGE 20019163, 2026-07-10] — flip remesher across c3@6900+c5@4190+c4@4950.
                                c5 4212→4190. +0.007335 over 90.314273. Bank chain this session:
                                90.285538 → 90.314273 (c3@6900, sub 20018842) → 90.321608 (c5@4190).
                                Flip remesher = the working lever; generalizes to organic cases (c3,c5).
