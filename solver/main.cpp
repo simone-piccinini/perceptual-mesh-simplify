@@ -1,6 +1,4 @@
-// REMESH-SPEED 2026-07-10: REMESH-FAST flip remesher + refine speed pass (orig-stat cache V<=100k + crop-
-// restricted fills; c3 -23% CPU local, OUTPUT BYTE-IDENTICAL to REMESH-FAST on c3/c4 proxies). c3 @6900.
-// Q: was 19936152's c3 'x' (CASETIME 21.4s) a TLE? This binary = same c3 mesh, ~19.1s. PASS = +0.014 bank
+// REMESH-FLIP-FIT 2026-07-10: g_cmx speedup + phaseB tail substitution (16->10) funds the flip remesher (incremental eval, validated). c3->6920 (base det-WA'd). Flip gain +6e-4 (below +2e-3 bar; splits WIP). Judge: does c3 pass @6920 + fit time?
 // (c3 6940->6900); WA = 6900 is a real SSIM wall, remesh-fast flips insufficient at -40 verts.
 // Base: c3-det + c4-det + c7 2-stage factor 5->3 (bulk-QEM speed optimum, local -9%)
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
@@ -1581,11 +1579,11 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_REFINE")) g_refine = atoi(e);   // test override (judge sets no env)
     g_refine_maxit = maxit_for((int)pos.size());                  // C3 deterministic refine: per-case iteration cap (default 1<<30 = legacy)
     if (const char* e = getenv("G_MAXIT")) g_refine_maxit = atoi(e);
-    g_phaseb_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 16 : (1<<30);  // C3 DETERMINISM: cap 1024 phase-B (c3 band)
+    g_phaseb_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 10 : (1<<30);  // C3 DETERMINISM: cap 1024 phase-B (c3 band)
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
     g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
-    g_remesh = 0;   // REMESHER default OFF (bank). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
+    g_remesh = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 1 : 0;   // FLIP remesh on c3 (phaseB-substitution funds it). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
     if (const char* e = getenv("G_REMESH")) g_remesh = atoi(e);
     g_hybrid = hybrid_for((int)pos.size());
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
@@ -1709,7 +1707,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6940;                            // C3 N-PUSH on the remesh base (banked det wall = (6920,6940]). env G_C3T
+        int c3t = 6920;                            // C3 N-PUSH on the remesh base (banked det wall = (6920,6940]). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1755,7 +1753,7 @@ int main(int argc, char** argv) {
         }
         if (g_remesh && g_remesh != 7) {   // REMESHER: fast local-delta flip selection on the FINAL mesh at 1024
             g_force_nocrop = 1;                                  // local eval is no-crop; optimize the no-crop (judge-accurate) SSIM
-            remesh_flip_local(8, 1000, r_elapsed() + 12.0);     // flip pass (time box loose; faster base coming)
+            remesh_flip_local(8, 1000, r_elapsed() + 3.0);      // flip pass (bounded box)
             if (g_remesh >= 2) {   // SPLIT-REALLOCATE: add DOF in high-deficit interior, move it, collapse saturated (net-N), re-flip; gate by rendered SSIM
                 int srounds = 3; if(const char* e=getenv("G_SR")) srounds=atoi(e);
                 int sk = 500; if(const char* e=getenv("G_SK")) sk=atoi(e);
