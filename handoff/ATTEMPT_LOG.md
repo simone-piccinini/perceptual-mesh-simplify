@@ -4,13 +4,20 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-10 (newest first)
-- **REMESHER milestone 1 (SSIM-gated edge FLIP): judge WA at N=6940 (sub 19935835).** FACT: c3 WA
-  (base passes 6940), c3 CASETIME 16.3s (margin 4.7s — no TLE, room to spare). Mechanism functions
-  (gradient-targeted flips, each gated by true rendered SSIM; 2-4/sweep accepted, local 512-SSIM
-  +2.3e-5) but the 512-flips made the judge's 1024 c3 worse — tiny topology change below the transfer
-  floor (§9.1). Cheap-objective flip_pass proposed nothing (mesh already normal-aligned). Next: SPLIT
-  (adds DOF where structure is missing → the new vertex MOVES → real structure, not vacuous; bigger
-  structural change, done at 1024 to match the read). Milestone 2. `G_REMESH`.
+- **REMESHER built (flip/split/batch, env G_REMESH) — FACTS characterizing what it needs.** Connectivity
+  as a free variable, gated by true rendered normal-SSIM (nvdiffmodeling-style). Judge + local facts:
+  - **m1 (SSIM-gated FLIP): judge WA at N=6940 (sub 19935835).** Ran on the PRE-decimation 23k mesh
+    (refine_positions runs before RC3's Decimate(6940)) → flips perturb the decimation trajectory, not
+    the final mesh. c3 CASETIME 16.3s (no TLE). Correct location = the RC3 section (final 6940 mesh).
+  - **RC3 full-render per-op flips @1024:** +3e-6 SSIM, +4s → ~24s judge (TLE). Too slow per-op.
+  - **RC3 batch flips (300, one-render gate):** net-NEGATIVE (0.798→0.782), all reverted. Most
+    individual flips HURT; only ~2-4/12 help (per-op accept rate) → a batch can't work.
+  - **SPLIT operator built** (midpoint + refine-move, non-vacuous); on the 23k mesh it jammed the
+    RC3 decimate (6990) — same wrong-mesh issue.
+  ⇒ REQUIREMENT (not a ceiling): per-op gating at SCALE needs INCREMENTAL/local SSIM eval (re-render
+  only the 2-4 affected triangles' pixels, local box-SSIM delta). Full-render is unworkable (per-op
+  TLE; batch net-negative). **That is the next build.** Code kept env-gated; bank restored (G_REMESH
+  default off; c3=6940, c5 byte-identical, output-equivalent to the Accepted c7-speed bank).
 - **c7 SPEED pass → ACCEPTED 7/7 (sub 19934494) — TLE risk FIXED.** Profiled c7 (800k proxy): bulk-QEM
   (800k→114k) = 2.33s dominates (VSA only 0.71s). 2-stage sweep: x3=3.39s speed optimum (x5=3.72,
   x8=4.34 — higher = more expensive VSA). Shipped `twostage_for` 5→3 (c7 only, >400000). Judge: c7
