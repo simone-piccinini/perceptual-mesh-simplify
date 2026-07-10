@@ -89,7 +89,14 @@ pipeline-relative wall (moves when the simplifier improves). See `docs/ROADS.md`
 - ~~Deterministic refine c4~~ **DONE + SHIPPED + LOCKED** (sub 19934022/19934036, R-κ): c4 refine
   capped at 36 iters, Accepted 7/7 ×2 bit-identical. The session's judge-tested main.cpp diff.
 - ~~Hoppe placement judge-tested~~ **DONE (R-α): no win** (sub 19934115 variant c3+c4 WA vs 19934130
-  control 7/7). Judge didn't favor Hoppe; LOW-EV, de-prioritized. Coin-confounded (see #1).
+  control 7/7). LOW-EV, de-prioritized.
+- ~~c3 N-push on the deterministic base~~ **DONE: c3 WALL JUDGE-CONFIRMED** — 6900 (19935666) AND 6920
+  (19935676) both deterministic-WA ⇒ wall 6921–6940, **no N-headroom**. 91.46 needs c3@~5300 (a
+  24%-better MESH) = a breakthrough, NOT tuning. All measured levers maxed/dead; leader edge unexplained.
+- **REALITY (2026-07-10):** the climb is measurement-bound, not idea-bound (CLAUDE.md closing line).
+  Highest-value UNBLOCK = the SSIM-window judge question (#4 below): if the judge masks background in
+  silhouette windows, the oracle is biased exactly where c3's deficit lives → hidden headroom the
+  leader may exploit. HUMAN action. Everything else needs a genuinely-new mechanism (not yet conceived).
 1. **DETERMINIZE c3 (extend R-κ) — THE PORTFOLIO UNLOCK.** c3 A/Bs are coin-dominated (c3 box-cut →
    ±0.001–0.002/draw, so single c3 reads can't resolve a lever). Cap the c3 1024 phase-B loop at a
    fixed iteration count (like c4's stock_pass cap) → c3 reads become clean/reproducible → EVERY c3
