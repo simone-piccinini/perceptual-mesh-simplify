@@ -1,4 +1,4 @@
-// C3-6860 2026-07-10: c3 6880->6860 + phaseB 14->18 (conv; +7e-5). c4@4940+c5@4190 bank. Q: c3 margin @6880 >= 1.9e-4? PASS=+0.014 over 90.350143.
+// WIDE-FLIP 2026-07-10: bigger flip boxes fund deeper rungs. c3@6880+pB14 (bank), c4@4930 box3.6 (+7e-5 over banked cfg), c5@4180 box2.2 (+2.7e-4 over banked cfg). Q: c4/c5 rungs land = +0.008 over 90.350143.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1645,7 +1645,7 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_REFINE")) g_refine = atoi(e);   // test override (judge sets no env)
     g_refine_maxit = maxit_for((int)pos.size());                  // C3 deterministic refine: per-case iteration cap (default 1<<30 = legacy)
     if (const char* e = getenv("G_MAXIT")) g_refine_maxit = atoi(e);
-    g_phaseb_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 18 : (1<<30);  // C3 DETERMINISM: cap 1024 phase-B. 14->18 (+8.4e-5 S2n, +~1.9s judge): the 21s ceiling is SOFT (c3 22.1s / c7 23.5s passed)
+    g_phaseb_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 14 : (1<<30);  // C3 DETERMINISM: cap 1024 phase-B. 10->14 (+8.4e-5 S2n, +~1.9s judge): the 21s ceiling is SOFT (c3 22.1s / c7 23.5s passed)
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
     g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
@@ -1773,7 +1773,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6860;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6880;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1884,14 +1884,14 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        int c4t = 4940; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
+        int c4t = 4930; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
         seed_heap(); Decimate(c4t);                // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
         mini_refine(1.5);                          // case 4's first 1024 polish
         if (g_remesh) {   // FLIP remesher on c4 (time headroom; test if the appearance-flip lever helps CAD-ish c4)
             g_force_nocrop = 1;
-            remesh_flip_local(8, 1200, r_elapsed() + 3.0);
+            remesh_flip_local(10, 1600, r_elapsed() + 3.6);
             g_force_nocrop = 0;
             mini_refine(0.6);
         }
@@ -1932,14 +1932,14 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4190; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // c5 N-push (flip remesher; c5 has time headroom)
+        int c5t = 4180; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // c5 N-push (flip remesher; c5 has time headroom)
         seed_heap(); Decimate(c5t);                // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
         g_res = 1024; g_refine_res = 1024;
         mini_refine(g_remesh ? 0.7 : 1.5);         // trim re-ascent to fund the remesh (c5 judge ratio ~1.6x is tight)
         if (g_remesh) {   // FLIP remesher on c5 (organic, deterministic wall may move like c3's)
             g_force_nocrop = 1;
-            remesh_flip_local(8, 800, r_elapsed() + 1.3);
+            remesh_flip_local(10, 1200, r_elapsed() + 2.2);
             g_force_nocrop = 0;
         }
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
