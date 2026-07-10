@@ -1,4 +1,4 @@
-// C6-REMESH 2026-07-10: NEW RLIVE-C6 (flips at 512 on existing orig maps; TLE-guarded). c6 8684->8600 (+0.0046). c3@6880+c4@4930+c5@4170 bank. Q: c6@8600 with 512-flips passes?
+// C6-LEAN 2026-07-10: c6 branch slimmed (no mini, box 1.2) at the BANKED rung 8684 (zero SSIM risk). Q: was the 21.1s 'x' a TLE? PASS = flips fit -> next push 8600.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1791,7 +1791,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 100000 && (int)pos.size() <= 400000) {   // ===== PROBE-RLIVE-C6 ===== flips at 512 (orig 1024 re-render too costly; 512 maps exist from refine)
-        int c6t = 8600; if(const char* e=getenv("G_C6T")) c6t=atoi(e);   // 0 = OFF (banked smooth path, keep-target 8684 + stall = ~8705)
+        int c6t = 8684; if(const char* e=getenv("G_C6T")) c6t=atoi(e);   // 0 = OFF (banked smooth path, keep-target 8684 + stall = ~8705)
         if (c6t > 0 && !g_orig_n[0][0].empty()) {   // maps missing = refine was TLE-guarded off -> stay banked
             seed_heap(); Decimate(c6t);
             for (int rw = 0; rw < 3 && alive_count > c6t; ++rw) {
@@ -1799,8 +1799,7 @@ int main(int argc, char** argv) {
                 seed_heap(); Decimate(c6t);
             }
             g_res = 512; g_refine_res = 512;       // optimize on the existing 512 originals
-            { const int _sm=g_mini_maxit; g_mini_maxit=3; mini_refine(1.0); g_mini_maxit=_sm; }
-            remesh_flip_local(6, 800, r_elapsed() + 2.0);   // crop already off for V>100k
+            remesh_flip_local(4, 800, r_elapsed() + 1.2);   // LEAN: no mini (1s on the 377k array), shorter box (21.1s was a TLE)
             if(getenv("G_RDBG")) std::fprintf(stderr, "RC6 V=%d S2n=%.6f t=%.1f\n", alive_count, refine_score_grad(nullptr), r_elapsed());
         }
         save_obj();
