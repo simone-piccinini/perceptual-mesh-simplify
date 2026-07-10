@@ -586,50 +586,6 @@ static double remesh_flip_local(int rounds, int K, double tbox) {
     return cur;   // applied flips are 2-ring-independent + eval-exact -> net gain guaranteed
 }
 
-// SPLIT operator: add a vertex at the midpoint of the top-K highest rendered-DEFICIT edges (grows N by <=K).
-// Adds DOF in the interior where structure is missing; the new midpoint verts are then MOVED by the refine
-// gradient (caller). 2-ring independence so the splits don't collide. Returns count split.
-static int remesh_split(int K) {
-    const int W=g_res;
-    remesh_cache_render();
-    std::vector<double> ferr(faces.size(),0.0);
-    for(int v=0;v<6;++v){ const std::vector<int>& fsb=g_rfs[v];
-        for(size_t k=0;k<(size_t)W*W;++k){ int f=fsb[k]; if(f<0) continue; Vec3 n=face_nrm(f);
-            ferr[f]+=std::fabs((n[0]+1.0)*127.5-g_orig_n[v][0][k])+std::fabs((n[1]+1.0)*127.5-g_orig_n[v][1][k])+std::fabs((n[2]+1.0)*127.5-g_orig_n[v][2][k]); } }
-    std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
-    const long long NVv=(long long)pos.size();
-    struct Cd{ double d; int u,v,f1,f2; };
-    std::vector<Cd> cand;
-    for(int f=0;f<(int)faces.size();++f){ if(!face_alive[f])continue; const int* t=faces[f].data();
-        for(int e=0;e<3;++e){ int u=t[e],vv=t[(e+1)%3]; int aa=u,bb=vv; if(aa>bb)std::swap(aa,bb);
-            auto ins=first.emplace((long long)aa*NVv+bb,f); if(ins.second)continue;
-            int f1=ins.first->second; if(!face_alive[f1]||f1==f)continue;
-            cand.push_back({ ferr[f1]+ferr[f], aa,bb,f1,f }); } }
-    if((int)cand.size()>K) std::partial_sort(cand.begin(),cand.begin()+K,cand.end(),[](const Cd&x,const Cd&y){return x.d>y.d;});
-    const int lim=std::min(K,(int)cand.size());
-    std::vector<char> touched(faces.size(),0); int done=0;
-    for(int ci=0;ci<lim;++ci){
-        const int f1=cand[ci].f1,f2=cand[ci].f2; if(touched[f1]||touched[f2]||!face_alive[f1]||!face_alive[f2]) continue;
-        const int* t1=faces[f1].data(); const int* t2=faces[f2].data();
-        int A=-1,B=-1,C=-1,D=-1;
-        for(int k=0;k<3;++k){int x=t1[k],y=t1[(k+1)%3]; if((x==cand[ci].u&&y==cand[ci].v)||(x==cand[ci].v&&y==cand[ci].u)){A=x;B=y;C=t1[(k+2)%3];break;}}
-        for(int k=0;k<3;++k){int x=t2[k]; if(x!=A&&x!=B) D=x;}
-        if(A<0||D<0||C==D) continue;
-        const int m=(int)pos.size();
-        pos.push_back(0.5*(pos[A]+pos[B])); alive.push_back(1); nref.push_back(nref[A]+nref[B]); vfaces.push_back({});
-        const int nf1=(int)faces.size(); faces.push_back({m,B,C}); face_alive.push_back(1);   // f1=(A,B,C)->(A,m,C)+(m,B,C)
-        const int nf2=(int)faces.size(); faces.push_back({m,A,D}); face_alive.push_back(1);   // f2=(B,A,D)->(B,m,D)+(m,A,D)
-        faces[f1]={A,m,C}; faces[f2]={B,m,D};
-        vfaces_erase(vfaces[B],f1); vfaces_erase(vfaces[A],f2);
-        vfaces[m].push_back(f1); vfaces[m].push_back(f2); vfaces[m].push_back(nf1); vfaces[m].push_back(nf2);
-        vfaces[B].push_back(nf1); vfaces[C].push_back(nf1); vfaces[A].push_back(nf2); vfaces[D].push_back(nf2);
-        for(int vtx : {A,B,C,D}) for(int ff : vfaces[vtx]) if(ff<(int)touched.size()) touched[ff]=1;
-        ++done;
-    }
-    if(getenv("G_RDBG")) std::fprintf(stderr,"[split] %d/%d edges split -> N=%d\n",done,lim,(int)pos.size());
-    return done;
-}
-
 // SIL: depth-SSIM of the current mesh vs stored originals (judge formula, union-center coverage)
 static double sil_score_depth() {
     const int W = g_res; double total = 0;
@@ -1585,7 +1541,7 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
     g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
-    g_remesh = 0;   // REMESHER default OFF (bank). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
+    g_remesh = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 1 : 0;   // REMESHER on the c3 band (incremental local-delta flips)
     if (const char* e = getenv("G_REMESH")) g_remesh = atoi(e);
     g_hybrid = hybrid_for((int)pos.size());
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
@@ -1709,7 +1665,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6940;                            // C3 N-PUSH on the remesh base (banked det wall = (6920,6940]). env G_C3T
+        int c3t = 6900;                            // C3 N-PUSH on the remesh base (banked det wall = (6920,6940]). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1755,28 +1711,9 @@ int main(int argc, char** argv) {
         }
         if (g_remesh && g_remesh != 7) {   // REMESHER: fast local-delta flip selection on the FINAL mesh at 1024
             g_force_nocrop = 1;                                  // local eval is no-crop; optimize the no-crop (judge-accurate) SSIM
-            remesh_flip_local(8, 1000, r_elapsed() + 12.0);     // flip pass (time box loose; faster base coming)
-            if (g_remesh >= 2) {   // SPLIT-REALLOCATE: add DOF in high-deficit interior, move it, collapse saturated (net-N), re-flip; gate by rendered SSIM
-                int srounds = 3; if(const char* e=getenv("G_SR")) srounds=atoi(e);
-                int sk = 500; if(const char* e=getenv("G_SK")) sk=atoi(e);
-                for (int it=0; it<srounds; ++it) {
-                    const double before = refine_score_grad(nullptr);
-                    std::vector<Vec3> spos=pos; std::vector<char> sal=alive; std::vector<Vec3> snr=nref;
-                    std::vector<std::vector<int>> svf=vfaces; std::vector<std::array<int,3>> sfc=faces; std::vector<char> sfa=face_alive; int sac=alive_count;
-                    const int coll = getenv("G_NOCOL") ? 0 : sk;
-                    seed_heap(); Decimate(c3t - coll);          // collapse sk CHEAPEST (saturated) edges first -> N = c3t-sk (G_NOCOL: skip, split-only)
-                    mini_refine(0.4);
-                    const int ns = remesh_split(sk);            // then split sk DEFICIT edges -> N ~= c3t (splits survive; no collapse after)
-                    alive_count += ns;
-                    mini_refine(1.2);                           // MOVE the new midpoint verts up the SSIM gradient (non-vacuous DOF)
-                    remesh_flip_local(6, 1000, r_elapsed()+12.0);
-                    const double after = refine_score_grad(nullptr);
-                    if(getenv("G_RDBG")) std::fprintf(stderr,"[realloc] it%d -%d/+%d, N=%d, %.6f -> %.6f\n", it, sk, ns, alive_count, before, after);
-                    if (after <= before + 1e-7) {   // revert this round
-                        pos.swap(spos); alive.swap(sal); nref.swap(snr); vfaces.swap(svf); faces.swap(sfc); face_alive.swap(sfa); alive_count=sac; break; }
-                }
-            }
+            remesh_flip_local(8, 1000, r_elapsed() + 1.1);
             g_force_nocrop = 0;
+            // (no extra mini_refine: flips are position-neutral; the pre-remesh mini_refine sufficed)
         }
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;

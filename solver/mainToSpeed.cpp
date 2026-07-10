@@ -1,8 +1,4 @@
-// REMESH-SPEED 2026-07-10: REMESH-FAST flip remesher + refine speed pass (orig-stat cache V<=100k + crop-
-// restricted fills; c3 -23% CPU local, OUTPUT BYTE-IDENTICAL to REMESH-FAST on c3/c4 proxies). c3 @6900.
-// Q: was 19936152's c3 'x' (CASETIME 21.4s) a TLE? This binary = same c3 mesh, ~19.1s. PASS = +0.014 bank
-// (c3 6940->6900); WA = 6900 is a real SSIM wall, remesh-fast flips insufficient at -40 verts.
-// Base: c3-det + c4-det + c7 2-stage factor 5->3 (bulk-QEM speed optimum, local -9%)
+// C7-SPEED 2026-07-10: c3-det base + c7 2-stage factor 5->3 (bulk-QEM speed optimum, local -9%)
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -356,7 +352,6 @@ static void refine_init_orig() {       // render the ORIGINAL (all-alive) mesh's
             for(int c=0;c<3;++c) g_orig_n[v][c][k]=(float)((n[c]+1.0)*127.5); } }
 }
 // normal-SSIM of the current (alive) mesh vs the stored original; if grad!=0, accumulate dS/d(vertex).
-static int g_force_nocrop = 0;   // incremental-remesh: force crop off so the local flip-delta matches full-render
 static std::vector<float> g_cmx[6][3], g_cxx[6][3];
 static int g_cstat_res = -1;
 static double refine_score_grad(std::vector<Vec3>* grad) {
@@ -384,7 +379,7 @@ static double refine_score_grad(std::vector<Vec3>* grad) {
             int x1=std::max(g_cr_x1[v], g_rb_x1), y1=std::max(g_cr_y1[v], g_rb_y1);
             if (x1 < 0) { x0=0; y0=0; x1=W-1; y1=W-1; }   // nothing rendered: full frame (degenerate safety)
             g_cx0=std::max(0,x0-Rm); g_cy0=std::max(0,y0-Rm); g_cx1=std::min(W-1,x1+Rm); g_cy1=std::min(W-1,y1+Rm);
-            g_crop_on = ((int)pos.size() <= 100000) && !g_force_nocrop;   // crop OFF >100k (377k box-cut razor); force-off for the incremental-remesh local eval
+            g_crop_on = ((int)pos.size() <= 100000);   // crop OFF >100k: the 377k case's box-cut razor mean DROPPED under crop trajectories (WA x5 at 8684-8720 targets)
         }
         std::vector<char> cov((size_t)W*W); for(size_t k=0;k<(size_t)W*W;++k) cov[k]=g_orig_cov[v][k]||(fs[k]>=0);
         std::vector<Vec3> dSdn(faces.size(),Vec3::Zero());
@@ -464,172 +459,6 @@ static double refine_score_grad(std::vector<Vec3>* grad) {
     return total;
 }
 static bool refine_valid();   // fwd decl (defined below)
-
-// ===== INCREMENTAL flip-delta evaluator (remesher enabler): SSIM change of ONE flip, local recompute =====
-// Full-render per-flip is too slow (TLE) and batch is net-negative. This computes a flip's box-SSIM delta
-// by recomputing only the windows the flip touches (quad pixels dilated by R_RAD), from the cached original
-// image (g_orig_n) and the cached base face-id buffer (g_rfs). ~hundreds of windows/flip vs a full W*W render.
-static std::vector<int> g_rfs[6];   // cached base face-id buffers (must match the current mesh; re-cache after applying flips)
-static long g_rNv[6];               // per-view foreground window count (crop OFF; matches refine_score_grad with g_force_nocrop)
-static void remesh_cache_render() {
-    const int W=g_res; const int R=R_RAD;
-    for(int v=0;v<6;++v){ render_faceid(v, g_rfs[v]); long N=0;
-        for(int y=R;y<=W-R-1;++y) for(int x=R;x<=W-R-1;++x){ size_t k=(size_t)y*W+x; if(g_orig_cov[v][k]||g_rfs[v][k]>=0) ++N; }
-        g_rNv[v]=N; }
-}
-// delta of flipping edge (a,b) -> (c,d). OLD faces f1=(a,b,c),f2=(b,a,d) [faces[] still old]. NEW (a,d,c),(d,b,c).
-static double flip_delta_local(int a,int b,int c,int d,int f1,int f2) {
-    const int W=g_res; const double F=800.0*(W/1024.0), CC=W/2.0; const int R=R_RAD;
-    auto enc=[](double nc){ return (float)((nc+1.0)*127.5); };
-    Vec3 on1=face_nrm(f1), on2=face_nrm(f2);
-    Vec3 nn1=(pos[d]-pos[a]).cross(pos[c]-pos[a]); { double l=nn1.norm(); if(l>0)nn1/=l; }
-    Vec3 nn2=(pos[b]-pos[d]).cross(pos[c]-pos[d]); { double l=nn2.norm(); if(l>0)nn2/=l; }
-    double delta=0;
-    for(int v=0;v<6;++v){
-        Vec3 eye,rt,up,fw; view_basis(v,eye,rt,up,fw);
-        double U[4],VV[4]; const int ids[4]={a,b,c,d}; bool ok=true;
-        for(int i=0;i<4;++i){ Vec3 r=pos[ids[i]]-eye; double dz=r.dot(fw); if(dz<=0){ok=false;break;} U[i]=F*r.dot(rt)/dz+CC; VV[i]=F*r.dot(up)/dz+CC; }
-        if(!ok) continue;
-        int bx0=(int)std::floor(std::min(std::min(U[0],U[1]),std::min(U[2],U[3])))-1;
-        int bx1=(int)std::ceil (std::max(std::max(U[0],U[1]),std::max(U[2],U[3])))+1;
-        int by0=(int)std::floor(std::min(std::min(VV[0],VV[1]),std::min(VV[2],VV[3])))-1;
-        int by1=(int)std::ceil (std::max(std::max(VV[0],VV[1]),std::max(VV[2],VV[3])))+1;
-        if(bx1<0||by1<0||bx0>W-1||by0>W-1) continue;
-        // region covering all windows centered in [bx0-R,bx1+R]: pixels [bx0-2R, bx1+2R]
-        const int rx0=std::max(0,bx0-2*R), rx1=std::min(W-1,bx1+2*R), ry0=std::max(0,by0-2*R), ry1=std::min(W-1,by1+2*R);
-        const int rw=rx1-rx0+1, rh=ry1-ry0+1; if(rw<=0||rh<=0) continue;
-        // barycentric-in-triangle for new-face assignment of a quad pixel
-        auto inTri=[&](int i0,int i1,int i2,double cx,double cy)->bool{
-            double u0=U[i0],v0=VV[i0],u1=U[i1],v1=VV[i1],u2=U[i2],v2=VV[i2];
-            double det=(v1-v2)*(u0-u2)+(u2-u1)*(v0-v2); if(det>-1e-12&&det<1e-12) return false; double inv=1.0/det;
-            double w0=((v1-v2)*(cx-u2)+(u2-u1)*(cy-v2))*inv, w1=((v2-v0)*(cx-u2)+(u0-u2)*(cy-v2))*inv, w2=1-w0-w1;
-            return w0>=-1e-6&&w1>=-1e-6&&w2>=-1e-6; };
-        for(int ch=0; ch<3; ++ch){
-            const std::vector<float>& X=g_orig_n[v][ch];
-            // local Yold/Ynew over region (default = base face normal via g_rfs; quad pixels overridden)
-            std::vector<float> Yo((size_t)rw*rh), Yn((size_t)rw*rh);
-            for(int yy=ry0;yy<=ry1;++yy) for(int xx=rx0;xx<=rx1;++xx){ size_t k=(size_t)yy*W+xx; int fid=g_rfs[v][k];
-                float yb = (fid>=0)? enc(face_nrm(fid)[ch]) : 127.5f;
-                float yo=yb, yn=yb;
-                if(fid==f1||fid==f2){ yo = enc((fid==f1?on1:on2)[ch]);
-                    double cx=xx+0.5, cy=yy+0.5;
-                    bool t1n=inTri(0,3,2,cx,cy), t2n=inTri(3,1,2,cx,cy);   // (a,d,c) / (d,b,c)
-                    if(!t1n && !t2n) return -1e30;                          // quad pixel in NEITHER new tri = non-convex (coverage changes) -> eval inexact, reject
-                    yn = enc((t1n? nn1 : nn2)[ch]); }
-                size_t li=(size_t)(yy-ry0)*rw+(xx-rx0); Yo[li]=yo; Yn[li]=yn; }
-            // recompute affected windows (centers in [bx0-R,bx1+R], foreground) from X,Yo,Yn
-            const int wx0=std::max(R,bx0-R), wx1=std::min(W-R-1,bx1+R), wy0=std::max(R,by0-R), wy1=std::min(W-R-1,by1+R);
-            for(int wy=wy0;wy<=wy1;++wy) for(int wx=wx0;wx<=wx1;++wx){ size_t k=(size_t)wy*W+wx;
-                if(!(g_orig_cov[v][k]||g_rfs[v][k]>=0)) continue;
-                double SX=0,SXX=0,SYo=0,SYYo=0,SXYo=0,SYn=0,SYYn=0,SXYn=0;
-                for(int dy=-R;dy<=R;++dy) for(int dx=-R;dx<=R;++dx){ int px=wx+dx, py=wy+dy;
-                    double xv=X[(size_t)py*W+px]; size_t li=(size_t)(py-ry0)*rw+(px-rx0);
-                    double yo=Yo[li], yn=Yn[li];
-                    SX+=xv; SXX+=xv*xv; SYo+=yo; SYYo+=yo*yo; SXYo+=xv*yo; SYn+=yn; SYYn+=yn*yn; SXYn+=xv*yn; }
-                double MX=SX/R_WN;
-                auto ss=[&](double SY,double SYY,double SXY)->double{ double MY=SY/R_WN, SXv=SXX/R_WN-MX*MX, SYv=SYY/R_WN-MY*MY, SXYv=SXY/R_WN-MX*MY;
-                    double A=2*MX*MY+R_C1,B=2*SXYv+R_C2,Cc=MX*MX+MY*MY+R_C1,Dd=SXv+SYv+R_C2; return (A*B)/(Cc*Dd); };
-                delta += (ss(SYn,SYYn,SXYn)-ss(SYo,SYYo,SXYo)) / ((double)g_rNv[v]*18.0);
-            }
-        }
-    }
-    return delta;
-}
-// Fast SSIM-driven flip remesher: per round, cache the base render once, rank edges by cheap rendered-normal
-// error, apply the 2-RING-INDEPENDENT positive-local-delta flips (deltas additive -> net gain guaranteed,
-// no verify render). Manifold-safety snapshot/revert only.
-static double remesh_flip_local(int rounds, int K, double tbox) {
-    const double cur = 0;   // no baseline render needed (2-ring-independent flips are additively net-positive)
-    std::vector<std::array<int,3>> sf=faces; std::vector<std::vector<int>> svf=vfaces;   // manifold-safety snapshot
-    const int W=g_res;
-    for (int rr=0; rr<rounds && r_elapsed()<tbox; ++rr) {
-        remesh_cache_render();   // render_faceid x6 (rasterize only; NO box-SSIM)
-        // cheap per-face rendered-normal error (|Y-X| over the face's pixels; NO box-SSIM render) -> edge deficit rank
-        std::vector<double> ferr(faces.size(),0.0);
-        for(int v=0;v<6;++v){ const std::vector<int>& fsb=g_rfs[v];
-            for(size_t k=0;k<(size_t)W*W;++k){ int f=fsb[k]; if(f<0) continue; Vec3 n=face_nrm(f);
-                double e=std::fabs((n[0]+1.0)*127.5-g_orig_n[v][0][k])+std::fabs((n[1]+1.0)*127.5-g_orig_n[v][1][k])+std::fabs((n[2]+1.0)*127.5-g_orig_n[v][2][k]);
-                ferr[f]+=e; } }
-        std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
-        const long long NVv=(long long)pos.size();
-        struct Cd{ double d; int u,v,f1,f2; };
-        std::vector<Cd> cand;
-        for(int f=0;f<(int)faces.size();++f){ if(!face_alive[f])continue; const int* t=faces[f].data();
-            for(int e=0;e<3;++e){ int u=t[e],vv=t[(e+1)%3]; int aa=u,bb=vv; if(aa>bb)std::swap(aa,bb);
-                auto ins=first.emplace((long long)aa*NVv+bb,f); if(ins.second)continue;
-                int f1=ins.first->second; if(!face_alive[f1]||f1==f)continue;
-                cand.push_back({ ferr[f1]+ferr[f], aa,bb,f1,f }); } }
-        if((int)cand.size()>K) std::partial_sort(cand.begin(),cand.begin()+K,cand.end(),[](const Cd&x,const Cd&y){return x.d>y.d;});
-        const int lim=std::min(K,(int)cand.size());
-        std::vector<char> touched(faces.size(),0); int applied=0;
-        for(int ci=0;ci<lim;++ci){ if(r_elapsed()>tbox) break;
-            const int f1=cand[ci].f1,f2=cand[ci].f2; if(touched[f1]||touched[f2]||!face_alive[f1]||!face_alive[f2]) continue;
-            const int* t1=faces[f1].data(); const int* t2=faces[f2].data();
-            int A=-1,B=-1,C=-1,D=-1;
-            for(int k=0;k<3;++k){int x=t1[k],y=t1[(k+1)%3]; if((x==cand[ci].u&&y==cand[ci].v)||(x==cand[ci].v&&y==cand[ci].u)){A=x;B=y;C=t1[(k+2)%3];break;}}
-            for(int k=0;k<3;++k){int x=t2[k]; if(x!=A&&x!=B) D=x;}
-            if(A<0||D<0||C==D||EdgeExists(C,D)) continue;
-            Vec3 om=(pos[t1[1]]-pos[t1[0]]).cross(pos[t1[2]]-pos[t1[0]])+(pos[t2[1]]-pos[t2[0]]).cross(pos[t2[2]]-pos[t2[0]]);
-            if(((pos[D]-pos[A]).cross(pos[C]-pos[A])).dot(om)<=0.0||((pos[B]-pos[D]).cross(pos[C]-pos[D])).dot(om)<=0.0) continue;
-            if(flip_delta_local(A,B,C,D,f1,f2) <= 1e-9) continue;   // only flips the local eval says improve SSIM
-            vfaces_erase(vfaces[B],f1); vfaces[D].push_back(f1);
-            vfaces_erase(vfaces[A],f2); vfaces[C].push_back(f2);
-            faces[f1]={A,D,C}; faces[f2]={D,B,C}; ++applied;
-            // 2-RING independence: mark all faces incident to the quad's 4 verts -> applied flips don't share the
-            // 11px box window -> their deltas are additive -> net gain guaranteed WITHOUT a verify render.
-            for(int vtx : {A,B,C,D}) for(int ff : vfaces[vtx]) touched[ff]=1;
-        }
-        if(getenv("G_RDBG")) std::fprintf(stderr,"[locflip] r%d +%d flips t=%.2f\n",rr,applied,r_elapsed());
-        if(applied==0) break;   // trust the VALIDATED local eval: no expensive per-round verify render
-    }
-    if(!refine_valid()){ faces.swap(sf); vfaces.swap(svf); return cur; }   // manifold safety only (no full-render verify)
-    return cur;   // applied flips are 2-ring-independent + eval-exact -> net gain guaranteed
-}
-
-// SPLIT operator: add a vertex at the midpoint of the top-K highest rendered-DEFICIT edges (grows N by <=K).
-// Adds DOF in the interior where structure is missing; the new midpoint verts are then MOVED by the refine
-// gradient (caller). 2-ring independence so the splits don't collide. Returns count split.
-static int remesh_split(int K) {
-    const int W=g_res;
-    remesh_cache_render();
-    std::vector<double> ferr(faces.size(),0.0);
-    for(int v=0;v<6;++v){ const std::vector<int>& fsb=g_rfs[v];
-        for(size_t k=0;k<(size_t)W*W;++k){ int f=fsb[k]; if(f<0) continue; Vec3 n=face_nrm(f);
-            ferr[f]+=std::fabs((n[0]+1.0)*127.5-g_orig_n[v][0][k])+std::fabs((n[1]+1.0)*127.5-g_orig_n[v][1][k])+std::fabs((n[2]+1.0)*127.5-g_orig_n[v][2][k]); } }
-    std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
-    const long long NVv=(long long)pos.size();
-    struct Cd{ double d; int u,v,f1,f2; };
-    std::vector<Cd> cand;
-    for(int f=0;f<(int)faces.size();++f){ if(!face_alive[f])continue; const int* t=faces[f].data();
-        for(int e=0;e<3;++e){ int u=t[e],vv=t[(e+1)%3]; int aa=u,bb=vv; if(aa>bb)std::swap(aa,bb);
-            auto ins=first.emplace((long long)aa*NVv+bb,f); if(ins.second)continue;
-            int f1=ins.first->second; if(!face_alive[f1]||f1==f)continue;
-            cand.push_back({ ferr[f1]+ferr[f], aa,bb,f1,f }); } }
-    if((int)cand.size()>K) std::partial_sort(cand.begin(),cand.begin()+K,cand.end(),[](const Cd&x,const Cd&y){return x.d>y.d;});
-    const int lim=std::min(K,(int)cand.size());
-    std::vector<char> touched(faces.size(),0); int done=0;
-    for(int ci=0;ci<lim;++ci){
-        const int f1=cand[ci].f1,f2=cand[ci].f2; if(touched[f1]||touched[f2]||!face_alive[f1]||!face_alive[f2]) continue;
-        const int* t1=faces[f1].data(); const int* t2=faces[f2].data();
-        int A=-1,B=-1,C=-1,D=-1;
-        for(int k=0;k<3;++k){int x=t1[k],y=t1[(k+1)%3]; if((x==cand[ci].u&&y==cand[ci].v)||(x==cand[ci].v&&y==cand[ci].u)){A=x;B=y;C=t1[(k+2)%3];break;}}
-        for(int k=0;k<3;++k){int x=t2[k]; if(x!=A&&x!=B) D=x;}
-        if(A<0||D<0||C==D) continue;
-        const int m=(int)pos.size();
-        pos.push_back(0.5*(pos[A]+pos[B])); alive.push_back(1); nref.push_back(nref[A]+nref[B]); vfaces.push_back({});
-        const int nf1=(int)faces.size(); faces.push_back({m,B,C}); face_alive.push_back(1);   // f1=(A,B,C)->(A,m,C)+(m,B,C)
-        const int nf2=(int)faces.size(); faces.push_back({m,A,D}); face_alive.push_back(1);   // f2=(B,A,D)->(B,m,D)+(m,A,D)
-        faces[f1]={A,m,C}; faces[f2]={B,m,D};
-        vfaces_erase(vfaces[B],f1); vfaces_erase(vfaces[A],f2);
-        vfaces[m].push_back(f1); vfaces[m].push_back(f2); vfaces[m].push_back(nf1); vfaces[m].push_back(nf2);
-        vfaces[B].push_back(nf1); vfaces[C].push_back(nf1); vfaces[A].push_back(nf2); vfaces[D].push_back(nf2);
-        for(int vtx : {A,B,C,D}) for(int ff : vfaces[vtx]) if(ff<(int)touched.size()) touched[ff]=1;
-        ++done;
-    }
-    if(getenv("G_RDBG")) std::fprintf(stderr,"[split] %d/%d edges split -> N=%d\n",done,lim,(int)pos.size());
-    return done;
-}
-
 // SIL: depth-SSIM of the current mesh vs stored originals (judge formula, union-center coverage)
 static double sil_score_depth() {
     const int W = g_res; double total = 0;
@@ -751,7 +580,6 @@ static bool refine_valid() {   // every alive face must stay nondegenerate (judg
 // this is the cheap-objective form, judge-inert unless flip_for() enables it.
 static int flip_for(int) { return 0; }
 static int g_flip = 0;
-static int g_remesh = 0;   // G_REMESH: incremental-eval flip remesher on the final RC3 mesh (7 = validation mode)
 static inline double flip_tricost(int a, int b, int c) {
     Vec3 cr = (pos[b]-pos[a]).cross(pos[c]-pos[a]); double l = cr.norm();
     if (l < 1e-14) return 1e18;
@@ -1585,8 +1413,6 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
     g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
-    g_remesh = 0;   // REMESHER default OFF (bank). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
-    if (const char* e = getenv("G_REMESH")) g_remesh = atoi(e);
     g_hybrid = hybrid_for((int)pos.size());
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
     if (const char* e = getenv("G_TILT")) g_tilt = atoi(e);
@@ -1709,75 +1535,18 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6940;                            // C3 N-PUSH on the remesh base (banked det wall = (6920,6940]). env G_C3T
-        if (const char* e = getenv("G_C3T")) c3t = atoi(e);
-        seed_heap(); Decimate(c3t);
-        for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
-            if (flip_unlock_sweep(4*(alive_count - c3t)) == 0) break;
-            seed_heap(); Decimate(c3t);
+        seed_heap(); Decimate(6940);               // banked 6954 minus 14 extra collapses (on refined geometry)
+        for (int uw = 0; uw < 2 && alive_count > 6940; ++uw) {
+            if (flip_unlock_sweep(4*(alive_count - 6940)) == 0) break;
+            seed_heap(); Decimate(6940);
         }
-        for (int rw = 0; rw < 3 && alive_count > c3t; ++rw) {
-            if (vertex_remove_pass(alive_count - c3t) == 0) break;
-            seed_heap(); Decimate(c3t);
+        for (int rw = 0; rw < 3 && alive_count > 6940; ++rw) {
+            if (vertex_remove_pass(alive_count - 6940) == 0) break;
+            seed_heap(); Decimate(6940);
         }
         if (g_refine_res < 1024) render_orig_hires(1024);   // hybrid phase B may not have fired
         g_res = 1024; g_refine_res = 1024;
         mini_refine(1.2);                          // repair the collapse damage at judge res
-        if (g_remesh == 7) {   // VALIDATION: local flip-delta vs full-render delta (correctness gate for the incremental evaluator)
-            g_res = 1024; g_refine_res = 1024; g_force_nocrop = 1;
-            remesh_cache_render();
-            std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
-            const long long NVv=(long long)pos.size(); int tested=0;
-            for (int f=0; f<(int)faces.size() && tested<10; ++f){ if(!face_alive[f]) continue; const int* t=faces[f].data();
-                for(int e=0;e<3 && tested<10;++e){ int u=t[e],v=t[(e+1)%3]; int aa=u,bb=v; if(aa>bb)std::swap(aa,bb);
-                    auto ins=first.emplace((long long)aa*NVv+bb,f); if(ins.second) continue;
-                    int f1=ins.first->second, f2=f; if(!face_alive[f1]||f1==f2) continue;
-                    const int* t1=faces[f1].data(); const int* t2=faces[f2].data();
-                    int A=-1,B=-1,C=-1,D=-1;
-                    for(int k=0;k<3;++k){int x=t1[k],y=t1[(k+1)%3]; if((x==aa&&y==bb)||(x==bb&&y==aa)){A=x;B=y;C=t1[(k+2)%3];break;}}
-                    for(int k=0;k<3;++k){int x=t2[k]; if(x!=A&&x!=B) D=x;}
-                    if(A<0||D<0||C==D||EdgeExists(C,D)) continue;
-                    double loc = flip_delta_local(A,B,C,D,f1,f2);
-                    double cur = refine_score_grad(nullptr);
-                    auto o1=faces[f1], o2=faces[f2];
-                    vfaces_erase(vfaces[B],f1); vfaces[D].push_back(f1);
-                    vfaces_erase(vfaces[A],f2); vfaces[C].push_back(f2);
-                    faces[f1]={A,D,C}; faces[f2]={D,B,C};
-                    double truede = refine_score_grad(nullptr) - cur;
-                    faces[f1]=o1; faces[f2]=o2;
-                    vfaces_erase(vfaces[D],f1); vfaces[B].push_back(f1);
-                    vfaces_erase(vfaces[C],f2); vfaces[A].push_back(f2);
-                    std::fprintf(stderr,"[valid] local=%+.3e full=%+.3e ratio=%.2f\n", loc, truede, (truede!=0.0? loc/truede : 0.0));
-                    ++tested;
-                }
-            }
-            g_force_nocrop = 0;
-        }
-        if (g_remesh && g_remesh != 7) {   // REMESHER: fast local-delta flip selection on the FINAL mesh at 1024
-            g_force_nocrop = 1;                                  // local eval is no-crop; optimize the no-crop (judge-accurate) SSIM
-            remesh_flip_local(8, 1000, r_elapsed() + 12.0);     // flip pass (time box loose; faster base coming)
-            if (g_remesh >= 2) {   // SPLIT-REALLOCATE: add DOF in high-deficit interior, move it, collapse saturated (net-N), re-flip; gate by rendered SSIM
-                int srounds = 3; if(const char* e=getenv("G_SR")) srounds=atoi(e);
-                int sk = 500; if(const char* e=getenv("G_SK")) sk=atoi(e);
-                for (int it=0; it<srounds; ++it) {
-                    const double before = refine_score_grad(nullptr);
-                    std::vector<Vec3> spos=pos; std::vector<char> sal=alive; std::vector<Vec3> snr=nref;
-                    std::vector<std::vector<int>> svf=vfaces; std::vector<std::array<int,3>> sfc=faces; std::vector<char> sfa=face_alive; int sac=alive_count;
-                    const int coll = getenv("G_NOCOL") ? 0 : sk;
-                    seed_heap(); Decimate(c3t - coll);          // collapse sk CHEAPEST (saturated) edges first -> N = c3t-sk (G_NOCOL: skip, split-only)
-                    mini_refine(0.4);
-                    const int ns = remesh_split(sk);            // then split sk DEFICIT edges -> N ~= c3t (splits survive; no collapse after)
-                    alive_count += ns;
-                    mini_refine(1.2);                           // MOVE the new midpoint verts up the SSIM gradient (non-vacuous DOF)
-                    remesh_flip_local(6, 1000, r_elapsed()+12.0);
-                    const double after = refine_score_grad(nullptr);
-                    if(getenv("G_RDBG")) std::fprintf(stderr,"[realloc] it%d -%d/+%d, N=%d, %.6f -> %.6f\n", it, sk, ns, alive_count, before, after);
-                    if (after <= before + 1e-7) {   // revert this round
-                        pos.swap(spos); alive.swap(sal); nref.swap(snr); vfaces.swap(svf); faces.swap(sfc); face_alive.swap(sfa); alive_count=sac; break; }
-                }
-            }
-            g_force_nocrop = 0;
-        }
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());

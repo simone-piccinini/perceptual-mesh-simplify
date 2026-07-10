@@ -11,18 +11,17 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, main.cpp decimation track)
 
 ```
-BANK      90.285538  (7/7)   [JUDGE] — VERIFIED on Kattis 2026-07-09 (team "Proof By Intimidation",
-                               Accepted 90.285538, 7/7, C++). This is the authoritative bank.
-                               (submissions.jsonl is only a partial ledger — no web-UI submits;
-                               its last logged all-green was 90.252481. Kattis is the truth.)
-LEADER    91.48      [JUDGE, leaderboard 2026-07-09]   #1 希望ヶ峰学園 CG研究会.  gap to #1 = 1.19
-                                                       (top-3 cluster 91.46; we are rank 12)
+BANK      90.314273  (7/7)   [JUDGE 20018842, 2026-07-10] — v112 REMESH-SPEED: flip remesher broke the
+                               c3 wall (6940→6900) + refine speed pass (TLE→pass). +0.028735 over the
+                               2026-07-09 Kattis-verified 90.285538.
+LEADER    91.48      [JUDGE, leaderboard 2026-07-09]   #1 希望ヶ峰学園 CG研究会.  gap to #1 = 1.17
+                                                       (top-3 cluster 91.46; we were rank 12)
 ```
 
 ### Per-case (compression %, banked N) — [JUDGE], as of ARCHITECT-REVIEW 2026-07-08
 ```
 c2  99.32%  N=28        SSIM wall @28 (27 WA)            — closed
-c3  70.08%  N=6941      SSIM-structure, MECHANISM-LIMITED — THE prize (1 pt c3 = 0.167 total)
+c3  70.26%  N=6900      FLIP REMESHER broke the 6921-6940 wall — THE prize, probe deeper (6880/6860)
 c4  85.71%  N~5044      box-cut coin, genus-0             — hard
 c5  91.55%  N=4212      deterministic wall               — closed 0/12
 c6  97.69%  N~8705      box-cut razor                    — hard
@@ -36,24 +35,18 @@ measured-hard wall. Attack case-3.
 ## LIVE code
 
 ```
-solver/main.cpp   (BANK track — decimation)   sha256 38d98e8bd0b1  = c3-det + c4-det + c7-SPEED (99 KiB)
-                  = det-refine (c3 phase-B cap 16 + c4 cap 36) + c7 2-stage 5→3 speed pass.
-                  ACCEPTED 7/7 [JUDGE 19934494]: 90.285538, SUM6 541.713228 bit-identical.
-                  WINS THIS SESSION (all zero score cost): c3+c4 deterministic (kills box-cut coin →
-                  clean c3 A/Bs); c7 CASETIME 20.8→18.2s (TLE margin 0.0→2.8s, bank protection).
-                  ⚠ c3/c6 still 19.2/19.4s (margin 1.6-1.8s) — tightish, not fixed. Prior bases:
-                  b940d1aa (c3-det, sub 19934300), 32b9f515 (c4-det only).
-                  = bonifica base + C3 DETERMINISTIC REFINE on c4 (stock_pass capped at 36 iters).
-                  ACCEPTED 7/7 [JUDGE 19934022, 2026-07-10]: 90.285538, c4 V'=4970 (banked rung),
-                  CASETIME c4 16.2s. c4 refine now deterministic by construction (cap, not the
-                  wall-clock box, terminates) → kills the c4 box-cut coin. c2/c3/c5/c6/c7 byte-
-                  identical to the bonifica base (maxit_for=1<<30 for all non-c4 bands; only c4's
-                  input 35292 lands in 30k–40k). ⚠ c6/c7 CASETIME 19.2/19.9s = TLE-tight. c3/c6
-                  still on the box-cut coin (left time-boxed this ship). LOCK CONFIRMED: 2 force
-                  re-rolls (19934022, 19934036) BIT-IDENTICAL SUM6 541.713228 → reproduces the bank.
-                  ⚠ c3/c6/c7 CASETIME 19.5–19.9s = TLE-tight (latent bank risk, unchanged by diff).
-                  Prior bank base: bonifica ecbbe3c0b082 (re-banked r56 19932030); pre-bonifica
-                  68e22f048d07 (v111).
+solver/main.cpp   (BANK track — decimation)   sha256 d1d7e156206f  = v112 REMESH-SPEED (115.2 KiB)
+                  = c3-det/c4-det/c7-SPEED base + INCREMENTAL FLIP REMESHER on the final c3 mesh
+                  (flip_delta_local validated ratio~1.0; 2-ring-independent flips, no verify render)
+                  + refine SPEED PASS (orig-stat cache + crop-restricted fills, −23% c3 CPU, gated
+                  V≤100k so c6/c7 bit-identical). ACCEPTED 7/7 [JUDGE 20018842]: 90.314273.
+                  Decode: only c3 moved (6940→6900, +0.1724 payout). The 6900 bare-mesh WA
+                  (19935666) was an SSIM wall the FLIPS now cross; 19936152's 'x' was a TLE
+                  (21.4s→19.3s). Snapshot: submissions/v112-remesh-speed-90314273/.
+                  ⚠ CASETIME c3 19.3 / c5 19.4 / c7 19.9 — TLE-tight (margin 1.1–1.7s).
+                  Prior: 38d98e8bd0b1 (c3-det+c4-det+c7-SPEED, 90.285538, sub 19934494; det-refine
+                  c3 phase-B cap 16 + c4 cap 36, LOCK CONFIRMED 2 re-rolls bit-identical); earlier
+                  bases: b940d1aa (c3-det), 32b9f515 (c4-det), bonifica ecbbe3c0b082, 68e22f048d07 (v111).
 solver/main_v2.cpp (INDEPENDENT track — construction→carve)  all-green ~90.24 [JUDGE]
                   → best carve snapshot: solver/submissionv2/main_v2_90p24_sub19909317.cpp
                   ⚠ the banner inside main_v2.cpp still says 64.34 (construction era); the 90.24
@@ -69,6 +62,12 @@ solver/main_v2.cpp (INDEPENDENT track — construction→carve)  all-green ~90.2
 pipeline-relative wall (moves when the simplifier improves). See `docs/ROADS.md`.
 
 ## NEXT ACTIONS (ranked — full rationale in ARCHITECT-REVIEW.md §3/§7)
+
+- **NEW 2026-07-10: c3 REMESH DESCENT — the live front.** v112 proved flips cross the SSIM wall
+  (6900 passed where bare 6900 WA'd). Headroom untested: remesh box is only 1.1s (self-terminated
+  at 72 flips locally), c3 margin 1.7s. Probe: (a) deeper N (6880, 6860 — deterministic c3 = one
+  clean read each); (b) bigger remesh box / more rounds; (c) flip+re-polish alternation. Each -20
+  verts ≈ +0.014. STOP at two consecutive deterministic WAs.
 
 - ~~Bonifica main.cpp~~ **DONE r55, RE-BANKED 7/7 r56** (−19.3 KiB source, ~109 MB cc1plus reclaimed).
 - **Road 3.B.1 Hoppe attribute-quadric placement → PARKED, NOT dead.** Built the full Vis'99 optimum;
