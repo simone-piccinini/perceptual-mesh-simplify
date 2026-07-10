@@ -1707,7 +1707,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6920;                            // C3 N-PUSH on the remesh base (banked det wall = (6920,6940]). env G_C3T
+        int c3t = 6900;                            // C3 N-PUSH (bank config: remesh @6900 = 90.314273 sub 20018842) on the remesh base (banked det wall = (6920,6940]). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
