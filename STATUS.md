@@ -11,18 +11,18 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, main.cpp decimation track)
 
 ```
-BANK      90.361534  (7/7)   [JUDGE 20020177, 2026-07-10] — c3@6880+pB14 + c4@4930 + c5@4170, all via
-                               the WIDE-FLIP lever (bigger remesh boxes fund deeper rungs). Session chain:
-                               90.285538 → .314273 (c3 6900) → .321608 (c5 4190) → .331053 (c4 4950) →
-                               .335775 (c4 4940) → .350143 (c3 6880+pB14) → .358199 (c4 4930+c5 4180 wide)
-                               → .361534 (c5 4170). +0.076 session. WIDE-FLIP WALLS [JUDGE]: c3 6880
-                               (6860 x2 'x'), c4 4930 (4920 WA 18.3s clean), c5 4170 (4160 untested).
-                               DEAD this session: split-realloc (all rank/placement variants net-negative
-                               locally, incl. orig-projected splits); flip<->move alternation (zero delta);
-                               c4 extra refine iters (non-monotone, 36 optimal, 32 = same S2n -0.8s).
-                               LIVE probe: c2@27 via NEW RLIVE-C2 branch (1024 polish + wide flips; 1 c2
-                               vert = +0.004; 27 WA'd pre-remesher). File: solver/mein.cpp (127.4 KiB ⚠
-                               662 B under the 128 KiB limit).
+BANK      90.361534  (7/7)   [JUDGE 20020177, 2026-07-10] — c3@6880+pB14 + c4@4930 + c5@4170 (wide-flip).
+                               Session +0.076 in 8 banks. FINAL WALLS [JUDGE, all fail-typed]: c2 28 (27 WA
+                               even with remesh+1024 polish), c3 6880 (6870 x3 'x' at pB14/16/18), c4 4930
+                               (4920 WA 18.3s), c5 4170 (4160 WA; 4165 last coin pending), c6 banked path
+                               only (RLIVE-C6 WA'd AT the banked rung: explicit-decimate loses the +21 stall
+                               margin, 512-flips don't transfer to 1024 — lane dead x3), c7 no orig maps
+                               (render of 2M-face original unaffordable) = untouchable.
+                               DEAD this session: split-realloc (every rank/placement incl. orig-projection),
+                               flip<->move alternation, c4 extra iters, c2@27, c6 flips.
+                               File solver/mein.cpp 121.6 KiB (dead realloc code stripped).
+                               90.40 needs a NEW SSIM mechanism (+2e-4-class on c3/c4/c5) — flip paradigm
+                               is razor-maxed everywhere.
 LEADER    91.48      [JUDGE, leaderboard 2026-07-09]   #1 希望ヶ峰学園 CG研究会.  gap to #1 = 1.17
                                                        (top-3 cluster 91.46; we were rank 12)
 ```
