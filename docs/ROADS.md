@@ -106,7 +106,12 @@ deterministic NEGATIVE → a genuine transfer failure, the right target):**
 |-------|-----------|------|
 | clean armadillo (smooth) | 0.0180 | +0.0004 |
 | coherent-noise armadillo (make_corr_noise, amp .002-.004 sm6-12) | synthetic | **+0.0018 … +0.0043** |
-| ab_orig (natural, rougher, on-hand) | 0.0302 | **−0.0003** |
+| ab_orig = ARMADILLO @62,938 (rougher processing, SAME c5 model) | 0.0302 | **−0.0003** |
+
+*(ab_orig identified: identical aspect [0.839,1.0,0.763] + centroid to clean armadillo ⇒ it IS the
+c5 model, just a rougher 62,938-v processing. So on the ACTUAL c5 model, rougher processing → R1
+negative = judge sign; smooth → positive. Concrete R-ι target: source/make a rougher armadillo at
+c5's 49,987 count. Delta is tiny (−0.0003) so confirm with a cleaner-separated rough proxy.)*
 
 **Two findings.** (1) SYNTHETIC displacement noise (white iter1-2 AND coherent iter3) makes R1 read
 MORE positive, not negative — it ADDS refine-recoverable structure (the coarse mesh CAN chase

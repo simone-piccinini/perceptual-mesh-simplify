@@ -7,6 +7,41 @@ misurati, letti con la regola che avete dato voi — «non è detto che ciò che
 
 ---
 
+## ⚑ UPDATE 2026-07-09 — piano eseguito, UNA correzione, e la NUOVA strada (3.C.2)
+
+L'agente ha eseguito tutto il piano §7. Riepilogo + le due cose che contano ora.
+
+| item §7 | esito reale | giudizio dell'architetto |
+|---|---|---|
+| 1. bonifica main.cpp | ✅ −19.3 KiB, ~109 MB cc1plus recuperati, judge-validata, byte-identica | **vittoria vera.** Tenere. |
+| 2. reorg repo | ✅ STATUS/CLAUDE/ROADS/nav | fatto; README ora corretto (il "problema enorme": diceva Hausdorff p2s "matching the judge" — falso, è v2v). |
+| 3. adotta CLAUDE.md | ✅ | ok |
+| 4. Hoppe placement (§3.B.1) | ⚠ "neutro", NON pulitamente attribuito | chiuso su evidenza debole (proxy non-de-biasato). Priorità bassa, non sepolto. |
+| 5. re-roll coin | giorno freddo (c4 perde), rimandato | ok |
+| 6. **de-bias proxy (§3.C.1)** | ⚠ dichiarato "FALSIFICATO" a iter 2/10 | **correzione sotto.** |
+| 7. domanda giudice | ✅ bozza pronta | mandarla — gratis |
+
+**Correzione (§3.C.1).** L'agente ha dichiarato morto il lever #1 all'**iterazione 2 di 10**, con **il
+modello di rumore sbagliato sul caso sbagliato** — il vizio che il §4 predice. Non è falsificato il
+*programma*, solo una forma ingenua. Tre difetti (due scoperti da lui stesso senza trarne la conseguenza):
+(1) **rumore sbagliato** — white-noise-along-normal per-vertice è *refine-recuperabile* (lui lo scrive!);
+serve rumore **correlato / band-limited** sotto la frequenza rappresentabile, o cotto nei normali di
+FACCIA. (2) **caso sbagliato** — ha calibrato su **c3 (box-cut = moneta)** mentre il segnale pulito era
+su **c5 deterministico** (R1 ha WA'd c5 in modo deterministico, 19897122). (3) **campione debole** —
+Hoppe non discrimina; resta un segnale, una forma di rumore. È 2/10, non 10/10.
+
+**⚑ La scoperta nuova (Road 3.C.2 — DATA SOURCING, vedi §3.C).** Analizzando i mesh locali: avete **un
+solo** mesh organico hi-res (armadillo pulito), e il proxy di case-3 ne è una **decimazione** →
+doppiamente liscio (la decimazione è un passa-basso: toglie esattamente la struttura sub-triangolo che
+lo scan vero conserva). **Ma il giudice usa modelli STANDARD:** case-5 = 49.987 ≈ armadillo Stanford
+(49.990). Quindi il de-bias migliore **non è rumore sintetico — è procurarsi i mesh GIUSTI** (scan grezzi
+Stanford, modelli-sorgente identificati per risoluzione). Questo può dissolvere il transfer-problem su
+c5/c6/c7 e dare un proxy c3 fedele. È più importante del de-bias sintetico. Dettaglio in §3.C.
+
+*Il resto del documento è invariato rispetto al 2026-07-08 e resta valido.*
+
+---
+
 ## 0. TL;DR per chi ha 30 secondi
 
 1. **Il premio è quasi tutto in case-3.** Ogni punto di compressione su case-3 vale **0.167 sul
@@ -199,6 +234,53 @@ non poter iterare offline in modo affidabile. Risolvete QUELLO e le strade grand
 economiche, la co-opt torna testabile, e il ceiling "misurato" si rivela per quello che è — un
 artefatto dello strumento, non una legge fisica.
 
+### 3.C.2 — DATA SOURCING: la forma VERA del de-bias (aggiunta 2026-07-09) ⚑ NUOVA, priorità alta
+
+Il de-bias sintetico (3.C.1) cerca di *simulare* uno scan grezzo aggiungendo rumore a un mesh pulito.
+Ma l'analisi dei dati locali dice che si può fare di meglio, andando alla radice. Fatti misurati:
+
+- **Avete UN solo mesh organico hi-res: armadillo (49.990 V), già "watertight" = ripulito/denoised.**
+  Tutto l'organico (c3/c5/c6/c7) è proxato da lì. Il proxy di **case-3 è armadillo decimato a ~25k** →
+  doppiamente liscio. Rugosità misurata (dihedral medio): armadillo 10.2°, bunny/cow 13–17°, fandisk
+  (CAD) 3.9°. La decimazione è un **filtro passa-basso**: rimuove la struttura ad alta frequenza che è
+  proprio il segnale che il giudice paga (σxy) e che lo scan vero a 23k conserva. **Questo È il bias
+  §9.1, alla sorgente.**
+- **Il giudice usa modelli STANDARD di ricerca.** Prova: `case-5 = 49.987 V ≈ armadillo Stanford
+  (49.990)`, differ. di 3 vertici = stesso modello, processing diverso (infatti "+0.055 SSIM più
+  clemente" del vostro proxy). I conteggi esatti (c3=23.201, c4=35.292, c6=377.084, c7=1.009.118) sono
+  impronte di post-processing. `[INFERRED]`
+
+**Il piano (in ordine di valore):**
+1. **Identificare i modelli-sorgente per famiglia + risoluzione** (web research, DATA-side). Candidati
+   per taglia: c6≈377k → Stanford dragon (~437–566k) decimato; c7≈1M → dragon/buddha/lucy/thai decimati
+   a 1M; c3≈23k organico → un modello organico decimato *poco*; c4 CAD → classe ABC/fandisk. Se
+   identificati e riprocessati alla risoluzione giusta, **c5/c6/c7 diventano riproducibili offline** →
+   i loro muri sono misurabili offline, il coin e il transfer-problem spariscono per quei casi.
+2. **Scaricare gli scan GREZZI** (Stanford 3D Scanning Repo ha i range data con rumore sensore reale).
+   Un armadillo grezzo È letteralmente il proxy de-biasato di 3.C.1, **senza sintesi**. Test decisivo:
+   R1 legge negativo su un proxy grezzo/nativo *out-of-the-box*? Se sì, "troppo liscio" è confermato e
+   avete uno strumento che trasferisce, gratis.
+3. **Un mesh organico NATIVO ~23k** (non decimato-da-50k) per uno screen SSIM di case-3 fedele.
+
+**Caveat onesto:** non conoscerete il processing ESATTO del giudice (watertight-repair, metodo di
+decimazione, rumore), quindi la riproduzione esatta è improbabile. Ma un proxy con **il modello giusto,
+la risoluzione giusta e rugosità realistica** trasferisce incomparabilmente meglio di un
+armadillo-pulito-decimato — ed è l'unica via per riavere l'iterazione offline, che è il vero collo di
+bottiglia (§0.3). **Questa è la 3.C rivista: fatela PRIMA del rumore sintetico.**
+
+*(Nota di igiene emersa dall'analisi: la harness usa `probe/cache/c3band.obj`/`c4band.obj` =
+**fandisk (CAD) suddiviso** — corretto SOLO per preflight validità/conteggio-vertici, MAI per un A/B
+di SSIM organica. E c6/c7 non hanno alcun proxy locale: ciechi offline su quei due, accettabile perché
+saturi al 97%.)*
+
+**Convergenza dalla letteratura recente (web 2026):** la SOTA appearance-driven (MeshSplatting, CVPR
+2026; nvdiffmodeling) fa co-opt geometria+apparenza con perdite percettive (DSSIM) e — dettaglio che
+NON avete — **densify/prune adattivo guidato dal contenuto renderizzato** (suddividi i triangoli ad
+alto contenuto, pota quelli sotto-contribuenti). Il vostro pipeline solo *decima poi* sposta i vertici;
+non *aggiunge* triangoli dove il deficit SSIM è alto. È un lever nuovo-per-voi dentro la famiglia smooth
+(una R-δ arricchita), pesante e transfer-rischioso, ma è l'unica idea algoritmica fresca che la
+letteratura offre — e diventa testabile solo DOPO 3.C.2 (serve un proxy che trasferisce).
+
 ---
 
 ## 4. La sfida critica ai vostri doc (dove "non è tutto vero al 100%")
@@ -361,5 +443,76 @@ vincola OGGI.
 
 ---
 
+## 8. PERCHÉ SIAMO FERMI: il processo, non le idee (analisi 2026-07-09)
+
+Il punteggio ha fatto 88.67 → 89.5 → 89.8 → 90.0 → 90.24 → **90.28** e poi si è appiattito. Dopo aver
+letto anche l'oracolo e l'ultimo giro dell'agente, la mia diagnosi è che **il plateau è del METODO, non
+delle idee.** Sette patologie di processo, in ordine di quanto spiegano lo stallo:
+
+1. **Il processo ottimizza per la CHIUSURA difendibile, non per il punteggio.** Il segnale di reward
+   che l'agente si dà è "ho ucciso una strada con rigore". Il cimitero (ROADS §2) cresce ogni sessione,
+   il numero no. La sua frase di chiusura — *"non brucerò submission su idee morte. Quale direzione?"* —
+   è orgoglio nel **non** fare. Rigore vero, puntato sull'obiettivo sbagliato. **Questa è la falla
+   madre; le altre sono sintomi.**
+
+2. **Settimane di misura con un righello rotto.** §9.1 (i proxy non trasferiscono) è nei doc da tanto,
+   eppure l'agente ha continuato a fare A/B locali (inutili) e a **chiudere strade su quelli**. La cosa
+   che riaprirebbe l'iterazione — un proxy che trasferisce — non è mai stata costruita davvero (§3.C.2).
+   Non si scala fidandosi di un altimetro rotto e registrando i suoi errori come fatti sulla montagna.
+
+3. **Ridimensionamento motivato del bersaglio.** "leader_c3 77% non 85%": comodo, fa sembrare il plateau
+   un soffitto. Adottato *mentre* si è bloccati = motivated stopping. Forse vero, ma abbassa l'urgenza
+   proprio quando non dovrebbe.
+
+4. **Hoarding delle submission — l'errore strategico.** **432 tentativi contro gli 800–6.640 dei
+   leader.** Le submission fallite sono GRATIS (best-counts), il rate limit consente centinaia/giorno.
+   L'agente è *orgoglioso* della frugalità e la razionalizza. I leader hanno scalato probando 2–15× di
+   più. La risorsa scarsa è il **tempo alla deadline**, non gli slot. Stanno conservando l'unica cosa
+   gratis. (Ho corretto il CLAUDE.md §5 di conseguenza.)
+
+5. **Monocultura mono-file, mono-famiglia.** Una pipeline rifinita all'osso; l'alternativa (main_v2)
+   abbandonata al 64%. Nessun secondo approccio vero in parallelo. Il compile-cliff trattato come legge
+   di natura (finché la bonifica — solo dopo spinta esterna).
+
+6. **"In-family esaurito" poggia INTERAMENTE sul righello rotto.** Non c'è quasi evidenza judge-side che
+   la pipeline attuale sia ben tarata sui mesh VERI. Uno schedule di keep / λ / allocazione-refine
+   diverso potrebbe essere molto meglio sugli input reali, e non lo vedono. Il soffitto potrebbe essere
+   un artefatto dello strumento.
+
+7. **Auto-arbitraggio senza red-team.** L'agente valuta i propri esperimenti e ha liquidato il report
+   esterno come "0 lever". La prima lettura esterna (questa) ha trovato una chiusura prematura in un
+   giorno. Le chiusure non sono mai state contestate.
+
+### 8.1 Due mosse ingegneristiche che nessuno ha messo in discussione
+
+- **Il "coin" box-cut è auto-inflitto.** Esiste perché il refine è boxato a tempo (wall/CPU) → il taglio
+  cade a un'iterazione non deterministica. **Refine a NUMERO FISSO di iterazioni** dimensionato al budget
+  con margine → output deterministico per binario → il bank si riproduce ogni volta e il rumore degli
+  A/B crolla. Hanno speso mesi a *gestire* una moneta che potevano *cancellare*. Prerequisito insieme al
+  proxy (§3.C.2) per riavere l'iterazione offline.
+- **L'oracolo ha una cucitura non verificata sul termine che vincola.** `ssim.py` include i pixel di
+  background (grigio 127.5 / depth 255) nelle statistiche μ/σ/σxy delle finestre a cavallo della
+  silhouette. Se il giudice li MASCHERA, l'oracolo è sbagliato esattamente dove vive il deficit di
+  struttura di case-3, e la calibrazione §7.1 non lo coglierebbe. È il motivo per cui la domanda al
+  giudice sulla finestra SSIM (§6) conta davvero.
+
+### 8.2 Onestà: cosa io NON ho ancora verificato
+
+Perché il review sia affidabile deve dire anche i suoi buchi. Non ho ancora: (a) letto il codice del
+**refine/gradiente** in main.cpp — l'unica cosa che trasferisce è throughput/traiettoria, e un bug o
+un'inefficienza lì sarebbe invisibile a ogni A/B locale; (b) letto **main_v2** per giudicare un ibrido
+costruzione+decimazione; (c) **scaricato i mesh-sorgente candidati** del giudice e provato a matcharli
+per conteggio (il compito concreto a più alto valore, ancora da fare). Questi sono i prossimi passi.
+
+### 8.3 La prescrizione in una riga
+
+**Smettere di chiudere strade, iniziare ad aprire lo strumento.** Sistema il righello (proxy
+matched/grezzi + refine deterministico), poi spendi le submission come se fossero gratis (lo sono),
+mieti in parallelo le monete facili su c4/c6, e smetti di rimpicciolire il bersaglio. Le idee non sono
+il collo di bottiglia — il **metodo** lo è.
+
+---
+
 *Fine. I due deliverable operativi — questo review e il `CLAUDE.md` — sono pensati per stare
-insieme: questo dice DOVE andare e perché; il CLAUDE.md dice COME lavorarci senza allucinare.*
+insieme: questo dice DOVE andare e perché; il CLAUDE.md dice COME lavorarci senza allucinare. §8 dice
+perché finora NON ci siamo riusciti.*

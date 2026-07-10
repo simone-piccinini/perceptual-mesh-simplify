@@ -4,7 +4,7 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-09.**
+**Last updated: 2026-07-10.**
 
 ---
 
@@ -37,9 +37,10 @@ measured-hard wall. Attack case-3.
 
 ```
 solver/main.cpp   (BANK track — decimation)   sha256 ecbbe3c0b082  = r55 BONIFICA base (96.4 KiB)
-                  Output-identical to the 90.285538 bank on every deterministic proxy (byte-exact)
-                  + judge-validated (r55c 19930834: c2/c3/c5/c6/c7 pass; c4 on a cold-day coin).
-                  Reproduces the bank; not itself re-banked 7/7 yet (waiting a warm c4 draw).
+                  Output-identical to the 90.285538 bank on every deterministic proxy (byte-exact).
+                  RE-BANKED 7/7 [JUDGE 19932030, 2026-07-10]: Accepted 90.285538, all 6 cases at
+                  banked rungs → the bonifica base IS the live bank base (−19.3 KiB compile headroom
+                  reclaimed, no score cost). c7 margin 0.4s (deterministic, holds); c5 2.6s tight.
                   Pre-bonifica bank binary was sha 68e22f048d07 (v111 lineage).
 solver/main_v2.cpp (INDEPENDENT track — construction→carve)  all-green ~90.24 [JUDGE]
                   → best carve snapshot: solver/submissionv2/main_v2_90p24_sub19909317.cpp
@@ -57,20 +58,26 @@ pipeline-relative wall (moves when the simplifier improves). See `docs/ROADS.md`
 
 ## NEXT ACTIONS (ranked — full rationale in ARCHITECT-REVIEW.md §3/§7)
 
-- ~~Bonifica main.cpp~~ **DONE r55** (−19.3 KiB source, ~109 MB cc1plus reclaimed; judge-validated).
-- ~~Road 3.B.1 Hoppe attribute-quadric placement~~ **DEAD r55 (neutral, no win)** — built full
-  Hoppe optimum; de-biased-proxy A/B shows Δ≈0 at c3's operating point; the judge c3 WA was the
-  box-cut re-roll, not the mechanism (law 4). Review's #1 pick closed.
-- ~~Road 3.C.1 de-bias the proxy~~ **SIMPLE FORM FALSIFIED r55 (R-θ)** — white-noise-along-normal
-  doesn't reproduce the judge's transfer failures (R1 stays +0.0029 at c3's operating point; 2/2
-  mechanisms fail to flip). Box-cut nondeterminism also denies clean c3 calibration targets. Only
-  low-odds iter-3 (structured/unrecoverable noise at c5-scale) remains. `docs/ROADS.md` §3.
-1. **Send the SSIM-window judge question** — `docs/JUDGE-QUESTION.md`, ready to post. HUMAN action;
+- ~~Bonifica main.cpp~~ **DONE r55, RE-BANKED 7/7 r56** (−19.3 KiB source, ~109 MB cc1plus reclaimed).
+- **Road 3.B.1 Hoppe attribute-quadric placement → PARKED, NOT dead.** Built the full Vis'99 optimum;
+  A/B was Δ≈0 on the *smooth (broken) proxy* and the judge c3 read was confounded by the box-cut
+  re-roll (law 4). Per Process Law #2 (never DEAD on broken-instrument evidence): re-test on a
+  transferring proxy once R-ι lands. `docs/ROADS.md` R-α.
+- **Road 3.C.1 de-bias the proxy (R-θ) → ACTIVE, corrected.** Earlier "FALSIFIED" verdict RETRACTED
+  (it was iter 2/10, white noise = refine-recoverable, on box-cut c3 = wrong case — the canonical
+  Process-Law-#2 error). Corrected iter-3/4 on the deterministic c5 calibration target: synthetic
+  coherent noise pushes R1 the WRONG way (+), but a **natural rougher armadillo (ab_orig, same c5
+  model, 0.0302 roughness) flips R1 NEGATIVE = the judge's sign.** ⇒ "too-smooth proxy" hypothesis
+  holds; synthetic noise retired; **the path is REAL rougher meshes (R-ι data-sourcing).** ROADS §3.
+1. **R-ι DATA-SOURCING (make-or-break)** — source/build a transferring proxy: a real rougher
+   organic mesh at judge counts (c5≈49,987 rougher armadillo; c3≈23k native organic). Decisive free
+   test: does R1 read negative out-of-the-box? If yes → transferring instrument → re-screen Hoppe/R1
+   offline. ARCHITECT-REVIEW §3.C.2; `docs/ROADS.md` R-ι.
+2. **Send the SSIM-window judge question** — `docs/JUDGE-QUESTION.md`, ready to post. HUMAN action;
    free; could reopen the case-3 structure front (ARCHITECT-REVIEW §6/§7.7).
-2. **Re-bank the bonifica base at 7/7** on a warm judge day (c4@4970 coin must land). Free.
-3. Frontier is now genuinely-new / out-of-family (ROADS §3 R-η) — no cheap in-family lever left;
-   all are DEAD (§2, incl. Hoppe r55). The architecture file's actionable plan (§7 items 1–6) is
-   COMPLETE; item 7 is the human judge-question above.
+3. **Deterministic refine (Phase 0.2)** — replace the refine wall-clock time-box with a fixed
+   iteration count → deterministic output → kills the box-cut coin, de-confounds every future A/B.
+   Needs a c3-scale organic proxy (from R-ι) to size the count, or judge CASETIME probing. ROADS R-κ.
 
 ---
 

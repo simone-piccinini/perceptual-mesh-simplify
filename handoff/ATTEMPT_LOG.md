@@ -3,6 +3,22 @@
 Each line is a submission or probe and its judge outcome. "WA" = wrong answer on the named case
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
+## 2026-07-10 (newest first)
+- **r56 (sub 19932030): re-bank the bonifica base → ACCEPTED 90.285538, 7/7.** The bonifica base
+  (ecbbe3c, −19.3 KiB, byte-output-identical to the bank on deterministic proxies) reproduces the
+  exact bank on the judge — all 6 cases at banked rungs (c2 26/c3 6927/c4 4970/c5 4184/c6 8491/c7
+  28250). ⇒ bonifica IS the live bank base; the compile headroom is banked at no score cost. c7
+  margin 0.4s (deterministic — holds), c5 2.6s. Free portfolio roll (Process Law #5); coin landed
+  on-bank (no new lower rung this draw).
+- **R-θ de-bias iter-3/4 (LOCAL, corrected protocol).** Retracted the premature "FALSIFIED" verdict
+  (iter 2/10, white noise, box-cut c3 = the Process-Law-#2 error). Corrected on the deterministic c5
+  calibration target (clean smooth armadillo R1 = +0.0004; judge c5 R1 = deterministic NEGATIVE).
+  Coherent synthetic noise pushed R1 the WRONG way (+0.0018…+0.0043 — synthetic detail is
+  refine-recoverable). The natural rougher armadillo **ab_orig** (identified: same c5 model, 62,938
+  v, 0.0302 roughness) gave R1 = **−0.0003 — the only proxy matching the judge's sign.** ⇒
+  "too-smooth" hypothesis holds; synthetic de-bias retired; R-ι data-sourcing is the validated path.
+  R-θ kept ACTIVE (not buried). Hoppe (R-α) moved DEAD→PARKED for the same reason.
+
 ## Passing submissions (the climb)
 - QEM edge-collapse + per-case keep tuning: ~84–85.
 - + Pivot-A (metric-in-loop contrast steering) on cases 3/5: → ~88.6.
