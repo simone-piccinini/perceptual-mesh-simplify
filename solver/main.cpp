@@ -1,4 +1,4 @@
-// BANK 2026-07-10: c3-det (phaseB 16) + c4-det (36) + c7-speed (2stage 3). c3 rung 6940 (wall: 6920 WA'd). env G_C3T
+// REMESH-M1 2026-07-10: SSIM-gated edge FLIP in c3 refine (top-12 deficit edges/sweep, gated by true rendered normal-SSIM). Bank base + G_REMESH on (c3). Judge-test milestone 1.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -525,6 +525,7 @@ static bool refine_valid() {   // every alive face must stay nondegenerate (judg
 // this is the cheap-objective form, judge-inert unless flip_for() enables it.
 static int flip_for(int) { return 0; }
 static int g_flip = 0;
+static int g_remesh = 0;   // G_REMESH: SSIM-gated flip/split remesher inside refine (milestone 1 = flips)
 static inline double flip_tricost(int a, int b, int c) {
     Vec3 cr = (pos[b]-pos[a]).cross(pos[c]-pos[a]); double l = cr.norm();
     if (l < 1e-14) return 1e18;
@@ -575,6 +576,62 @@ static void flip_pass(double tbox) {
         }
         if (!done) break;
     }
+}
+
+// ===== REMESHER milestone 1 (G_REMESH): SSIM-GATED edge FLIP inside the refine loop =====
+// refine moves vertex POSITIONS at fixed connectivity (maxed). This makes CONNECTIVITY a free
+// variable: propose cheap-objective flips (flip_pass), then ACCEPT the batch iff the TRUE rendered
+// normal-SSIM improves (nvdiffmodeling/continuous-remeshing style). Topology surgery refine can't do;
+// targets the interior sigma_xy where most of the deficit lives. Net-N-neutral (flips only). Reverts
+// the whole connectivity batch on no-gain. Returns the (possibly improved) rendered score.
+static double remesh_flip_sweep(int K, double tbox) {
+    std::vector<Vec3> g; double cur = refine_score_grad(&g);   // per-vertex rendered-SSIM gradient = deficit map
+    // enumerate unique interior edges + their two faces; rank by endpoint deficit (high = worst-rendered)
+    std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
+    const long long NV = (long long)pos.size();
+    struct Cand { double d; int u,v,f1,f2; };
+    std::vector<Cand> cand;
+    for (int f = 0; f < (int)faces.size(); ++f) {
+        if (!face_alive[f]) continue;
+        const int* t = faces[f].data();
+        for (int e = 0; e < 3; ++e) {
+            int u = t[e], v = t[(e+1)%3]; if (u > v) std::swap(u, v);
+            auto ins = first.emplace((long long)u*NV+v, f);
+            if (ins.second) continue;
+            const int f1 = ins.first->second;
+            if (!face_alive[f1] || f1 == f) continue;
+            cand.push_back({ g[u].norm()+g[v].norm(), u, v, f1, f });
+        }
+    }
+    if ((int)cand.size() > K)
+        std::partial_sort(cand.begin(), cand.begin()+K, cand.end(), [](const Cand&a, const Cand&b){ return a.d > b.d; });
+    const int lim = std::min(K, (int)cand.size());
+    int acc = 0;
+    for (int ci = 0; ci < lim; ++ci) {
+        if (r_elapsed() > tbox) break;
+        const int u = cand[ci].u, v = cand[ci].v, f1 = cand[ci].f1, f2 = cand[ci].f2;
+        if (!face_alive[f1] || !face_alive[f2]) continue;
+        const int* t1 = faces[f1].data(); const int* t2 = faces[f2].data();
+        int a=-1,b=-1,c=-1,d=-1;
+        for (int k=0;k<3;++k){ int x=t1[k], y=t1[(k+1)%3]; if((x==u&&y==v)||(x==v&&y==u)){ a=x;b=y;c=t1[(k+2)%3]; break; } }
+        for (int k=0;k<3;++k){ int x=t2[k]; if(x!=a&&x!=b) d=x; }
+        if (a<0||d<0||c==d) continue;
+        if (EdgeExists(c,d)) continue;
+        // orientation guard (both new faces keep the old winding)
+        Vec3 om = (pos[t1[1]]-pos[t1[0]]).cross(pos[t1[2]]-pos[t1[0]]) + (pos[t2[1]]-pos[t2[0]]).cross(pos[t2[2]]-pos[t2[0]]);
+        if (((pos[d]-pos[a]).cross(pos[c]-pos[a])).dot(om) <= 0.0 || ((pos[b]-pos[d]).cross(pos[c]-pos[d])).dot(om) <= 0.0) continue;
+        const std::array<int,3> o1 = faces[f1], o2 = faces[f2];   // save for revert
+        vfaces_erase(vfaces[b], f1); vfaces[d].push_back(f1);
+        vfaces_erase(vfaces[a], f2); vfaces[c].push_back(f2);
+        faces[f1] = {a,d,c}; faces[f2] = {d,b,c};
+        const double sn = refine_score_grad(nullptr);
+        if (sn > cur && refine_valid()) { cur = sn; ++acc; }       // TRUE rendered SSIM improved -> keep
+        else { faces[f1]=o1; faces[f2]=o2;                         // revert this flip
+               vfaces_erase(vfaces[d], f1); vfaces[b].push_back(f1);
+               vfaces_erase(vfaces[c], f2); vfaces[a].push_back(f2); }
+    }
+    if (getenv("G_RDBG")) std::fprintf(stderr, "[remesh] %d/%d flips accepted\n", acc, lim);
+    return cur;
 }
 
 // ===== flip-to-unlock: when greedy decimation stalls ABOVE target (link conditions exhaust
@@ -798,6 +855,17 @@ static void refine_positions() {
         const double save_budget = g_refine_budget; g_refine_budget = std::min(g_refine_budget, t1);
         stock_pass(step);
         g_refine_budget = save_budget;
+    }
+    if (g_remesh && g_hybrid) {   // REMESHER m1: SSIM-gated flips at 512 BEFORE the 1024 polish (cheap renders)
+        const double rbud = r_elapsed() + 1.0;   // CPU box (c3 is TLE-tight; each flip = 1 render)
+        for (int rr = 0; rr < 4 && r_elapsed() < rbud; ++rr) {
+            const double before = refine_score_grad(nullptr);
+            const double after = remesh_flip_sweep(12, rbud);   // top-12 deficit edges, each gated by TRUE rendered SSIM
+            const int _sm = g_refine_maxit; g_refine_maxit = 4; stock_pass(step*0.5); g_refine_maxit = _sm;  // re-converge positions on new connectivity
+            const double now = refine_score_grad(nullptr);
+            if (getenv("G_RDBG")) std::fprintf(stderr, "[remesh] r%d %.6f ->flip %.6f ->pos %.6f t=%.2f\n", rr, before, after, now, r_elapsed());
+            if (now <= before + 1e-7) break;   // no gain this round -> stop
+        }
     }
     if (g_hybrid && !o_pos.empty() && g_refine_res < 1024 && r_elapsed() < g_refine_budget - 5.0) {
         // phase B: judge-exact 1024 polish from the 512-converged state (ST form of session-3 hybrid;
@@ -1358,6 +1426,8 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
     g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
+    g_remesh = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 1 : 0;                 // REMESHER m1: SSIM-gated flips (c3 band)
+    if (const char* e = getenv("G_REMESH")) g_remesh = atoi(e);
     g_hybrid = hybrid_for((int)pos.size());
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
     if (const char* e = getenv("G_TILT")) g_tilt = atoi(e);
