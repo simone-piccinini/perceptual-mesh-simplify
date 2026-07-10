@@ -148,16 +148,25 @@ bank risk. Findings iter-1:
 - The coin lives in the loop that does NOT converge in budget: c3's 1024 phase-B, c4/c6 plain
   stock_pass. The current per-call `it>=maxit` cap is correct but must target THAT loop; SIL calls
   stock_pass 4× (each <50) so a total-iter intuition misleads.
-- TODO: cap phase-B / c4 / c6 loops; size maxit per case (their meshes OR free judge CASETIME
-  probes — NOT proxy-gated); raise g_refine_budget to a pure TLE backstop above maxit·cost;
-  re-validate the bank 7/7. `handoff/ATTEMPT_LOG.md` 2026-07-10.
+- **Value = de-confounding future A/Bs + DEV-BASE reproducibility, NOT bank harvest** (best-counts
+  already re-rolls the coin for free). Not where points come from — keep it cheap/parallel (Law §8.1).
+- **⚠ HAZARD: never determinize a RAZOR case (c4/c6) at a sub-wall iteration count** — that converts a
+  passing coin into a deterministic WA. Determinize the DEV base with MARGIN; keep BANK attempts on
+  the free coin (submit the time-boxed binary, let best-counts catch the good draw).
+- TODO: cap phase-B / c4 / c6 loops; size maxit per case (their meshes OR free judge CASETIME probes
+  — NOT proxy-gated); raise g_refine_budget to a pure TLE backstop above maxit·cost. `ATTEMPT_LOG` 07-10.
 
-### R-μ — meshopt (LEGGIMI/) as OFFLINE REFERENCE → revive PARKED Hoppe — **DEAD 2026-07-10** (transferring-ruler LOSS)
+### R-μ — meshopt (LEGGIMI/) as OFFLINE REFERENCE → revive PARKED Hoppe — **PARKED / not worth porting** (2026-07-10)
 meshoptimizer's `simplifier.cpp` = SOTA QEM + attribute-quadrics (= Hoppe's appearance metric) +
-Lindström–Turk volume term. Two independent kills:
+Lindström–Turk volume term. Two findings (NOTE: numbers below are SUSPECT — see caveat):
 - **C2 not shippable**: 101 KiB alone, +our I/O ≈121 KiB at the 7 KiB cliff margin (drops refine);
-  output non-manifold — judge needs closed 2-manifold.
-- **C1 offline eval (the decisive one, on the TRANSFERRING ruler)** — decimate ab_orig(rough) &
+  output non-manifold — judge needs closed 2-manifold. So there is no reason to PORT it. (This is the
+  firm conclusion; the SSIM ranking below is not.)
+- **⚠ SUSPECT NUMBERS:** the meshopt output was NON-MANIFOLD → `mo_driver.cpp` likely misses
+  lock-border / attribute-seam / error-absolute flags, so the SSIM losses are partly holes, not the
+  algorithm. Do NOT read this as "attribute-quadric is fundamentally dead." It means "not worth
+  porting + no clean win seen." To claim the mechanism dead, re-run with correct manifold flags.
+- **C1 offline eval (indicative, on the TRANSFERRING ruler)** — decimate ab_orig(rough) &
   clean armadillo → N≈4212 with meshopt vs our VSA-lite (refine off), oracle rendered-normal SSIM:
 
   | N≈4212 | ROUGH nSSIM | CLEAN nSSIM |
@@ -167,14 +176,15 @@ Lindström–Turk volume term. Two independent kills:
   | meshopt nw=1 | 0.5239 | — |
   | meshopt nw=5 (attr-quadric) | 0.5131 | 0.5006 |
 
-  meshopt LOSES on BOTH proxies; normal-attribute weight **monotonically DEGRADES** rendered nSSIM
-  (0.65→0.52→0.51). Mechanism: attribute quadric minimizes VERTEX-normal L2, trading position
-  accuracy → worse silhouettes/face-normals → worse RENDERED SSIM; our VSA-lite orders by induced
-  RENDERED-normal distortion (the right objective). Per the user's rule, rougher-proxy LOSS = strong
-  death. Confirms our decimator is ahead of SOTA meshopt on the binding metric.
-- **Knock-on to R-α (Hoppe, parked):** same attribute-quadric family, now LOW EV — meshopt (more
-  mature, same metric) lost on the transferring ruler. Do NOT revive to re-confirm (Process Law §8.1);
-  revive only with a genuinely new angle. Driver kept: `LEGGIMI/mo_driver.cpp` (+ fetched header).
+  meshopt scores below ours here, and attribute weight monotonically lowers rendered nSSIM — but the
+  non-manifold caveat above means this is INDICATIVE, not a clean kill. Hypothesised mechanism (if
+  real): attribute quadric minimizes VERTEX-normal L2, trading position accuracy → worse
+  silhouettes/face-normals → worse RENDERED SSIM; our VSA-lite orders by induced RENDERED-normal
+  distortion (the right objective).
+- **Knock-on to R-α (Hoppe, parked): LOW-EV, NOT dead-forever.** Same attribute-quadric family; no
+  clean win seen on the transferring ruler, but the evidence is confounded (non-manifold). Re-test
+  only with a genuinely new angle OR a manifold-correct meshopt re-run. Driver kept:
+  `LEGGIMI/mo_driver.cpp` (+ fetched header) — add lock-border/seam flags before trusting its SSIM.
 - **The real yield: a TRANSFERRING RULER.** ab_orig(rough) DISCRIMINATES (0.70 clearly separable
   from meshopt 0.51–0.65), unlike the saturated smooth proxy (all ~0.85). Sign-validated (ab_orig
   R1=−0.0003 = judge sign). Use it to screen pipeline changes offline (see R-ι, R-κ).
@@ -188,9 +198,10 @@ Add here as ideas form. **Policy: this slot never empties — never conclude "at
 ## 4. Execution log (newest first)
 - **2026-07-10 (meshopt + instrument, user Option-3+4-constraints)** — LEGGIMI/ = meshoptimizer.
   C2 shippability: NOT a ship candidate (101 KiB + non-manifold) → offline reference. C1 eval on
-  ROUGHER proxy (the user's key constraint — smooth misleads): meshopt-attr LOSES to our VSA-lite on
-  BOTH rough (0.51–0.65 vs 0.70) and clean; attr-weight monotonically worsens rendered nSSIM ⇒ **R-μ
-  DEAD, R-α Hoppe low-EV**. Yield = a TRANSFERRING RULER (ab_orig rough proxy discriminates + is
+  ROUGHER proxy (the user's key constraint — smooth misleads): meshopt scores below our VSA-lite on
+  BOTH rough (0.51–0.65 vs 0.70) and clean — BUT its output is non-manifold (driver missing
+  lock-border flags) ⇒ **R-μ not-worth-porting (not shippable); numbers SUSPECT; R-α Hoppe LOW-EV,
+  not dead**. Yield = a TRANSFERRING RULER (ab_orig rough proxy discriminates + is
   sign-validated). C3 det-refine mechanism wired (env `G_MAXIT`/`G_ITERDBG`, bank-safe): c5 confirmed
   NOT the coin (94 iters, byte-identical); coin is c3/c4/c6 non-converging loops → R-κ ACTIVE.
   r56: bonifica base RE-BANKED 7/7 (90.285538). Bank untouched.

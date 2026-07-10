@@ -69,17 +69,20 @@ pipeline-relative wall (moves when the simplifier improves). See `docs/ROADS.md`
   coherent noise pushes R1 the WRONG way (+), but a **natural rougher armadillo (ab_orig, same c5
   model, 0.0302 roughness) flips R1 NEGATIVE = the judge's sign.** ⇒ "too-smooth proxy" hypothesis
   holds; synthetic noise retired; **the path is REAL rougher meshes (R-ι data-sourcing).** ROADS §3.
-- **meshopt (LEGGIMI/) → DEAD 2026-07-10 (R-μ).** User-provided SOTA simplifier; offline-eval on the
-  ROUGHER proxy LOSES to our VSA-lite on both rough & clean (attr-weight monotonically worsens rendered
-  nSSIM); not shippable (101 KiB + non-manifold). Knock-on: Hoppe (R-α) low-EV. `docs/ROADS.md` R-μ.
-1. **Deterministic refine (R-κ, PRIMARY now)** — mechanism wired (env `G_MAXIT`, bank-safe). c5 = NOT
-   the coin (converges, byte-identical). Finish: cap the non-converging loop (c3 1024 phase-B, c4/c6),
-   size per case via FREE judge CASETIME probes (not proxy-gated), re-validate bank 7/7. Kills the coin.
-2. **Exploit the TRANSFERRING RULER** — ab_orig(rough) discriminates (0.70 vs meshopt 0.51–0.65) &
-   is sign-validated. Screen pipeline changes offline on it (start: refine-ON headroom vs the 0.70
-   refine-off baseline). This is the instrument the project was missing (ARCHITECT-REVIEW §3.C.2).
-3. **R-ι finish the ruler** — source a rougher armadillo at exactly ~49,987 for JUDGE-ABSOLUTE
-   calibration (relative discrimination already works). `docs/ROADS.md` R-ι.
+- **meshopt (LEGGIMI/) → not worth porting (R-μ); numbers SUSPECT.** Offline-eval scored below our
+  VSA-lite on both proxies, BUT output non-manifold (driver missing lock-border flags) → confounded.
+  Firm: not shippable (101 KiB + non-manifold). Soft: Hoppe (R-α) LOW-EV, **not dead-forever**. R-μ.
+1. **RE-SCREEN THE GRAVEYARD on the discriminating ruler (MAIN THRUST).** Every road killed on the
+   saturated smooth proxy was closed with a BLIND instrument (Process Law #2). Re-test on ab_orig
+   (rough): **R-ζ** (true rendered-SSIM collapse selection — top pick, was "+0.0001 on smooth"),
+   R1 interleave, SIL variants, nmetric, + the untested content-adaptive densify/prune (MeshSplatting).
+   Any mechanism beating VSA-lite by a real margin → judge-test on c3 via S-read pair. `docs/ROADS.md`.
+2. **PARALLEL: source a c3-NATIVE (~23k) rough organic proxy (R-ι)** for final confirmation — but do
+   NOT block screening on it; the c5-scale rough ruler is a valid ORGANIC-CLASS screen NOW.
+3. **Deterministic refine (R-κ)** — de-confounds future A/Bs + dev-base reproducibility, NOT bank
+   harvest (best-counts already re-rolls the coin free). ⚠ do NOT determinize a razor case (c4/c6) at
+   a sub-wall iter count (converts a passing coin → deterministic WA); determinize the DEV base with
+   margin, keep bank attempts on the free coin. Cheap/parallel; NOT the focus (Process Law #1).
 4. **Send the SSIM-window judge question** — `docs/JUDGE-QUESTION.md`, ready. HUMAN action; free.
 
 ---
