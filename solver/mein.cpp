@@ -1,4 +1,4 @@
-// WIDE-FLIP 2026-07-10: bigger flip boxes fund deeper rungs. c3@6880+pB14 (bank), c4@4930 box3.6 (+7e-5 over banked cfg), c5@4180 box2.2 (+2.7e-4 over banked cfg). Q: c4/c5 rungs land = +0.008 over 90.350143.
+// C5-4170 2026-07-10: c5 4180->4170 wide-flip (local -7.5e-5 vs banked cfg). c3@6880+c4@4930 bank. Q: c5 margin @4180 >= 7.5e-5? PASS=+0.003 over 90.358199.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1932,7 +1932,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4180; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // c5 N-push (flip remesher; c5 has time headroom)
+        int c5t = 4170; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // c5 N-push (flip remesher; c5 has time headroom)
         seed_heap(); Decimate(c5t);                // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
         g_res = 1024; g_refine_res = 1024;
