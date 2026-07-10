@@ -11,9 +11,11 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, main.cpp decimation track)
 
 ```
-BANK      90.314273  (7/7)   [JUDGE 20018842, 2026-07-10] — v112 REMESH-SPEED: flip remesher broke the
-                               c3 wall (6940→6900) + refine speed pass (TLE→pass). +0.028735 over the
-                               2026-07-09 Kattis-verified 90.285538.
+BANK      90.321608  (7/7)   [JUDGE 20019038, 2026-07-10] — flip remesher extended to c5: c3@6900 +
+                               c5 4212→4190. +0.007335 over 90.314273. Bank chain this session:
+                               90.285538 → 90.314273 (c3@6900, sub 20018842) → 90.321608 (c5@4190).
+                               Flip remesher = the working lever; generalizes to organic cases (c3,c5).
+                               Live main.cpp = this config. Push deeper: c5<4190, c6 remesh, c3 splits.
 LEADER    91.48      [JUDGE, leaderboard 2026-07-09]   #1 希望ヶ峰学園 CG研究会.  gap to #1 = 1.17
                                                        (top-3 cluster 91.46; we were rank 12)
 ```
