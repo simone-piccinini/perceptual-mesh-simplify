@@ -4,6 +4,18 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-10 (newest first)
+- **HOPPE placement JUDGE-TESTED at last (R-α) — no win; portfolio blocker exposed.** Recovered the
+  Hoppe attribute-quadric placement code (af42bed, reverted fcbc353), re-applied onto det-refine base
+  (--3way clean), env `G_HOPPE`, c3 band, c3 S-read @6940. Clean A/B pair:
+  - CONTROL (Hoppe OFF, sub 19934130): Accepted 7/7, 90.121752 (c3 read passed).
+  - VARIANT (Hoppe ON, sub 19934115): **c3 WA + c4 WA** (`..xx...`), c7 21.3s near-TLE — strictly
+    worse this draw. c3 read WA'd → no S2_hoppe decode.
+  Judge did NOT favor Hoppe; consistent with every prior neutral/negative signal. NOT a clean kill
+  (c3 is box-cut → the variant c3 WA is one coin draw), but a real judge test showed no win → R-α
+  stays LOW-EV, de-prioritized. **KEY: c3 A/Bs are COIN-DOMINATED (c3 box-cut) — no c3 lever reads
+  cleanly until c3 is determinized (extend R-κ det-refine to the c3 1024 phase-B). That is the
+  portfolio unlock.** Live main.cpp restored to the det-refine bank (32b9f515); Hoppe code in history.
+  ⚠ c7 hit 21.3–21.4s (TLE) in BOTH Hoppe binaries — the warm-day TLE risk is real.
 - **C3 DET-REFINE SHIPPED + JUDGE-VALIDATED (sub 19934022, ACCEPTED 90.285538 7/7).** First real
   main.cpp diff of the session that reaches the judge. `maxit_for(V)`: c4 band (30k–40k) caps
   stock_pass at 36 iters; all other judge inputs → 1<<30 (byte-identical to bank, verified on c5).

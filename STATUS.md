@@ -82,15 +82,22 @@ pipeline-relative wall (moves when the simplifier improves). See `docs/ROADS.md`
   placement); no wrongly-buried lever. R-ν densify/prune ruled VACUOUS (coplanar splits = 0 normal).
 - ~~Deterministic refine c4~~ **DONE + SHIPPED + LOCKED** (sub 19934022/19934036, R-κ): c4 refine
   capped at 36 iters, Accepted 7/7 ×2 bit-identical. The session's judge-tested main.cpp diff.
-1. **OUT-OF-FAMILY BUILD (the score lever — committed next).** In-family + selection are exhausted
-   (proven on the ruler). Candidate committed: **silhouette-priority allocation** — protect per-view
-   fg/bg-boundary vertices (the SSIM-dominant sharp normal discontinuity), starve the near-saturated
-   interior, at fixed N. Genuinely out-of-family (not selection/placement/position; ≠ projw's
-   projected-area). Env-gated in main.cpp → screen once on the rough ruler → JUDGE-TEST via S-read
-   pair. Session-sized build. Alt: direct box-window σxy-correlation objective. `docs/ROADS.md` R-ξ.
-2. **⚠ TLE risk surfaced:** c3/c6/c7 CASETIME 19.5–19.9s (margins 1.1–1.5s). A warm day could TLE
-   the bank. Latent (not from any diff). Consider a small safety trim — but razor rungs, so judge-gate.
-3. **Send the SSIM-window judge question** — `docs/JUDGE-QUESTION.md`, ready. HUMAN action; free.
+- ~~Hoppe placement judge-tested~~ **DONE (R-α): no win** (sub 19934115 variant c3+c4 WA vs 19934130
+  control 7/7). Judge didn't favor Hoppe; LOW-EV, de-prioritized. Coin-confounded (see #1).
+1. **DETERMINIZE c3 (extend R-κ) — THE PORTFOLIO UNLOCK.** c3 A/Bs are coin-dominated (c3 box-cut →
+   ±0.001–0.002/draw, so single c3 reads can't resolve a lever). Cap the c3 1024 phase-B loop at a
+   fixed iteration count (like c4's stock_pass cap) → c3 reads become clean/reproducible → EVERY c3
+   lever (Hoppe re-test, σxy, nmetric=3) becomes judge-decidable in one submission. Razor case →
+   read at a SAFE N (≥6980, above the 6941 wall), determinize the DEV/read base, keep bank on the coin.
+2. **Then run the c3 PORTFOLIO as clean reads** (submissions free, batchable): σxy-direct ordering
+   (nmetric=3 = analytic-SSIM/covariance, only ever killed locally −0.011 — judge-test it); Hoppe
+   re-test cleanly; box-window covariance placement. Let the judge rule each.
+3. **⚠ TLE RISK REALIZED:** c7 hit **21.3–21.4s** in both Hoppe binaries; bank c7 19.5–19.9s. A warm
+   day WILL TLE. Verify per-case convergence; if c3/c6 box-cut, a THROUGHPUT pass (transfer-safe, §9.1)
+   buys deeper refine = lower wall for free. Real bank-protection + prize lever.
+4. **Send the SSIM-window judge question** — `docs/JUDGE-QUESTION.md`, ready. HUMAN action; free.
+5. Out-of-family R-ξ (silhouette) DEMOTED: theory headwind (~90% deficit is INTERIOR not silhouette)
+   + overlaps SIL/Pivot-A. Only if <1h to prototype+judge-test. `docs/ROADS.md`.
 
 ---
 
