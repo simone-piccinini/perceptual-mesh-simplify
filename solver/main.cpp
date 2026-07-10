@@ -1,8 +1,6 @@
-// HOPPE-VARIANT 2026-07-10: det-refine-c4 base + R-alpha Hoppe attribute-quadric PLACEMENT ON (c3).
-// This submission = c3 S-READ of the Hoppe family: K = round((S2-0.885)/5e-4) clamp [0,160],
-// V' = 6940 + 4K. Judge A/B pair vs HOPPE-CONTROL (identical binary, g_hoppe=0). c4 det-refine cap
-// intact; c2/c4/c5/c6/c7 at banked rungs. Never cleanly judge-tested before (only parked on the
-// broken smooth proxy). Let the judge rule.
+// HOPPE-CONTROL 2026-07-10: det-refine-c4 base, Hoppe placement OFF (g_hoppe=0). Same c3 S-READ
+// (V' = 6940 + 4K, K = round((S2-0.885)/5e-4) clamp [0,160]) as HOPPE-VARIANT. A/B control:
+// compare decoded c3 S2_control vs S2_hoppe. c4 det-refine cap intact; c2/c4/c5/c6/c7 banked.
 // PROBE-RLIVE-C5 2026-07-06: DUAL-RUNG same-binary S-read of the LIVE case-5 family.
 // S1 = Final(mesh@4226 refined), S2 = Final(same run, +14 collapses + 2s refine = the exact
 // mesh a bank-mode twin would emit at 4212). Encode K = 40*q1 + q2 (q1: S1, 2.5e-3 step from
@@ -1406,7 +1404,7 @@ int main(int argc, char** argv) {
     if (argc > 3) { floor_frac = std::atof(argv[3]); keep = std::atof(argv[3]); }
     if (argc > 4) g_refine_res = std::atoi(argv[4]);   // local test only: override optimizer render res
 
-    g_hoppe = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 1 : 0;   // R-alpha (3.B.1): case-3 band only; must precede Initialize (HQ built there)
+    g_hoppe = 0;   // HOPPE-CONTROL: Hoppe OFF (A/B control vs HOPPE-VARIANT); c3 S-read still enabled below
     if (const char* e = getenv("G_HOPPE")) g_hoppe = atoi(e);
     if (const char* e = getenv("G_HW")) g_hoppew = atof(e);
     Initialize();
