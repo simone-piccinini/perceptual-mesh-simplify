@@ -1,6 +1,4 @@
-// REMESH-FLIP-FIT 2026-07-10: g_cmx speedup + phaseB tail substitution (16->10) funds the flip remesher (incremental eval, validated). c3->6920 (base det-WA'd). Flip gain +6e-4 (below +2e-3 bar; splits WIP). Judge: does c3 pass @6920 + fit time?
-// (c3 6940->6900); WA = 6900 is a real SSIM wall, remesh-fast flips insufficient at -40 verts.
-// Base: c3-det + c4-det + c7 2-stage factor 5->3 (bulk-QEM speed optimum, local -9%)
+// REMESH-C3C5 2026-07-10: flip remesher extended to c5 (organic, +8.7e-4 headroom). c3@6900 (bank) + c5 4212->4190. Both fit ~18s judge. Judge: does c5 pass @4190 = +0.005?
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1583,7 +1581,7 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
     g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
-    g_remesh = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 1 : 0;   // FLIP remesh on c3 (phaseB-substitution funds it). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
+    g_remesh = (((int)pos.size() > 7000 && (int)pos.size() <= 30000) || ((int)pos.size() > 40000 && (int)pos.size() <= 100000)) ? 1 : 0;   // FLIP remesh on c3+c5 (phaseB-substitution funds it). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
     if (const char* e = getenv("G_REMESH")) g_remesh = atoi(e);
     g_hybrid = hybrid_for((int)pos.size());
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
@@ -1852,10 +1850,16 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        seed_heap(); Decimate(4212);               // the bank-mode twin's extra collapses (at 512 state)
+        int c5t = 4190; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // c5 N-push (flip remesher; c5 has time headroom)
+        seed_heap(); Decimate(c5t);                // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
         g_res = 1024; g_refine_res = 1024;
-        mini_refine(1.5);                          // short re-ascent at 1024
+        mini_refine(g_remesh ? 0.7 : 1.5);         // trim re-ascent to fund the remesh (c5 judge ratio ~1.6x is tight)
+        if (g_remesh) {   // FLIP remesher on c5 (organic, deterministic wall may move like c3's)
+            g_force_nocrop = 1;
+            remesh_flip_local(8, 800, r_elapsed() + 1.3);
+            g_force_nocrop = 0;
+        }
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RL S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", Sn2, Sd2, S2, r_elapsed());
