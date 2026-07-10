@@ -11,8 +11,11 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
   identical across runs) but the judge is ~1.4× slower so its wall-box cuts c4 mid-trajectory (~37,
   jittered). Cap at 36 (near-converged, NOT sub-wall) makes the iteration count the terminator →
   deterministic c4 mesh. Judge: c4 V'=4970 (banked rung), Accepted, CASETIME 16.2s (≈ r56's 15.7s →
-  cap bound near the prior operating point). Repro (force re-roll) probe in flight to confirm the
-  lock. ⚠ c6/c7 CASETIME 19.2/19.9s TLE-tight; c3/c6 left on the coin this ship. R-κ.
+  cap bound near the prior operating point). **LOCK CONFIRMED (sub 19934036, force re-roll):
+  Accepted, SUM6 541.713228 BIT-IDENTICAL to 19934022; all cases decoded identically (c4=4970)
+  despite CASETIME jitter (c3 17.5→19.9s, same mesh) → the binary reproduces the bank.** ⚠ NEW
+  RISK SURFACED: c3/c6/c7 CASETIME 19.5–19.9s (margins 1.1–1.5s) = TLE-tight on a warm day
+  (unchanged by this diff — c3/c6/c7 byte-identical to bank; latent in the current bank). R-κ.
 - **Graveyard re-screen on the discriminating ruler — no resurrection (LOCAL, the RIGHT ruler).**
   User's thesis: roads killed on the saturated SMOOTH proxy were closed with a blind instrument
   (Process Law #2). Re-screened on ab_orig (rough):

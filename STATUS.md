@@ -43,7 +43,9 @@ solver/main.cpp   (BANK track — decimation)   sha256 32b9f515d2ce  = det-refin
                   wall-clock box, terminates) → kills the c4 box-cut coin. c2/c3/c5/c6/c7 byte-
                   identical to the bonifica base (maxit_for=1<<30 for all non-c4 bands; only c4's
                   input 35292 lands in 30k–40k). ⚠ c6/c7 CASETIME 19.2/19.9s = TLE-tight. c3/c6
-                  still on the box-cut coin (left time-boxed this ship). Repro probe in flight.
+                  still on the box-cut coin (left time-boxed this ship). LOCK CONFIRMED: 2 force
+                  re-rolls (19934022, 19934036) BIT-IDENTICAL SUM6 541.713228 → reproduces the bank.
+                  ⚠ c3/c6/c7 CASETIME 19.5–19.9s = TLE-tight (latent bank risk, unchanged by diff).
                   Prior bank base: bonifica ecbbe3c0b082 (re-banked r56 19932030); pre-bonifica
                   68e22f048d07 (v111).
 solver/main_v2.cpp (INDEPENDENT track — construction→carve)  all-green ~90.24 [JUDGE]
