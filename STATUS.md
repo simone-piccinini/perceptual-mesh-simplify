@@ -36,12 +36,13 @@ measured-hard wall. Attack case-3.
 ## LIVE code
 
 ```
-solver/main.cpp   (BANK track — decimation)   sha256 b940d1aadf0c  = det-refine c4 + C3 DETERMINISM (98 KiB)
-                  c3 1024 phase-B capped at 16 iters + RC3 mini_refine at 2 (c3 band only) →
-                  c3 deterministic BY CONSTRUCTION. ACCEPTED 7/7 [JUDGE 19934300]: 90.285538, SUM6
-                  541.713228 BIT-IDENTICAL to bank (zero score cost). Enables CLEAN c3 A/Bs (the
-                  portfolio unlock). Prior base:
-solver/main.cpp   (superseded)                 sha256 32b9f515d2ce  = det-refine c4 only (98.5 KiB)
+solver/main.cpp   (BANK track — decimation)   sha256 38d98e8bd0b1  = c3-det + c4-det + c7-SPEED (99 KiB)
+                  = det-refine (c3 phase-B cap 16 + c4 cap 36) + c7 2-stage 5→3 speed pass.
+                  ACCEPTED 7/7 [JUDGE 19934494]: 90.285538, SUM6 541.713228 bit-identical.
+                  WINS THIS SESSION (all zero score cost): c3+c4 deterministic (kills box-cut coin →
+                  clean c3 A/Bs); c7 CASETIME 20.8→18.2s (TLE margin 0.0→2.8s, bank protection).
+                  ⚠ c3/c6 still 19.2/19.4s (margin 1.6-1.8s) — tightish, not fixed. Prior bases:
+                  b940d1aa (c3-det, sub 19934300), 32b9f515 (c4-det only).
                   = bonifica base + C3 DETERMINISTIC REFINE on c4 (stock_pass capped at 36 iters).
                   ACCEPTED 7/7 [JUDGE 19934022, 2026-07-10]: 90.285538, c4 V'=4970 (banked rung),
                   CASETIME c4 16.2s. c4 refine now deterministic by construction (cap, not the

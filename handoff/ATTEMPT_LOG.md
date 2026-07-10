@@ -4,6 +4,13 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-10 (newest first)
+- **c7 SPEED pass → ACCEPTED 7/7 (sub 19934494) — TLE risk FIXED.** Profiled c7 (800k proxy): bulk-QEM
+  (800k→114k) = 2.33s dominates (VSA only 0.71s). 2-stage sweep: x3=3.39s speed optimum (x5=3.72,
+  x8=4.34 — higher = more expensive VSA). Shipped `twostage_for` 5→3 (c7 only, >400000). Judge: c7
+  CASETIME **20.8→18.2s, margin 0.0→2.8s**, still passes @28250, SUM6 541.713228 bit-identical (zero
+  score cost). Transfer-safe throughput lever (§9.1) — bank TLE protection at no cost. New bank base
+  (38d98e8: c7-speed + c3/c4 deterministic). c3/c6 still tightish (19.2/19.4s) but c7 (the 0.0-margin
+  case) is fixed. R-κ/throughput.
 - **C3 DETERMINISM shipped + ACCEPTED 7/7 (sub 19934300, 90.285538) — the portfolio unlock.**
   Extended the c4 det-refine to c3 (3 loops): phase-A(512)=27 iters converges (uncapped); phase-B
   (1024)=18 = the judge-only coin → capped at 16 (2 below conv, like c4's 36/38); RC3 mini_refine=2 →
