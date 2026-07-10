@@ -148,7 +148,15 @@ the judge's actual STANDARD models at its vertex counts, not decimations-of-clea
 Net access confirmed (graphics.stanford.edu 200). Effort: hours (download+reprocess). Highest-value
 concrete task (handoff Part E.3). Identify ab_orig too — it may already be a usable rougher proxy.
 
-### R-κ — DETERMINISTIC REFINE (kill the box-cut coin) — `ACTIVE` iter 1 · instrument job
+### R-κ — DETERMINISTIC REFINE (kill the box-cut coin) — `ACTIVE` iter 2 · c4 SHIPPED + Accepted
+**SHIPPED 2026-07-10 (sub 19934022, ACCEPTED 90.285538 7/7).** `maxit_for(V)` caps c4-band
+stock_pass at 36 iters (default; env `G_MAXIT` overrides). c4 = the box-cut coin, JUDGE-ONLY (dev
+converges at 38 iters/7.7s; judge ~1.4× slower → wall-box cuts ~37 jittered). Cap 36 (near-converged,
+NOT sub-wall) → deterministic c4 by construction. Judge: c4 V'=4970 (banked rung), Accepted, CASETIME
+16.2s (cap bound near prior op point). c2/c3/c5/c6/c7 byte-identical to bonifica base (only c4 input
+35292 ∈ 30k–40k). Repro force-re-roll in flight. TODO: confirm lock (c4 reproduces); optionally
+extend to c3 (1024 phase-B) — but c3 is the prize + razor, and c6/c7 are TLE-tight (19.2/19.9s), so
+leave them on the coin unless a clean margin appears. R-κ was iter 1 below:
 Replace the refine wall-clock time-box with a fixed ITERATION COUNT → same mesh every run →
 de-confounds every A/B (law 4) and stabilises the bank. Env-gated mechanism wired 2026-07-10
 (`g_refine_maxit`, env `G_MAXIT`; `G_ITERDBG` prints iters); default huge = legacy behavior, ZERO

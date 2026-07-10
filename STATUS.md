@@ -36,12 +36,16 @@ measured-hard wall. Attack case-3.
 ## LIVE code
 
 ```
-solver/main.cpp   (BANK track — decimation)   sha256 ecbbe3c0b082  = r55 BONIFICA base (96.4 KiB)
-                  Output-identical to the 90.285538 bank on every deterministic proxy (byte-exact).
-                  RE-BANKED 7/7 [JUDGE 19932030, 2026-07-10]: Accepted 90.285538, all 6 cases at
-                  banked rungs → the bonifica base IS the live bank base (−19.3 KiB compile headroom
-                  reclaimed, no score cost). c7 margin 0.4s (deterministic, holds); c5 2.6s tight.
-                  Pre-bonifica bank binary was sha 68e22f048d07 (v111 lineage).
+solver/main.cpp   (BANK track — decimation)   sha256 32b9f515d2ce  = det-refine c4 (98.5 KiB)
+                  = bonifica base + C3 DETERMINISTIC REFINE on c4 (stock_pass capped at 36 iters).
+                  ACCEPTED 7/7 [JUDGE 19934022, 2026-07-10]: 90.285538, c4 V'=4970 (banked rung),
+                  CASETIME c4 16.2s. c4 refine now deterministic by construction (cap, not the
+                  wall-clock box, terminates) → kills the c4 box-cut coin. c2/c3/c5/c6/c7 byte-
+                  identical to the bonifica base (maxit_for=1<<30 for all non-c4 bands; only c4's
+                  input 35292 lands in 30k–40k). ⚠ c6/c7 CASETIME 19.2/19.9s = TLE-tight. c3/c6
+                  still on the box-cut coin (left time-boxed this ship). Repro probe in flight.
+                  Prior bank base: bonifica ecbbe3c0b082 (re-banked r56 19932030); pre-bonifica
+                  68e22f048d07 (v111).
 solver/main_v2.cpp (INDEPENDENT track — construction→carve)  all-green ~90.24 [JUDGE]
                   → best carve snapshot: solver/submissionv2/main_v2_90p24_sub19909317.cpp
                   ⚠ the banner inside main_v2.cpp still says 64.34 (construction era); the 90.24

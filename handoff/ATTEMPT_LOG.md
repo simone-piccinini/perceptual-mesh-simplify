@@ -4,6 +4,15 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-10 (newest first)
+- **C3 DET-REFINE SHIPPED + JUDGE-VALIDATED (sub 19934022, ACCEPTED 90.285538 7/7).** First real
+  main.cpp diff of the session that reaches the judge. `maxit_for(V)`: c4 band (30k–40k) caps
+  stock_pass at 36 iters; all other judge inputs → 1<<30 (byte-identical to bank, verified on c5).
+  Mechanism: the box-cut coin is JUDGE-ONLY — dev converges (c4 proxy 38 iters/7.7s < 10.5s budget,
+  identical across runs) but the judge is ~1.4× slower so its wall-box cuts c4 mid-trajectory (~37,
+  jittered). Cap at 36 (near-converged, NOT sub-wall) makes the iteration count the terminator →
+  deterministic c4 mesh. Judge: c4 V'=4970 (banked rung), Accepted, CASETIME 16.2s (≈ r56's 15.7s →
+  cap bound near the prior operating point). Repro (force re-roll) probe in flight to confirm the
+  lock. ⚠ c6/c7 CASETIME 19.2/19.9s TLE-tight; c3/c6 left on the coin this ship. R-κ.
 - **Graveyard re-screen on the discriminating ruler — no resurrection (LOCAL, the RIGHT ruler).**
   User's thesis: roads killed on the saturated SMOOTH proxy were closed with a blind instrument
   (Process Law #2). Re-screened on ab_orig (rough):
