@@ -1,4 +1,4 @@
-// C4-4920 2026-07-10: c4 4930->4920 wide-flip + stock cap 36->32 (S2n-identical local, -0.8s judge TLE margin). c3@6880+c5@4170 bank. Q: c4 margin @4930 >= 9.4e-5? PASS=+0.005 over 90.361534.
+// C3-6860B 2026-07-10: c3 6880->6860 with pB14 (safe CPU ~19.5; the 6860+pB18 'x' at 21.0s stays ambiguous). c4@4930+c5@4170 bank cfg. Q: c3 margin @6880 >= 3.4e-4? PASS=+0.014 over 90.361534.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -304,7 +304,7 @@ static int hybrid_for(int V) { return (V > 7000 && V <= 30000) ? 1 : 0; }  // c3
 // sub-wall). Default (1<<30) = legacy time-box. c4 band (30k–40k) only for the first ship; c3/c6 stay
 // on the coin (best-counts re-rolls them free). docs/ROADS.md R-κ.
 static int maxit_for(int V) {
-    if (V > 30000 && V <= 40000) return 32;   // c4: local convergence 38; cap 36 (2 below) binds on the slower judge, near-converged quality
+    if (V > 30000 && V <= 40000) return 36;   // c4: local convergence 38; cap 36 (2 below) binds on the slower judge, near-converged quality
     return (1<<30);                           // all other bands: unchanged (time-box governs)
 }
 // (env G_BUDGET: local convergence tests only)
@@ -1773,7 +1773,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6880;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6860;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1884,7 +1884,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        int c4t = 4920; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
+        int c4t = 4930; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
         seed_heap(); Decimate(c4t);                // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
