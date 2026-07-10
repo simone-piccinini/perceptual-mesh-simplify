@@ -1,4 +1,4 @@
-// C2-REMESH 2026-07-10: NEW RLIVE-C2 branch (dust: 1 vert = +0.004): Decimate 27 + 1024 polish + wide flips (13s headroom; 27 WA'd PRE-remesher). c3@6880+c4@4930+c5@4170 bank. Q: c2@27 passes with remesh = +0.004 over 90.361534.
+// C3C5-HALFSTEP 2026-07-10: c3@6870 (half-step, slope 1.17e-5/v) + c5@4160 wide-flip. c2 branch OFF (27 WA'd final), c4@4930 bank. Q: 2 independent reads; both = +0.0105 over 90.361534.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1773,7 +1773,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6880;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6870;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1889,7 +1889,8 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 1000 && (int)pos.size() <= 7000) {   // ===== PROBE-RLIVE-C2 ===== (dust case: 1 vert = +0.004 total; 13s CPU headroom)
-        int c2t = 27; if(const char* e=getenv("G_C2T")) c2t=atoi(e);   // banked rung 28 (27 WA'd PRE-remesher)
+        int c2t = 0; if(const char* e=getenv("G_C2T")) c2t=atoi(e);   // 0 = branch OFF (banked smooth path). 27 WA'd even WITH remesh+1024 polish (sub 20020226) -> c2 wall final at 28
+        if (c2t > 0) {
         seed_heap(); Decimate(c2t);
         for (int rw = 0; rw < 3 && alive_count > c2t; ++rw) {
             if (vertex_remove_pass(alive_count - c2t) == 0) break;
@@ -1908,6 +1909,7 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "RC2 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, 0.5*Sn2+0.5*Sd2, r_elapsed());
         save_obj();
         return 0;
+        }
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
         int c4t = 4930; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
@@ -1958,7 +1960,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4170; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // c5 N-push (flip remesher; c5 has time headroom)
+        int c5t = 4160; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // c5 N-push (flip remesher; c5 has time headroom)
         seed_heap(); Decimate(c5t);                // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
         g_res = 1024; g_refine_res = 1024;
