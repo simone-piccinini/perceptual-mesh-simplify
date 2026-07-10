@@ -11,10 +11,10 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, main.cpp decimation track)
 
 ```
-BANK      90.361534  (7/7)   [JUDGE 20020177, 2026-07-10] — c3@6880+pB14 + c4@4930 + c5@4170 (wide-flip).
+BANK      90.363201  (7/7)   [JUDGE 20020407, 2026-07-10] — c3@6880+pB14 + c4@4930 + c5@4165 (wide-flip).
                                Session +0.076 in 8 banks. FINAL WALLS [JUDGE, all fail-typed]: c2 28 (27 WA
                                even with remesh+1024 polish), c3 6880 (6870 x3 'x' at pB14/16/18), c4 4930
-                               (4920 WA 18.3s), c5 4170 (4160 WA; 4165 last coin pending), c6 banked path
+                               (4920 WA 18.3s), c5 4165 (4160 WA), c6 banked path
                                only (RLIVE-C6 WA'd AT the banked rung: explicit-decimate loses the +21 stall
                                margin, 512-flips don't transfer to 1024 — lane dead x3), c7 no orig maps
                                (render of 2M-face original unaffordable) = untouchable.
