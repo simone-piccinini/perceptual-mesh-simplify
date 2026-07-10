@@ -1,4 +1,4 @@
-// REMESH-C5PUSH 2026-07-10: c3@6900 + c5@4170 (deeper, judge-margin test; proxy +1e-4). Bank 90.321608 -> ?
+// REMESH-C4 2026-07-10: flip remesher extended to c4 (biggest headroom +1.2e-3). c3@6900+c5@4190+c4 4970->4930. Bank 90.321608 -> ?
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1581,7 +1581,7 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
     g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
-    g_remesh = (((int)pos.size() > 7000 && (int)pos.size() <= 30000) || ((int)pos.size() > 40000 && (int)pos.size() <= 100000)) ? 1 : 0;   // FLIP remesh on c3+c5 (phaseB-substitution funds it). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
+    g_remesh = (((int)pos.size() > 7000 && (int)pos.size() <= 30000) || ((int)pos.size() > 30000 && (int)pos.size() <= 100000)) ? 1 : 0;   // FLIP remesh on c3+c5 (phaseB-substitution funds it). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
     if (const char* e = getenv("G_REMESH")) g_remesh = atoi(e);
     g_hybrid = hybrid_for((int)pos.size());
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
@@ -1809,10 +1809,17 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        seed_heap(); Decimate(4970);               // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
+        int c4t = 4930; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
+        seed_heap(); Decimate(c4t);                // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
         mini_refine(1.5);                          // case 4's first 1024 polish
+        if (g_remesh) {   // FLIP remesher on c4 (time headroom; test if the appearance-flip lever helps CAD-ish c4)
+            g_force_nocrop = 1;
+            remesh_flip_local(8, 1200, r_elapsed() + 3.0);
+            g_force_nocrop = 0;
+            mini_refine(0.6);
+        }
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RC4 S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", Sn2, Sd2, S2, r_elapsed());
