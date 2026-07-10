@@ -50,7 +50,7 @@ the prize is real but modest — cheap high-odds bets beat heavy low-odds builds
 | **Normal-attribute quadric PLACEMENT (R-α, Hoppe) — PARKED: neutral on an unreliable instrument, NOT killed** | Built the FULL Hoppe Vis'99 continuous attribute-quadric optimum (Schur 3×3 solve); c3 band, env G_HOPPE. Judge r55/r55b c3 WA vs r55c PASS is confounded by the box-cut re-roll (law 4), NOT clean. Local Δ≈0 was on the SMOOTH proxy — the very instrument §9.1 says is unreliable for position-space. So "neutral on a broken ruler," which is NOT "dead" (Process Law #2). Code removed for now (6 KiB at the cliff) but the finding is UNPROVEN. **Re-test on the transferring proxy once R-θ iter-3 yields one**, before any final verdict. | `[LOCAL-weak]` |
 | Dynamic in-loop metric steering (R-γ) | already implemented: Pivot-A runs 8 passes (main.cpp:1715), each re-renders the CURRENT mesh's deficit and re-steers; passes tuned (14 = −0.0002). | code |
 | Curvature-adaptive isotropic remesh (R-β) | low-odds by theory: flat-shaded normal-SSIM favors ANISOTROPIC triangles (elongated along low-curvature) which QEM already gives; explicit aniso placement (g_aniso) is banked c4 but DEAD on organic c3/c6/c7. Isotropic is likely worse than our mild anisotropy. Demoted (not built). | `[JUDGE]`/theory |
-| **True per-collapse box-SSIM selection (R-ζ)** | built + fail-fast tested (solver/ssim_greedy.cpp, QEM-sel vs true-rendered-SSIM-sel, same gates/placement). cow @700: +0.0022 (K8) / +0.0026 (K16); **organic bunny @800: +0.0001 (~zero)**. Real but tiny and mesh-dependent — ~0 on the SMOOTH-ORGANIC case-3 class (QEM already near-optimal there); won't survive transfer. Closes the collapse-SELECTION-metric family. Code kept. | `[LOCAL]` |
+| **True per-collapse box-SSIM selection (R-ζ) — DEAD, CONFIRMED on the discriminating ruler 2026-07-10** | built + fail-fast tested (solver/ssim_greedy.cpp, QEM-sel vs true-rendered-SSIM-sel, same gates/placement). cow @700 +0.0022/+0.0026; smooth bunny @800 +0.0001. **RE-SCREENED on the ROUGH ruler (20k→4212, K16 R96): SSIM-sel − QEM-sel = −0.0003 — still ~zero.** Two independent scales agree ⇒ collapse-SELECTION-metric is genuinely maxed (QEM ordering near-optimal), NOT a blind-proxy artifact (Process Law #2 satisfied). **Meta: on the same test VSA-lite 0.6805 > both selection modes ~0.675 (+0.005) — our edge is normal-optimal PLACEMENT, not selection search.** Code kept. | `[LOCAL×2]` |
 
 **Lesson from VSA (steers the queue):** the winning case-3 mesh is **smooth + dense + adaptive**
 (QEM family). Flat/partition topology is the wrong direction for an organic surface. Any road that
@@ -68,7 +68,17 @@ cow +0.0022/+0.0026 (K8/K16) but organic bunny +0.0001 (~0) → dead for the smo
 class. Closes the collapse-SELECTION-metric family. The fail-fast (small-mesh brute-force) avoided
 the heavy incremental build for a signal that isn't there. Code kept for reference.
 
-### R-δ — Differentiable co-opt DURING reduction (full) — `QUEUED` · heavy · odds low · TOP
+### R-ν — Content-adaptive densify/prune (vertex-budget REALLOCATION) — `QUEUED` · **TOP to BUILD** · the untested axis
+The discriminating ruler showed SELECTION is maxed and our edge is PLACEMENT — so the un-tried axis
+is WHERE the budget is spent. Mechanism: after decimating to N, render the per-region rendered-normal
+SSIM deficit, then reallocate net-neutral — extra-collapse in SATURATED regions, split/keep verts in
+DEFICIT regions. Distinct from Pivot-A (which re-steers the COST, not the count allocation) and from
+the graveyard's A/E1 edge-split (killed on the BLIND smooth proxy — so it deserves a rough-ruler
+re-test, but the code is gone → rebuild). NOT built. **Screen on ab_orig (rough) BEFORE any judge
+spend** (baseline VSA-lite refine-off 0.7039 / refine-on 0.7094). Effort: real build (~a session).
+Odds: unknown but it's the honest frontier — the one lever the good ruler hasn't yet judged.
+
+### R-δ — Differentiable co-opt DURING reduction (full) — `QUEUED` · heavy · odds low
 Interleave `refine_score_grad` position-ascent INTO the collapse loop (not refine-after). Stays
 smooth. But ≈ R1 (judge-negative ×2) and refine is already converged post-hoc → low odds.
 
@@ -204,7 +214,10 @@ Add here as ideas form. **Policy: this slot never empties — never conclude "at
   not dead**. Yield = a TRANSFERRING RULER (ab_orig rough proxy discriminates + is
   sign-validated). C3 det-refine mechanism wired (env `G_MAXIT`/`G_ITERDBG`, bank-safe): c5 confirmed
   NOT the coin (94 iters, byte-identical); coin is c3/c4/c6 non-converging loops → R-κ ACTIVE.
-  r56: bonifica base RE-BANKED 7/7 (90.285538). Bank untouched.
+  r56: bonifica base RE-BANKED 7/7 (90.285538). Bank untouched. THEN re-screened the graveyard on
+  the ruler: R-ζ (top pick) SSIM-sel−QEM-sel = −0.0003 on rough (bunny +0.0001) ⇒ selection-metric
+  CONFIRMED dead on a discriminating ruler; meta = our edge is PLACEMENT not selection. No buried
+  lever resurrected. Next = R-ν content-adaptive densify/prune (REALLOCATION axis; must be BUILT).
 - **2026-07-09 (R-θ iter 3-4, CORRECTED per handoff)** — "falsified" RETRACTED. Rebuilt with
   coherent noise (`make_corr_noise.py`) + calibrated on the CLEAN deterministic target (R1's c5
   WA). Clean c5 R1 = +0.0004; coherent-noise armadillo R1 = +0.0018..+0.0043 (synthesis ADDS

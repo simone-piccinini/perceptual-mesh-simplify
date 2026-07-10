@@ -4,6 +4,22 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-10 (newest first)
+- **Graveyard re-screen on the discriminating ruler — no resurrection (LOCAL, the RIGHT ruler).**
+  User's thesis: roads killed on the saturated SMOOTH proxy were closed with a blind instrument
+  (Process Law #2). Re-screened on ab_orig (rough):
+  - **R-ζ (top pick, true rendered-SSIM collapse selection)**: rough 20k→4212, K16 R96, SSIM-sel −
+    QEM-sel = **−0.0003** (smooth bunny was +0.0001). Two independent scales agree ⇒ collapse-
+    SELECTION-metric genuinely maxed, NOT a blind-proxy artifact. (Caveat: rough input was
+    meshopt-decimated to 20k → non-manifold + finest micro-roughness gone; the qem-vs-ssim A/B is
+    clean same-input though, and the ~0 is consistent across scales. Full 62938→4212 is intractable
+    ~3 h — not run.) **Meta: VSA-lite 0.6805 > both selection modes ~0.675 (+0.005) ⇒ our edge is
+    normal-optimal PLACEMENT, not selection search.**
+  - nmetric variants = selection sub-family, subsumed by R-ζ (skip). R1 interleave killed `[JUDGE]`
+    ×2 (not blind → no re-screen resurrects it). SIL live/tuned for c5. ⇒ the blind-killed SELECTION
+    graveyard is confirmed dead on the good ruler; the ruler found NO wrongly-buried lever.
+  - **Forward: the gain (if any) is a NEW mechanism, not a buried one.** Top untested lever =
+    content-adaptive densify/prune (reallocate the vertex budget by rendered-normal deficit); build
+    it and screen on the ruler BEFORE any judge spend. ROADS R-ν.
 - **meshopt (LEGGIMI/) offline eval — DEAD on the transferring ruler (LOCAL, but the RIGHT ruler).**
   User dropped meshoptimizer in; Option-3 = "meshopt first, then instrument," with 4 constraints
   (eval on ROUGHER proxy not smooth; check shippability early; det-refine now; source rough armadillo).
