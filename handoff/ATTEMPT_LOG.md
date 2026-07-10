@@ -11,8 +11,11 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
   the c3 band only (7000<V≤30000 = c3's 23201). Judge: **Accepted, SUM6 541.713228 BIT-IDENTICAL to
   bank** (c3 mesh unchanged — 16 vs 18 were trailing rejects) → c3 now deterministic BY CONSTRUCTION
   at zero score cost. Safe new bank base; enables CLEAN c3 A/Bs (variant−control differ only by the
-  lever, not the coin). c5 byte-identical; c4 cap 36 intact. ⚠ c7 21.0s (margin 0.0) — TLE live. Repro
-  force-re-roll in flight. R-κ. Next: run the c3 portfolio (σxy/nmetric=3, Hoppe-retest) as clean reads.
+  lever, not the coin). c5 byte-identical; c4 cap 36 intact. REPRO CONFIRMED (sub 19934344 force
+  re-roll): Accepted 7/7, SUM6 541.713228 bit-identical (c3 CASETIME jittered 19.3→17.1s, same mesh)
+  → c3-det base stable. ⚠ c7 20.8–21.0s (margin 0.0–0.2) — TLE live, unaffected by this diff (c7 is
+  deterministic/no-refine; needs a decimation-SPEED pass, not a refine cap). R-κ. Next: run the c3
+  portfolio (σxy/nmetric=3, Hoppe-retest) as CLEAN reads on this deterministic base.
 - **HOPPE placement JUDGE-TESTED at last (R-α) — no win; portfolio blocker exposed.** Recovered the
   Hoppe attribute-quadric placement code (af42bed, reverted fcbc353), re-applied onto det-refine base
   (--3way clean), env `G_HOPPE`, c3 band, c3 S-read @6940. Clean A/B pair:
