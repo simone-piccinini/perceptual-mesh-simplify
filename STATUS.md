@@ -69,15 +69,18 @@ pipeline-relative wall (moves when the simplifier improves). See `docs/ROADS.md`
   coherent noise pushes R1 the WRONG way (+), but a **natural rougher armadillo (ab_orig, same c5
   model, 0.0302 roughness) flips R1 NEGATIVE = the judge's sign.** ⇒ "too-smooth proxy" hypothesis
   holds; synthetic noise retired; **the path is REAL rougher meshes (R-ι data-sourcing).** ROADS §3.
-1. **R-ι DATA-SOURCING (make-or-break)** — source/build a transferring proxy: a real rougher
-   organic mesh at judge counts (c5≈49,987 rougher armadillo; c3≈23k native organic). Decisive free
-   test: does R1 read negative out-of-the-box? If yes → transferring instrument → re-screen Hoppe/R1
-   offline. ARCHITECT-REVIEW §3.C.2; `docs/ROADS.md` R-ι.
-2. **Send the SSIM-window judge question** — `docs/JUDGE-QUESTION.md`, ready to post. HUMAN action;
-   free; could reopen the case-3 structure front (ARCHITECT-REVIEW §6/§7.7).
-3. **Deterministic refine (Phase 0.2)** — replace the refine wall-clock time-box with a fixed
-   iteration count → deterministic output → kills the box-cut coin, de-confounds every future A/B.
-   Needs a c3-scale organic proxy (from R-ι) to size the count, or judge CASETIME probing. ROADS R-κ.
+- **meshopt (LEGGIMI/) → DEAD 2026-07-10 (R-μ).** User-provided SOTA simplifier; offline-eval on the
+  ROUGHER proxy LOSES to our VSA-lite on both rough & clean (attr-weight monotonically worsens rendered
+  nSSIM); not shippable (101 KiB + non-manifold). Knock-on: Hoppe (R-α) low-EV. `docs/ROADS.md` R-μ.
+1. **Deterministic refine (R-κ, PRIMARY now)** — mechanism wired (env `G_MAXIT`, bank-safe). c5 = NOT
+   the coin (converges, byte-identical). Finish: cap the non-converging loop (c3 1024 phase-B, c4/c6),
+   size per case via FREE judge CASETIME probes (not proxy-gated), re-validate bank 7/7. Kills the coin.
+2. **Exploit the TRANSFERRING RULER** — ab_orig(rough) discriminates (0.70 vs meshopt 0.51–0.65) &
+   is sign-validated. Screen pipeline changes offline on it (start: refine-ON headroom vs the 0.70
+   refine-off baseline). This is the instrument the project was missing (ARCHITECT-REVIEW §3.C.2).
+3. **R-ι finish the ruler** — source a rougher armadillo at exactly ~49,987 for JUDGE-ABSOLUTE
+   calibration (relative discrimination already works). `docs/ROADS.md` R-ι.
+4. **Send the SSIM-window judge question** — `docs/JUDGE-QUESTION.md`, ready. HUMAN action; free.
 
 ---
 

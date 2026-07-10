@@ -281,6 +281,12 @@ static int g_hybrid = 0;   // 1 = after 512 convergence, re-render orig at 1024 
 static int    g_tilt = 0;      // phase C: ascend ONLY along vertex normals (the depth-blind subspace)
 static double g_capf = 0.045;  // phase-C (tilt) cap fraction of diag (judge allows 0.05 Hausdorff)
 static int    g_tiltmode = 0;  // live flag read inside the ascent loop
+static int    g_refine_maxit = (1<<30);  // C3 DETERMINISTIC REFINE (env G_MAXIT): cap stock_pass iterations.
+                                         // Default huge -> the wall-clock box governs (legacy, box-cut coin).
+                                         // When set, the ITERATION COUNT is the deterministic terminator and
+                                         // g_refine_budget is a pure TLE safety sized ABOVE it -> same mesh
+                                         // every run, kills the box-cut coin. docs/ROADS.md R-kappa.
+static long   g_refine_iters = 0;        // diagnostic (env G_ITERDBG): stock_pass iterations executed
 static int hybrid_for(int V) { return (V > 7000 && V <= 30000) ? 1 : 0; }  // c3 ONLY (c5 hybrid: local -0.0008 AND judge WA 19894828 w/ f32+box18 -> closed x2)
 // (env G_BUDGET: local convergence tests only)
 static const double R_C1 = 6.5025, R_C2 = 58.5225; static const int R_WN = 121, R_RAD = 5;
@@ -724,7 +730,9 @@ static void refine_positions() {
         bool fresh = true;   // g freshly computed at the current point -> needs transform once
         double gmax = 0;
         for(int it=0; it<1000; ++it){
-            if(r_elapsed() > g_refine_budget) break;                 // HARD CPU time-box -> never TLE
+            if(it >= g_refine_maxit) break;                          // C3: deterministic iteration cap (binds when G_MAXIT set)
+            if(r_elapsed() > g_refine_budget) break;                 // HARD CPU time-box -> never TLE (TLE safety under G_MAXIT)
+            ++g_refine_iters;
             if (fresh) {
                 if (g_tiltmode) {   // project the gradient onto current vertex normals: depth/silhouette-blind moves only
                     std::vector<Vec3> vn(pos.size(), Vec3::Zero());
@@ -1294,6 +1302,7 @@ void save_obj() {
 // argv (local only; judge passes none): 1 = "a"|"k", 2 = margin, 3 = floor_frac/keep.
 int main(int argc, char** argv) {
     g_t0 = std::chrono::steady_clock::now();   // wall-clock origin for the optimizer time-box
+    if (getenv("G_ITERDBG")) std::atexit([]{ std::fprintf(stderr, "[iters] stock_pass=%ld cpu=%.2fs\n", g_refine_iters, r_elapsed()); });
     load_obj();
 
     // per-case dispatch by vertex count (see JUDGE OPERATING POINT): adaptive only for
@@ -1355,6 +1364,7 @@ int main(int argc, char** argv) {
         g_sdefp = sdefp_for((int)pos.size());
         if (const char* e = getenv("G_SDEFP")) g_sdefp = atoi(e);
         if (const char* e = getenv("G_BUDGET")) g_refine_budget = atof(e);
+        if (const char* e = getenv("G_MAXIT")) g_refine_maxit = atoi(e);   // C3: deterministic refine iteration cap
         g_vmax = vmax_for((int)pos.size());
         if (const char* e = getenv("G_VMAX")) g_vmax = atoi(e);
         if (const char* e = getenv("G_NMETRIC")) g_nmetric = atoi(e);

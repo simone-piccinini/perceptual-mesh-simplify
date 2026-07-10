@@ -4,6 +4,27 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-10 (newest first)
+- **meshopt (LEGGIMI/) offline eval — DEAD on the transferring ruler (LOCAL, but the RIGHT ruler).**
+  User dropped meshoptimizer in; Option-3 = "meshopt first, then instrument," with 4 constraints
+  (eval on ROUGHER proxy not smooth; check shippability early; det-refine now; source rough armadillo).
+  - C2 shippability: meshopt simplifier.cpp 101 KiB + our I/O ≈121 KiB (7 KiB cliff margin, drops
+    refine) AND output non-manifold → NOT a ship candidate; offline reference only.
+  - C1 eval (`scratchpad/mo_eval.log`): decimate ab_orig(ROUGH, 62938) + clean armadillo(49990) →
+    N≈4212, meshopt_simplifyWithAttributes (normal as weighted attr, nw sweep) vs our VSA-lite
+    (G_REFINE=0), oracle rendered-normal SSIM. Result — meshopt LOSES on BOTH:
+    ROUGH ours 0.7039 vs meshopt nw0/1/5 = 0.6486/0.5239/0.5131; CLEAN ours 0.7176 vs 0.6579/0.5006.
+    Normal-attribute weight MONOTONICALLY worsens rendered nSSIM. → attribute-quadric (=Hoppe)
+    doesn't help the binding metric; VSA-lite (rendered-normal-distortion ordering) is the right one.
+  - Verdict: R-μ DEAD, R-α (Hoppe) low-EV (don't revive to re-confirm). Driver `LEGGIMI/mo_driver.cpp`.
+  - **Net positive: a transferring ruler.** The rough proxy DISCRIMINATES (0.70 vs 0.51–0.65) where
+    the smooth one saturates (~0.85). Sign-validated (ab_orig R1=−0.0003 = judge sign). Screen future
+    pipeline changes on it.
+- **C3 deterministic-refine mechanism wired (bank-safe, LOCAL).** `g_refine_maxit` + env `G_MAXIT`
+  (iteration cap) + `G_ITERDBG` (iters print); default huge = legacy behavior (zero bank risk).
+  c5 (armadillo 49990, SIL path): 94 stock_pass iters, BYTE-IDENTICAL mesh across runs (CPU jittered
+  14.9–17.1s) ⇒ c5 CONVERGES, is NOT the box-cut coin. Coin = the loop that doesn't converge in
+  budget (c3 1024 phase-B, c4/c6 plain). TODO: target that loop + size per case via free judge
+  CASETIME probes. R-κ ACTIVE.
 - **r56 (sub 19932030): re-bank the bonifica base → ACCEPTED 90.285538, 7/7.** The bonifica base
   (ecbbe3c, −19.3 KiB, byte-output-identical to the bank on deterministic proxies) reproduces the
   exact bank on the judge — all 6 cases at banked rungs (c2 26/c3 6927/c4 4970/c5 4184/c6 8491/c7

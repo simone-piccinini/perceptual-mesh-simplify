@@ -138,6 +138,47 @@ the judge's actual STANDARD models at its vertex counts, not decimations-of-clea
 Net access confirmed (graphics.stanford.edu 200). Effort: hours (download+reprocess). Highest-value
 concrete task (handoff Part E.3). Identify ab_orig too — it may already be a usable rougher proxy.
 
+### R-κ — DETERMINISTIC REFINE (kill the box-cut coin) — `ACTIVE` iter 1 · instrument job
+Replace the refine wall-clock time-box with a fixed ITERATION COUNT → same mesh every run →
+de-confounds every A/B (law 4) and stabilises the bank. Env-gated mechanism wired 2026-07-10
+(`g_refine_maxit`, env `G_MAXIT`; `G_ITERDBG` prints iters); default huge = legacy behavior, ZERO
+bank risk. Findings iter-1:
+- **c5 is NOT the coin**: converges at exactly **94 stock_pass iters, byte-identical mesh** across
+  runs (CPU jittered 14.9–17.1s but iters/mesh fixed). Matches "c5 deterministic".
+- The coin lives in the loop that does NOT converge in budget: c3's 1024 phase-B, c4/c6 plain
+  stock_pass. The current per-call `it>=maxit` cap is correct but must target THAT loop; SIL calls
+  stock_pass 4× (each <50) so a total-iter intuition misleads.
+- TODO: cap phase-B / c4 / c6 loops; size maxit per case (their meshes OR free judge CASETIME
+  probes — NOT proxy-gated); raise g_refine_budget to a pure TLE backstop above maxit·cost;
+  re-validate the bank 7/7. `handoff/ATTEMPT_LOG.md` 2026-07-10.
+
+### R-μ — meshopt (LEGGIMI/) as OFFLINE REFERENCE → revive PARKED Hoppe — **DEAD 2026-07-10** (transferring-ruler LOSS)
+meshoptimizer's `simplifier.cpp` = SOTA QEM + attribute-quadrics (= Hoppe's appearance metric) +
+Lindström–Turk volume term. Two independent kills:
+- **C2 not shippable**: 101 KiB alone, +our I/O ≈121 KiB at the 7 KiB cliff margin (drops refine);
+  output non-manifold — judge needs closed 2-manifold.
+- **C1 offline eval (the decisive one, on the TRANSFERRING ruler)** — decimate ab_orig(rough) &
+  clean armadillo → N≈4212 with meshopt vs our VSA-lite (refine off), oracle rendered-normal SSIM:
+
+  | N≈4212 | ROUGH nSSIM | CLEAN nSSIM |
+  |---|---|---|
+  | **ours (VSA-lite)** | **0.7039** | **0.7176** |
+  | meshopt nw=0 (pure QEM) | 0.6486 | 0.6579 |
+  | meshopt nw=1 | 0.5239 | — |
+  | meshopt nw=5 (attr-quadric) | 0.5131 | 0.5006 |
+
+  meshopt LOSES on BOTH proxies; normal-attribute weight **monotonically DEGRADES** rendered nSSIM
+  (0.65→0.52→0.51). Mechanism: attribute quadric minimizes VERTEX-normal L2, trading position
+  accuracy → worse silhouettes/face-normals → worse RENDERED SSIM; our VSA-lite orders by induced
+  RENDERED-normal distortion (the right objective). Per the user's rule, rougher-proxy LOSS = strong
+  death. Confirms our decimator is ahead of SOTA meshopt on the binding metric.
+- **Knock-on to R-α (Hoppe, parked):** same attribute-quadric family, now LOW EV — meshopt (more
+  mature, same metric) lost on the transferring ruler. Do NOT revive to re-confirm (Process Law §8.1);
+  revive only with a genuinely new angle. Driver kept: `LEGGIMI/mo_driver.cpp` (+ fetched header).
+- **The real yield: a TRANSFERRING RULER.** ab_orig(rough) DISCRIMINATES (0.70 clearly separable
+  from meshopt 0.51–0.65), unlike the saturated smooth proxy (all ~0.85). Sign-validated (ab_orig
+  R1=−0.0003 = judge sign). Use it to screen pipeline changes offline (see R-ι, R-κ).
+
 ### R-η — OUT-OF-FAMILY ideas (open slot — keep generating) — `QUEUED`
 The in/near-family is exhausted, so real gains (if any) are out-of-family. Candidates to develop:
 metric-exploit of the box-window covariance (normal dithering to match σxy at fewer verts —
@@ -145,6 +186,14 @@ speculative); silhouette-exact interior-starvation (lock the exact fg/bg boundar
 Add here as ideas form. **Policy: this slot never empties — never conclude "at ceiling".**
 
 ## 4. Execution log (newest first)
+- **2026-07-10 (meshopt + instrument, user Option-3+4-constraints)** — LEGGIMI/ = meshoptimizer.
+  C2 shippability: NOT a ship candidate (101 KiB + non-manifold) → offline reference. C1 eval on
+  ROUGHER proxy (the user's key constraint — smooth misleads): meshopt-attr LOSES to our VSA-lite on
+  BOTH rough (0.51–0.65 vs 0.70) and clean; attr-weight monotonically worsens rendered nSSIM ⇒ **R-μ
+  DEAD, R-α Hoppe low-EV**. Yield = a TRANSFERRING RULER (ab_orig rough proxy discriminates + is
+  sign-validated). C3 det-refine mechanism wired (env `G_MAXIT`/`G_ITERDBG`, bank-safe): c5 confirmed
+  NOT the coin (94 iters, byte-identical); coin is c3/c4/c6 non-converging loops → R-κ ACTIVE.
+  r56: bonifica base RE-BANKED 7/7 (90.285538). Bank untouched.
 - **2026-07-09 (R-θ iter 3-4, CORRECTED per handoff)** — "falsified" RETRACTED. Rebuilt with
   coherent noise (`make_corr_noise.py`) + calibrated on the CLEAN deterministic target (R1's c5
   WA). Clean c5 R1 = +0.0004; coherent-noise armadillo R1 = +0.0018..+0.0043 (synthesis ADDS
