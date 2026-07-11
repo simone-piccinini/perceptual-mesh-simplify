@@ -12,7 +12,15 @@ work; this file is WHERE we are.*
 
 ```
 BANK      90.403841  (7/7)   [JUDGE 20022585, 2026-07-10] — c3@6830+pB18 + c4@4920 + c5@4165 (VT-GATE:
-                               row-major boxsum for c3/c5, banked per-column kernel for c4). Was 90.400249 (90.40 CROSSED).
+                               row-major boxsum for c3/c5, banked per-column kernel for c4). Session final:
+                               90.285538 -> 90.403841 (+0.1183, 19 banks; 90.40 crossed at 90.400249).
+                               WALLS x3-CONFIRMED: c3 6830 (6825 'x' x3), c4 4920 (transposed-c4 judge-negative,
+                               gated back), c5 4165 (4160 'x' x3). Snapshot: submissions/v115-vtgate-90403841
+                               (prova-del-nove verified 6830/4920/4165).
+                               TOWARD 90.50 (+0.096): (1) LESS-WORK kernel cuts (replicate fully, unlike
+                               cache-locality which replays sub-1); (2) web research (session limit resets
+                               05:10); (3) a new structural mechanism. Late-night Kattis unstable — verify
+                               draws are clean (coherent casetimes) before classifying walls.
                                Session 90.285538 -> 90.400249 (+0.1147, 16 banks). The unlock chain: flip
                                remesher -> refine speed pass -> wide boxes -> COLCROP (boxsum column-crop,
                                exact) -> throughput replicates judge-side -> funded un-starved mini_refine ->
