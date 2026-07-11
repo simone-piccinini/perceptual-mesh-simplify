@@ -1,4 +1,4 @@
-// C3-6805-DEEP 2026-07-11: BANK attempt. Deep tail (burst16 K64 T100) @6805: S ~ 0.914-25*1.17e-5+2.5e-4(deep vs read cfg) = +4-5e-4 over threshold. kread OFF. Q: +0.018 -> 90.4218.
+// C3-6790-DEEP 2026-07-11: next rung (margin ~+2e-4 read-calibrated, 3 coins: S/time/c4). c4 tail measured negative, OFF. Q: +0.0108 -> 90.4326.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1811,7 +1811,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6805;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6790;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 100; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven (collapse_delta_local); 0 = banked QEM path
         const int dt = c3t + ctT;
@@ -1921,9 +1921,14 @@ int main(int argc, char** argv) {
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
         int c4t = 4920; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
-        seed_heap(); Decimate(c4t);                // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
+        int c4T = 0; if(const char* e=getenv("G_C4CT")) c4T=atoi(e);    // ROAD A on c4: measured NEGATIVE locally (-5.7e-4: CAD edges prefer QEM order) - OFF
+        seed_heap(); Decimate(c4t + c4T);          // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
+        if (c4T > 0 && alive_count > c4t) {
+            g_force_nocrop = 1; ctail_pass(c4t, 64, 20); g_force_nocrop = 0;
+            if (alive_count > c4t) { seed_heap(); Decimate(c4t); }
+        }
         mini_refine(1.5);                          // case 4's first 1024 polish (banked cfg; mini-boost variants TLE'd/WA'd on judge)
         if (g_remesh) {   // FLIP remesher on c4 (time headroom; test if the appearance-flip lever helps CAD-ish c4)
             g_force_nocrop = 1;
