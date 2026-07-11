@@ -16,7 +16,14 @@ BANK      90.421800  (7/7)   [JUDGE 20025786, 2026-07-11] — c3@6805 via ROAD A
                                + c4@4920 + c5@4165. JUDGE-VALIDATED: 6805 never passed under QEM order.
                                Calibration: S2_judge(deep@6830)=0.9140 [K-read 20025436], threshold ~0.9135.
                                c3 anisotropy median 3.59 (curved-half 4.91) -> Road A ceiling is high.
-                               NEXT: deeper tail (T150-300 w/ burst16), CTAIL on c4/c5, rung ~6790.
+                               OVERNIGHT (07-11): judge ladder from 6790 w/ lazy-300 (auto-bank). CEILING MEASURED
+                               [LOCAL, no time box]: plain lazy holds the banked level to ~6700 (pool 600);
+                               MULTI-PLACEMENT (SSIM-driven position, 4 candidates) moves the wall to ~6650
+                               = payout +0.13 = ~90.55 IN THE CURVE. MP costs 4x eval (42s local) -> MORNING
+                               PLAN: MP at COMMIT-time only (~16/round = marginal cost), then continuous
+                               line-search placement. c4 tail = negative (CAD prefers QEM). c5 lazy = +2e-4
+                               at 4165, dies below (headroom +0.003-0.007). 91 needs S2n 0.788@6000 = 10x
+                               below the curve -> only via constructive anisotropic remesh (days, not nights).
 LEADER    91.48      [JUDGE, leaderboard 2026-07-09]   #1 希望ヶ峰学園 CG研究会.  gap to #1 = 1.17
                                                        (top-3 cluster 91.46; we were rank 12)
 ```
