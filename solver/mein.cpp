@@ -1,4 +1,4 @@
-// CONSOLIDATE-B 2026-07-10: c3@6830+pB18 (passed 20022533) + c4@4920 + c5@4165. Q: bank +0.0036 = 90.4038.
+// VT-GATE 2026-07-10: per-band transpose gate. c4 = per-column slide (byte-identical to its banked-rung kernel, verified); c3@6830+pB18 + c5@4165 row-major. Q: bank +0.0036 = 90.4038.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
