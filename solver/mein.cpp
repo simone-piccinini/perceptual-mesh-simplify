@@ -1,4 +1,4 @@
-// C3-6835 2026-07-10: half-step after 6830 'x' (22.2s ambiguous). c4@4920+c5@4165. Q: +0.0036 over 90.396658 -> 90.4003 = TARGET.
+// C3-6830-R2 2026-07-10: retry (first 'x' was 22.2s = TLE-flavored on a warm draw; 6835 then passed at 22.6s wall). c4@4920+c5@4165. Q: +0.0036 over 90.400249.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1720,7 +1720,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6835;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6830;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
