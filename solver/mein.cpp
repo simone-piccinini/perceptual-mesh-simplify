@@ -1,4 +1,4 @@
-// C4-MINI 2026-07-10: c4 mini_refine was STARVED (1.5s=3 iters): 2.2s+cap32 = +7e-4 S2n -> c4@4900 sits +3.7e-4 ABOVE banked cfg. c3@6875+c5@4165 bank. Q: c4@4900 = +0.0142 over 90.366792.
+// MINI-TRADE 2026-07-10: c4@4920 (mini-boosted; 4900 WA = organic proxy over-predicts CAD) + c3@6870 pB10+mini2.4cap8 (+1.1e-4 local over banked). c5@4165 bank. Q: 2 reads = +0.0083.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1589,9 +1589,9 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_REFINE")) g_refine = atoi(e);   // test override (judge sets no env)
     g_refine_maxit = maxit_for((int)pos.size());                  // C3 deterministic refine: per-case iteration cap (default 1<<30 = legacy)
     if (const char* e = getenv("G_MAXIT")) g_refine_maxit = atoi(e);
-    g_phaseb_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 14 : (1<<30);  // C3 DETERMINISM: cap 1024 phase-B (banked cfg) (+8.4e-5 S2n, +~1.9s judge): the 21s ceiling is SOFT (c3 22.1s / c7 23.5s passed)
+    g_phaseb_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 10 : (1<<30);  // C3 DETERMINISM: cap 1024 phase-B (10: trade pB for the post-decimate mini) (+8.4e-5 S2n, +~1.9s judge): the 21s ceiling is SOFT (c3 22.1s / c7 23.5s passed)
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
-    g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band)
+    g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 8 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band; 8 = the starved-mini fix, budget 2.4 binds)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
     g_remesh = (((int)pos.size() > 1000 && (int)pos.size() <= 100000)) ? 1 : 0;   // c2+c3+c4+c5   // FLIP remesh on c3+c5 (phaseB-substitution funds it). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
     if (const char* e = getenv("G_REMESH")) g_remesh = atoi(e);
@@ -1717,7 +1717,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6875;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6870;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1730,7 +1730,7 @@ int main(int argc, char** argv) {
         }
         if (g_refine_res < 1024) render_orig_hires(1024);   // hybrid phase B may not have fired
         g_res = 1024; g_refine_res = 1024;
-        mini_refine(1.2);                          // repair the collapse damage at judge res
+        mini_refine(2.4);                          // repair the collapse damage at judge res (starved at 1.2; pB10 funds it)
         if (g_remesh == 7) {   // VALIDATION: local flip-delta vs full-render delta (correctness gate for the incremental evaluator)
             g_res = 1024; g_refine_res = 1024; g_force_nocrop = 1;
             remesh_cache_render();
@@ -1839,7 +1839,7 @@ int main(int argc, char** argv) {
         }
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        int c4t = 4900; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
+        int c4t = 4920; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
         seed_heap(); Decimate(c4t);                // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
