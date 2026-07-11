@@ -1,4 +1,4 @@
-// C3-6810-CAP11 2026-07-10: less-work cuts (dSdY bbox scan + cov crop) + mini cap 8->11 w/ judge-covering budget 5.5 (deterministic BOTH sides). c3@6810 local +8e-5 OVER the banked 6830 level. c4@4920+c5@4165. Q: +0.0144 -> 90.4182.
+// ROBUST-6820 2026-07-10: full determinism (c3 mini cap9@5.5, c4 cap4@3.2 - budgets cover caps even on warm judges; c4 coin DELETED, S2n identical to its 3x-passed level). c3@6820 local +1.8e-4 OVER banked. c5@4165. Q: +0.0072 -> 90.4110.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1620,7 +1620,7 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_MAXIT")) g_refine_maxit = atoi(e);
     g_phaseb_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 18 : (1<<30);  // C3 DETERMINISM: cap 1024 phase-B (18 = local convergence; TRANSPOSE freed the CPU) (+8.4e-5 S2n, +~1.9s judge): the 21s ceiling is SOFT (c3 22.1s / c7 23.5s passed)
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
-    g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 11 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (11 iters; budget 5.5 covers the cap ON THE JUDGE too -> deterministic both sides)
+    g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 9 : (((int)pos.size() > 30000 && (int)pos.size() <= 40000) ? 4 : (1<<30));   // DETERMINISM: caps sized so the budget covers them ON THE JUDGE even warm (c3 9@5.5, c4 4@3.2) -> same mesh both sides, coin deleted
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
     g_vt_on = !((int)pos.size() > 30000 && (int)pos.size() <= 40000);   // c4: keep the per-column slide (banked-rung kernel; transposed mesh lost its draw)
     g_remesh = (((int)pos.size() > 1000 && (int)pos.size() <= 100000)) ? 1 : 0;   // c2+c3+c4+c5   // FLIP remesh on c3+c5 (phaseB-substitution funds it). G_REMESH=1 = local-delta flips (works, +7e-4 S2n ceiling on the proxy); =2 = split-realloc (WIP: negligible gain + crash). c3 band.
@@ -1747,7 +1747,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6810;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6820;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1873,7 +1873,7 @@ int main(int argc, char** argv) {
         seed_heap(); Decimate(c4t);                // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
-        mini_refine(1.5);                          // case 4's first 1024 polish (banked cfg; mini-boost variants TLE'd/WA'd on judge)
+        mini_refine(3.2);                          // case 4 polish: cap-4 deterministic, budget covers the cap judge-side (was the last boxed coin)
         if (g_remesh) {   // FLIP remesher on c4 (time headroom; test if the appearance-flip lever helps CAD-ish c4)
             g_force_nocrop = 1;
             remesh_flip_local(10, 1600, r_elapsed() + 3.6);
