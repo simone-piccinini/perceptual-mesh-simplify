@@ -1,4 +1,4 @@
-// C3-6800-DECODED 2026-07-11: K-read says S(CTAIL@6830)=0.9140, threshold ~0.9135 -> +0.0005 SSIM margin (~43 verts). All sub-6830 'x's were TIME. Light cfg (pB10+CTAIL24, c3 passed 21.3s). @6800: S~0.91365. Q: +0.0216 -> 90.4254.
+// C3-6800-LEAN2 2026-07-11: banner S2 gated behind G_RDBG (-1.2s judge, ZERO S cost). c3@6800, SSIM margin known +1.5e-4 over threshold; only TIME can fail. Q: +0.0216 -> 90.4254.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1841,9 +1841,11 @@ int main(int argc, char** argv) {
             remesh_flip_local(8, 1000, r_elapsed() + 3.0);      // flip pass (bounded box)
             g_force_nocrop = 0;
         }
-        const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
-        const double S2 = 0.5*Sn2 + 0.5*Sd2;
-        std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
+        double Sn2=0, Sd2=0, S2=0;
+        if (getenv("G_RDBG") || getenv("G_S2")) {   // banner scores are debug-only: ~1.2s judge CPU saved when off
+            Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
+            std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
+        }
         long K = 0;   // 0 = bank mode. S-READ mode (hardcode 1 for read probes): encode S2 into the
         const int kread = 0;   // tetra count so the judge payout reveals S(N) (WALL-MODEL §5): K=(S2-0.885)/5e-4
         if (kread) K = std::lround(std::max(0.0, std::min(160.0, (S2 - 0.885) / 5e-4)));

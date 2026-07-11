@@ -1590,9 +1590,11 @@ int main(int argc, char** argv) {
             remesh_flip_local(8, 1000, r_elapsed() + 3.0);      // flip pass (bounded box)
             g_force_nocrop = 0;
         }
-        const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
-        const double S2 = 0.5*Sn2 + 0.5*Sd2;
-        std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
+        double Sn2=0, Sd2=0, S2=0;
+        if (getenv("G_RDBG") || getenv("G_S2")) {   // banner scores are debug-only: ~1.2s judge CPU saved when off
+            Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
+            std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
+        }
         long K = 0;   // 0 = bank mode. S-READ mode (hardcode 1 for read probes): encode S2 into the
         const int kread = 0;   // tetra count so the judge payout reveals S(N) (WALL-MODEL §5): K=(S2-0.885)/5e-4
         if (kread) K = std::lround(std::max(0.0, std::min(160.0, (S2 - 0.885) / 5e-4)));
