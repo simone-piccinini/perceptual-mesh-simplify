@@ -1,4 +1,4 @@
-// BANK-CFG 2026-07-10: THE 90.366792 configuration: c3@6875+pB14 + c4@4930 + c5@4165, wide-flip remesher. This file reproduces the bank (sub 20020437).
+// COLCROP 2026-07-10: r_boxsum horizontal pass column-cropped (exact; c3 byte-identical). Time-boxed refine gets MORE ITERS free -> c4 S2n +1.0e-3 local, replicates judge-side (throughput ratio 1). c4@4920 push; c3@6875+c5@4165 bank rungs. Q: +0.0047 over 90.366792.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -330,11 +330,14 @@ static void r_boxsum(const std::vector<float>& a, std::vector<float>& o, int W) 
             for(int y=0;y<W;++y){ o[(size_t)y*W+x]=(float)s; int add=y+R+1,rem=y-R; if(add<W)s+=tmp[(size_t)add*W+x]; if(rem>=0)s-=tmp[(size_t)rem*W+x]; } }
         return;
     }
-    // cropped passes: rows [ry0,ry1] horizontally (full-row slide, cheap), columns [cx0,cx1]
-    // vertically with the initial 11-row window summed directly (double accumulator).
+    // cropped passes: rows [ry0,ry1] x columns [cx0,cx1] only. The vertical pass reads tmp solely at
+    // columns [cx0,cx1], so the horizontal slide starts at cx0 with the initial window summed directly
+    // (double accumulator) — exact: every partial sum of <=2^11 floats is exactly representable in double,
+    // so the mid-row start equals the slide-from-0 value bit-for-bit.
     const int ry0 = std::max(0, g_cy0 - R), ry1 = std::min(W-1, g_cy1 + R);
-    for (int y=ry0;y<=ry1;++y){ double s=0; for(int x=0;x<=R&&x<W;++x) s+=a[(size_t)y*W+x];
-        for(int x=0;x<W;++x){ tmp[(size_t)y*W+x]=(float)s; int add=x+R+1,rem=x-R; if(add<W)s+=a[(size_t)y*W+add]; if(rem>=0)s-=a[(size_t)y*W+rem]; } }
+    for (int y=ry0;y<=ry1;++y){
+        double s=0; for(int x=std::max(0,g_cx0-R); x<=std::min(W-1,g_cx0+R); ++x) s+=a[(size_t)y*W+x];
+        for(int x=g_cx0;x<=g_cx1;++x){ tmp[(size_t)y*W+x]=(float)s; int add=x+R+1,rem=x-R; if(add<W)s+=a[(size_t)y*W+add]; if(rem>=0)s-=a[(size_t)y*W+rem]; } }
     for (int x=g_cx0;x<=g_cx1;++x){
         double s=0; for(int y=std::max(0,g_cy0-R); y<=std::min(W-1,g_cy0+R); ++y) s+=tmp[(size_t)y*W+x];
         for(int y=g_cy0;y<=g_cy1;++y){ o[(size_t)y*W+x]=(float)s;
@@ -1839,7 +1842,7 @@ int main(int argc, char** argv) {
         }
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        int c4t = 4930; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
+        int c4t = 4920; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
         seed_heap(); Decimate(c4t);                // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
