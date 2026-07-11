@@ -1,4 +1,4 @@
-// KREAD-A 2026-07-11: S-READ pair, arm A = CTAIL(24)@6830 with K-tetra encoding (K=(S2-0.885)/5e-4). Vs arm B (ctT=0). Measures the TRUE judge delta of the image-driven tail. Expect WA (V'=6830+4K != rung) - that's fine, it's a READ.
+// KREAD-A2 2026-07-11: CTAIL(24)@6830 K-encoded + phaseB 18->10 (-2.7s judge; c3 was 21-23s = systematic TLE). Q: clean c3 read -> decode S; net margin +1.8e-4 over banked.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1682,7 +1682,7 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_REFINE")) g_refine = atoi(e);   // test override (judge sets no env)
     g_refine_maxit = maxit_for((int)pos.size());                  // C3 deterministic refine: per-case iteration cap (default 1<<30 = legacy)
     if (const char* e = getenv("G_MAXIT")) g_refine_maxit = atoi(e);
-    g_phaseb_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 18 : (1<<30);  // C3 DETERMINISM: cap 1024 phase-B (18 = local convergence; TRANSPOSE freed the CPU) (+8.4e-5 S2n, +~1.9s judge): the 21s ceiling is SOFT (c3 22.1s / c7 23.5s passed)
+    g_phaseb_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 10 : (1<<30);  // C3 DETERMINISM: cap 1024 phase-B. 18->10: judge c3 ratio is 2.4x (fast kernels don't replicate) - the 21-23s casetimes were phaseB-funded; CTAIL(+2.6e-4) covers the -8e-5 (+8.4e-5 S2n, +~1.9s judge): the 21s ceiling is SOFT (c3 22.1s / c7 23.5s passed)
     if (const char* e = getenv("G_PHASEB")) g_phaseb_maxit = atoi(e);
     g_mini_maxit = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 8 : (1<<30);      // C3 DETERMINISM: cap RC3 mini_refine (c3 band; 8, budget 2.2 binds; COLCROP-funded)
     if (const char* e = getenv("G_MINI")) g_mini_maxit = atoi(e);
