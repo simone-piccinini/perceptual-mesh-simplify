@@ -17,6 +17,13 @@ BANK      90.403841  (7/7)   [JUDGE 20022585, 2026-07-10] — c3@6830+pB18 + c4@
                                WALLS x3-CONFIRMED: c3 6830 (6825 'x' x3), c4 4920 (transposed-c4 judge-negative,
                                gated back), c5 4165 (4160 'x' x3). Snapshot: submissions/v115-vtgate-90403841
                                (prova-del-nove verified 6830/4920/4165).
+                               NIGHT NOTE (late 07-10/11): 6 consecutive draws poisoned by slow judge machines
+                               (casetimes 20.7-22.8s on every push AND on the deterministic 3x-passed c4
+                               level) — probing suspended; resume on healthy infra. READY IN HISTORY: the
+                               robust-cap configs (c3 mini cap9-11 w/ judge-covering budgets, c4 cap4@3.2
+                               coin-deleted; local c3@6810-6820 sit +0.8-2.3e-4 OVER the banked level =
+                               +0.007-0.014 waiting) + less-work cuts (dSdY bbox scan, cov crop, -0.5s
+                               byte-identical). Retry these exact rungs first on a clean morning.
                                TOWARD 90.50 (+0.096): (1) LESS-WORK kernel cuts (replicate fully, unlike
                                cache-locality which replays sub-1); (2) web research (session limit resets
                                05:10); (3) a new structural mechanism. Late-night Kattis unstable — verify
