@@ -11,7 +11,9 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, main.cpp decimation track)
 
 ```
-BANK      90.366792  (7/7)   [JUDGE 20020437, 2026-07-10] — c3@6875+pB14 + c4@4930 + c5@4165 (wide-flip).
+BANK      90.371515  (7/7)   [JUDGE 20022308, 2026-07-10] — c3@6875+pB14 + c4@4920 + c5@4165. COLCROP
+                               (r_boxsum horizontal column-crop, exact): time-boxed refine gains free iters
+                               judge-side (throughput ratio 1) -> broke the c4 4930 wall. Was 90.366792.
                                Session total +0.081 in 10 banks. Bank file: solver/mein.cpp sha 012ce83c8e6e
                                (reproduces the bank bit-exact locally; snapshot submissions/v113-wideflip-90366792).
                                FINAL WALLS [JUDGE]: c2 28 | c3 6875 (6870/6872 multi-'x' at 20.7-21.9s — the
