@@ -1560,9 +1560,9 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6800;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6810;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
-        int ctT = 48; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven (collapse_delta_local); 0 = banked QEM path
+        int ctT = 24; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven (collapse_delta_local); 0 = banked QEM path
         const int dt = c3t + ctT;
         seed_heap(); Decimate(dt);
         for (int uw = 0; uw < 2 && alive_count > dt; ++uw) {
@@ -1577,7 +1577,7 @@ int main(int argc, char** argv) {
         g_res = 1024; g_refine_res = 1024;
         if (ctT > 0 && alive_count > c3t) {   // image-driven tail at judge res (deterministic: no time box in the choice)
             g_force_nocrop = 1;
-            ctail_pass(c3t, 48, 12);
+            ctail_pass(c3t, 48, 6);
             g_force_nocrop = 0;
             for (int rw = 0; rw < 2 && alive_count > c3t; ++rw) {   // safety: finish by QEM if the tail stalled
                 seed_heap(); Decimate(c3t);
