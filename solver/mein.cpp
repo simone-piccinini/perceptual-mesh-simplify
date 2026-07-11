@@ -1,4 +1,4 @@
-// C3-6870-FAST 2026-07-10: c3@6870 with COLCROP-funded mini2.2cap8 (local +2.2e-5 OVER banked; old 6870 'x's were 20.7-21.9s, now ~-1.2s CPU). c4@4920+c5@4165 bank. Q: +0.0036 over 90.371515.
+// C3-6860-FAST 2026-07-10: c3 6870->6860 (local -1.5e-4 vs new rung; slope-priced). c4@4920+c5@4165 bank. Q: +0.0072 over 90.375107.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1720,7 +1720,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6870;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6860;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
