@@ -492,6 +492,48 @@ static double collapse_delta_local(int u, int v, const Vec3& xbar) {
     }
     return delta;
 }
+static int ctail_lazy(int target, int pool, int RB, double tbox) {
+    int done=0;
+    struct Ent { double d; int u,v; Vec3 xb; int ver; };
+    auto cmp=[](const Ent&a, const Ent&b){ return a.d < b.d; };   // max-heap on delta (higher=better)
+    std::vector<int> vver(pos.size(), 0);
+    while (alive_count > target && r_elapsed() < tbox) {
+        remesh_cache_render(); fnc_fill();
+        std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
+        const long long NVv=(long long)pos.size();
+        struct Cd{ double q; int u,v; Vec3 xb; };
+        std::vector<Cd> cand;
+        for(int f=0;f<(int)faces.size();++f){ if(!face_alive[f])continue; const int* t=faces[f].data();
+            for(int e=0;e<3;++e){ int a=t[e],b=t[(e+1)%3]; int aa=a,bb=b; if(aa>bb)std::swap(aa,bb);
+                if(!first.emplace((long long)aa*NVv+bb,f).second) continue;
+                EvalResult ev=Evaluate(aa,bb);
+                cand.push_back({ev.cost, aa, bb, ev.target}); } }
+        const int scan=std::min((int)cand.size(), pool);
+        std::partial_sort(cand.begin(),cand.begin()+scan,cand.end(),[](const Cd&x,const Cd&y){return x.q<y.q;});
+        std::vector<Ent> heap;
+        for(int i=0;i<scan;++i){ if(!alive[cand[i].u]||!alive[cand[i].v]) continue;
+            double d=collapse_delta_local(cand[i].u,cand[i].v,cand[i].xb);
+            if(d>-1e29) heap.push_back({d, cand[i].u, cand[i].v, cand[i].xb, vver[cand[i].u]+vver[cand[i].v]}); }
+        std::make_heap(heap.begin(),heap.end(),cmp);
+        int commits=0;
+        while(!heap.empty() && commits<RB && alive_count>target && r_elapsed()<tbox){
+            std::pop_heap(heap.begin(),heap.end(),cmp); Ent e=heap.back(); heap.pop_back();
+            if(!alive[e.u]||!alive[e.v]) continue;
+            if(e.ver != vver[e.u]+vver[e.v]){   // stale: re-evaluate against the CURRENT geometry
+                double d=collapse_delta_local(e.u,e.v,e.xb);
+                if(d<-1e29) continue;
+                heap.push_back({d,e.u,e.v,e.xb,vver[e.u]+vver[e.v]}); std::push_heap(heap.begin(),heap.end(),cmp); continue;
+            }
+            if(!SafeToCollapse(e.u,e.v,e.xb)) continue;
+            Collapse(e.u,e.v,e.xb); --alive_count; ++done; ++commits;
+            vver[e.u]+=1;   // bump: 1-ring neighbors become stale via key mismatch on (u,v) sums
+            for(int f2 : vfaces[e.u]){ const int* t=faces[f2].data(); vver[t[0]]+=1; vver[t[1]]+=1; vver[t[2]]+=1; }
+        }
+        if(getenv("G_RDBG")) std::fprintf(stderr,"[lazy] +%d N=%d t=%.2f\n",commits,alive_count,r_elapsed());
+        if(commits==0) break;
+    }
+    return done;
+}
 static int ctail_pass(int target, int K, int rounds) {
     int done=0;
     for(int rr=0; rr<rounds && alive_count>target; ++rr){
@@ -1602,8 +1644,9 @@ int main(int argc, char** argv) {
         }
         if (ctT > 0 && alive_count > c3t) {   // image-driven tail at judge res (deterministic: no time box in the choice)
             g_force_nocrop = 1;
-            int ctk = 64; if(const char* e=getenv("G_CTK")) ctk=atoi(e);
-            ctail_pass(c3t, ctk, 40);
+            int lzpool = 300; if(const char* e=getenv("G_LAZY")) lzpool=atoi(e);
+            if (lzpool > 0) ctail_lazy(c3t, lzpool, 24, r_elapsed()+6.5);
+            else { int ctk = 64; if(const char* e=getenv("G_CTK")) ctk=atoi(e); ctail_pass(c3t, ctk, 40); }
             g_force_nocrop = 0;
             for (int rw = 0; rw < 2 && alive_count > c3t; ++rw) {   // safety: finish by QEM if the tail stalled
                 seed_heap(); Decimate(c3t);
