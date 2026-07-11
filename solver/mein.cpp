@@ -1,4 +1,4 @@
-// MINI-TRADE 2026-07-10: c4@4920 (mini-boosted; 4900 WA = organic proxy over-predicts CAD) + c3@6870 pB10+mini2.4cap8 (+1.1e-4 local over banked). c5@4165 bank. Q: 2 reads = +0.0083.
+// MINI-TRIM 2026-07-10: same mini-boost trimmed -0.4s each (21.1/21.4 were TLE). c3@6870 pB10+mini1.9, c4@4920 mini1.8+cap32, c5@4165 bank. Q: both = +0.0083.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1730,7 +1730,7 @@ int main(int argc, char** argv) {
         }
         if (g_refine_res < 1024) render_orig_hires(1024);   // hybrid phase B may not have fired
         g_res = 1024; g_refine_res = 1024;
-        mini_refine(2.4);                          // repair the collapse damage at judge res (starved at 1.2; pB10 funds it)
+        mini_refine(1.9);                          // repair the collapse damage at judge res (starved at 1.2; pB10 funds it; 2.4 was judge-TLE 21.1s)
         if (g_remesh == 7) {   // VALIDATION: local flip-delta vs full-render delta (correctness gate for the incremental evaluator)
             g_res = 1024; g_refine_res = 1024; g_force_nocrop = 1;
             remesh_cache_render();
@@ -1843,7 +1843,7 @@ int main(int argc, char** argv) {
         seed_heap(); Decimate(c4t);                // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
-        mini_refine(2.2);                          // case 4's first 1024 polish (starved at 1.5: +1.2e-3 at 2.6; cap32 funds it)
+        mini_refine(1.8);                          // case 4's first 1024 polish (starved at 1.5; 2.2 was judge-TLE 21.4s)
         if (g_remesh) {   // FLIP remesher on c4 (time headroom; test if the appearance-flip lever helps CAD-ish c4)
             g_force_nocrop = 1;
             remesh_flip_local(10, 1600, r_elapsed() + 3.6);
