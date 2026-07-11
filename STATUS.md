@@ -11,18 +11,21 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, main.cpp decimation track)
 
 ```
-BANK      90.363201  (7/7)   [JUDGE 20020407, 2026-07-10] — c3@6880+pB14 + c4@4930 + c5@4165 (wide-flip).
-                               Session +0.076 in 8 banks. FINAL WALLS [JUDGE, all fail-typed]: c2 28 (27 WA
-                               even with remesh+1024 polish), c3 6880 (6870 x3 'x' at pB14/16/18), c4 4930
-                               (4920 WA 18.3s), c5 4165 (4160 WA), c6 banked path
-                               only (RLIVE-C6 WA'd AT the banked rung: explicit-decimate loses the +21 stall
-                               margin, 512-flips don't transfer to 1024 — lane dead x3), c7 no orig maps
-                               (render of 2M-face original unaffordable) = untouchable.
-                               DEAD this session: split-realloc (every rank/placement incl. orig-projection),
-                               flip<->move alternation, c4 extra iters, c2@27, c6 flips.
-                               File solver/mein.cpp 121.6 KiB (dead realloc code stripped).
-                               90.40 needs a NEW SSIM mechanism (+2e-4-class on c3/c4/c5) — flip paradigm
-                               is razor-maxed everywhere.
+BANK      90.366792  (7/7)   [JUDGE 20020437, 2026-07-10] — c3@6875+pB14 + c4@4930 + c5@4165 (wide-flip).
+                               Session total +0.081 in 10 banks. Bank file: solver/mein.cpp sha 012ce83c8e6e
+                               (reproduces the bank bit-exact locally; snapshot submissions/v113-wideflip-90366792).
+                               FINAL WALLS [JUDGE]: c2 28 | c3 6875 (6870/6872 multi-'x' at 20.7-21.9s — the
+                               SSIM-vs-TLE untangle needs a faster c3 pipeline first) | c4 4930 (4920/4925 WA
+                               even mini-boosted: CAD discount >6x on local gains) | c5 4165 (4162 WA clean) |
+                               c6 banked path only (branch WA'd AT the banked rung: +21-stall margin lost,
+                               512-flips don't transfer; lane dead x3) | c7 untouchable (no orig maps).
+                               DEAD THIS SESSION: split-realloc (all variants incl. orig-projected placement),
+                               flip<->move alternation, loose 1-ring flips (+2.6e-5, CPU-negative), c2@27
+                               (WA'd even remeshed), c6 flips, c4/c3 mini-boost N-pushes (local S2n gains
+                               +5.6e-4..1.1e-4 do NOT survive the judge: CAD discount + TLE band 21-22s).
+                               NOTE: the "starved mini" finding is REAL locally (+1.2e-3 c4 at mini 2.6s) but
+                               unfundable inside the CPU ceiling — revisit only with a faster refine kernel.
+                               90.40 = +0.033: needs a mechanism that adds >=2e-4 JUDGE-side within ~1s CPU.
 LEADER    91.48      [JUDGE, leaderboard 2026-07-09]   #1 希望ヶ峰学園 CG研究会.  gap to #1 = 1.17
                                                        (top-3 cluster 91.46; we were rank 12)
 ```
