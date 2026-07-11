@@ -11,23 +11,14 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, main.cpp decimation track)
 
 ```
-BANK      90.371515  (7/7)   [JUDGE 20022308, 2026-07-10] — c3@6875+pB14 + c4@4920 + c5@4165. COLCROP
-                               (r_boxsum horizontal column-crop, exact): time-boxed refine gains free iters
-                               judge-side (throughput ratio 1) -> broke the c4 4930 wall. Was 90.366792.
-                               Session total +0.081 in 10 banks. Bank file: solver/mein.cpp sha 012ce83c8e6e
-                               (reproduces the bank bit-exact locally; snapshot submissions/v113-wideflip-90366792).
-                               FINAL WALLS [JUDGE]: c2 28 | c3 6875 (6870/6872 multi-'x' at 20.7-21.9s — the
-                               SSIM-vs-TLE untangle needs a faster c3 pipeline first) | c4 4930 (4920/4925 WA
-                               even mini-boosted: CAD discount >6x on local gains) | c5 4165 (4162 WA clean) |
-                               c6 banked path only (branch WA'd AT the banked rung: +21-stall margin lost,
-                               512-flips don't transfer; lane dead x3) | c7 untouchable (no orig maps).
-                               DEAD THIS SESSION: split-realloc (all variants incl. orig-projected placement),
-                               flip<->move alternation, loose 1-ring flips (+2.6e-5, CPU-negative), c2@27
-                               (WA'd even remeshed), c6 flips, c4/c3 mini-boost N-pushes (local S2n gains
-                               +5.6e-4..1.1e-4 do NOT survive the judge: CAD discount + TLE band 21-22s).
-                               NOTE: the "starved mini" finding is REAL locally (+1.2e-3 c4 at mini 2.6s) but
-                               unfundable inside the CPU ceiling — revisit only with a faster refine kernel.
-                               90.40 = +0.033: needs a mechanism that adds >=2e-4 JUDGE-side within ~1s CPU.
+BANK      90.400249  (7/7)   [JUDGE 20022405, 2026-07-10] — **90.40 CROSSED.** c3@6835 + c4@4920 + c5@4165.
+                               Session 90.285538 -> 90.400249 (+0.1147, 16 banks). The unlock chain: flip
+                               remesher -> refine speed pass -> wide boxes -> COLCROP (boxsum column-crop,
+                               exact) -> throughput replicates judge-side -> funded un-starved mini_refine ->
+                               c3 descent 6940->6835 and c4 4970->4920, c5 4212->4165. c3 deterministic;
+                               c4/c5 now per-run coins (boxed mini/stock with the fast kernel) — re-roll
+                               --force on a coin loss. OPEN: c3@6830 ('x' 22.2s ambiguous, retryable),
+                               c4@4910, c5@4160. Snapshot: submissions/v114-crossed-9040-90400249.
 LEADER    91.48      [JUDGE, leaderboard 2026-07-09]   #1 希望ヶ峰学園 CG研究会.  gap to #1 = 1.17
                                                        (top-3 cluster 91.46; we were rank 12)
 ```
