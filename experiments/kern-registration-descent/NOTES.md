@@ -55,11 +55,58 @@ proxies over-reward position-space optimization). Different subspace (boundary
 registration vs shading micro-opt) — but only the judge decides. Per WALL-MODEL §5.5:
 **no descent on local evidence; one READ submission first.**
 
-## Next steps (in order)
+## Session 2 (2026-07-11, same day) — in-box engineering + the full channel ledger
 
-1. **In-box version:** narrow-column boxsum (~5×) + deficit-prioritized vertex order
-   (~10× fewer trials, front-loaded gain) → a 2–4 s `kern_opt` slice inside the c3 flow.
-2. **Stage C:** one READ→TWIN→BANK submission — judge-side S2 with descent vs the
-   banked read (S2=0.9135 @ N=6941). Zero-risk; de-razor cases 4/6 for attribution.
-3. If positive: push the c3 wall down in fixed-count steps; then the case-5 twin;
-   then kernel-scored flips (connectivity, the untouched half of the mechanism).
+**Kernel v2:** narrow-column boxsum (`kboxsum_rect`) + cropped `kern_begin` →
+**1,241 edits/s @512** (was 381), begin 0.15 s (was 0.40), exactness UNCHANGED at
+machine epsilon. Stage-A gate now fully passed. Hooks in the c3 emit flow (all
+env-gated, judge-inert): `G_KERNOPT2` (deficit-prioritized budgeted descent),
+`G_KERNOPT512` (512-descent → 1024-survival), `G_KERNFLIP` (true-metric flip sweep).
+
+**Result 1 — THE RESOLUTION-BRITTLENESS LAW (theory-level, measured same-run):**
+512-descent gains INVERT at 1024: +0.000725@512 → −0.000120@1024; +0.001460@512 →
+−0.000815@1024 (transfer ≈ **−0.5×**). Registration optimization fits the pixel
+assignment of the resolution it runs at. This is the measured mechanism behind the
+R1 / 768-native / SILv3 judge failures: **any registration/position optimization must
+run at judge resolution (1024). Sub-resolution local gains are not just unreliable —
+they are anti-signals.**
+
+**Result 2 — in-box per-vertex descent is uneconomic.** At 1024: ~350 trials/s;
+3.5 s slice = +0.00033, 8 s = +0.00061 (vs +0.0044 unconstrained ≈ 140 s). The deficit
+is spatially broad (Phase-0 Gini 0.237), so prioritization concentrates only ~4×.
+Net of stealing box time from phase-B (+0.0013/~6 s), in-box moves ≈ zero-sum.
+
+**Result 3 — TRUE-METRIC FLIPS WORK (the connectivity half).** The graveyard killed
+cheap-PROXY flips; kernel-scored flips at 1024 on the final read-state mesh (V=6940):
+
+| budget | ΔSn | flips accepted / trialled |
+|---|---|---|
+| 8 s | **+0.001968** | 442 / 4,936 (53% of full yield) |
+| full sweep (25 s) | **+0.003715** | 1,268 / 17,392 of 20,812 edges |
+
+~9% of legal flips are net-positive under the true metric; 660 trials/s (cheaper than
+moves); measured natively at 1024 → no resolution-transfer risk in the local setup.
+
+**Result 4 — the channels are ADDITIVE.** Stacked run: descent 45 s (+0.00272) then
+flip sweep (+0.00351; standalone +0.00372 → ~5% overlap). Final proxy S2 = **0.899621**
+(baseline ≈ 0.8962). Full unconstrained channel ≈ **+0.008 Sn ≈ +0.004 Final ≈
+~114 c3-verts ≈ +0.08 mean** — if it could be captured in-box and transferred.
+
+## The strategic picture after the ledger
+
+- The kernel program proved ~+0.008 Sn of registration+connectivity headroom exists
+  above the converged pipeline at judge resolution — the leaders-hypothesis mechanism
+  is real. But the **21 s CPU box caps in-box capture at ~+0.002–0.0025 Sn**
+  (~30 verts ≈ +0.025 mean): an order of magnitude short of 91 by itself.
+- Capturing the full channel in-box needs per-trial cost ↓ ~10×: the **analytic
+  boundary gradient** (edge-sampling / nvdiffrast-style edge term on the CPU
+  rasterizer, driving moves+flips directly instead of probing) — the heavy build,
+  and the only visible route to 91+ inside the time limit.
+
+## Stage C — the clean A/B design (2 zero-risk reads, when pursued)
+
+The box-cut on c3 makes with/without comparisons ~0.5σ readable. Fix: in BOTH read
+arms disable phase-B (the box-cut source) so both runs are deterministic-per-binary;
+arm B replaces phase-B time with the flip slice (+ short descent). Judge-side S2 then
+compares at ±1 quantum (5e-4) cleanly, and simultaneously answers "slice vs phase-B"
+allocation. If arm B > banked-config S2, wire it and ladder the wall down.

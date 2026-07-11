@@ -1651,10 +1651,46 @@ static void kY_rect(KView& kv, int vi, int rx0, int ry0, int rx1, int ry1) {
         kv.XY[0][k]=g_orig_n[vi][0][k]*y0v; kv.XY[1][k]=g_orig_n[vi][1][k]*y1v; kv.XY[2][k]=g_orig_n[vi][2][k]*y2v;
     }
 }
+// narrow box sum: fills o over [x0..x1]x[y0..y1] only. Same truncated-window semantics
+// and float/double rounding structure as r_boxsum, but the horizontal pass is limited to
+// the rect columns (fresh 11-init + slide) instead of full-width rows -> ~10-20x less
+// work per edit at 1024. Order-of-accumulation differs from r_boxsum by <= ulps.
+static void kboxsum_rect(const std::vector<float>& a, std::vector<float>& o, int W,
+                         int x0, int y0, int x1, int y1) {
+    const int R = 5;
+    o.resize((size_t)W*W);
+    const int ry0 = std::max(0, y0-R), ry1 = std::min(W-1, y1+R);
+    const int rw = x1-x0+1;
+    static std::vector<float> tmp; tmp.resize((size_t)rw*(ry1-ry0+1));
+    for (int y=ry0; y<=ry1; ++y) {
+        const float* row = &a[(size_t)y*W];
+        double s = 0;
+        for (int x=std::max(0,x0-R); x<=std::min(W-1,x0+R); ++x) s += row[x];
+        float* trow = &tmp[(size_t)(y-ry0)*rw];
+        for (int x=x0; x<=x1; ++x) {
+            trow[x-x0] = (float)s;
+            const int add=x+R+1, rem=x-R;
+            if (add<W)  s += row[add];
+            if (rem>=0) s -= row[rem];
+        }
+    }
+    for (int x=x0; x<=x1; ++x) {
+        double s = 0;
+        for (int y=std::max(0,y0-R); y<=std::min(W-1,y0+R); ++y) s += tmp[(size_t)(y-ry0)*rw + (x-x0)];
+        for (int y=y0; y<=y1; ++y) {
+            o[(size_t)y*W+x] = (float)s;
+            const int add=y+R+1, rem=y-R;
+            if (add<=ry1) s += tmp[(size_t)(add-ry0)*rw + (x-x0)];
+            if (rem>=ry0) s -= tmp[(size_t)(rem-ry0)*rw + (x-x0)];
+        }
+    }
+}
 static void ksum_rect(KView& kv, int wx0, int wy0, int wx1, int wy1) {
-    g_crop_on = true; g_cx0=wx0; g_cy0=wy0; g_cx1=wx1; g_cy1=wy1;
-    for (int c=0;c<3;++c) { r_boxsum(kv.Y[c],kv.Sy[c],g_kW); r_boxsum(kv.Y2[c],kv.Syy[c],g_kW); r_boxsum(kv.XY[c],kv.Sxy[c],g_kW); }
-    g_crop_on = false;
+    for (int c=0;c<3;++c) {
+        kboxsum_rect(kv.Y[c], kv.Sy[c], g_kW, wx0,wy0,wx1,wy1);
+        kboxsum_rect(kv.Y2[c], kv.Syy[c], g_kW, wx0,wy0,wx1,wy1);
+        kboxsum_rect(kv.XY[c], kv.Sxy[c], g_kW, wx0,wy0,wx1,wy1);
+    }
 }
 // per-window SSIM summed over channels — replicates refine_score_grad's arithmetic
 // including its float round-trip of the means (mx[k] etc. are stored as f32 there)
@@ -1730,6 +1766,8 @@ static void kset_face(int f, const std::array<int,3>& nt) {
 static void kern_begin() {
     g_kW = g_res; const int W=g_kW; const size_t WW=(size_t)W*W;
     g_kmark.assign(faces.size(), 0); g_kmgen = 0;
+    // exact all-background window sums: 121*127.5 and 121*127.5^2 (f32-representable)
+    const float SB = 15427.5f, SB2 = 1967006.25f, YB = 127.5f, YB2 = 16256.25f;
     static std::vector<float> t;
     for (int vi=0; vi<6; ++vi) {
         KView& kv = g_kv[vi];
@@ -1739,21 +1777,43 @@ static void kern_begin() {
         kv.GW = (W+KTILE-1)/KTILE;
         kv.tile.assign((size_t)kv.GW*kv.GW, {});
         kv.fb.assign(faces.size(), {0,0,-1,-1});
-        for (int f=0;f<(int)faces.size();++f) if (face_alive[f]) ktile_add(kv,f);
+        int gx0=W, gy0=W, gx1=-1, gy1=-1;                 // geometry rect (union of face bboxes)
+        for (int f=0;f<(int)faces.size();++f) if (face_alive[f]) { ktile_add(kv,f);
+            const auto b=kv.fb[f]; if (b[2]>=b[0]) { gx0=std::min(gx0,b[0]); gy0=std::min(gy0,b[1]);
+                                                    gx1=std::max(gx1,b[2]); gy1=std::max(gy1,b[3]); } }
         kv.fid.assign(WW,-1); kv.zb.assign(WW,1e30);
         for (int f=0;f<(int)faces.size();++f) if (face_alive[f]) kras_face(kv,f,0,0,W-1,W-1);
-        for (int c=0;c<3;++c){ kv.Y[c].assign(WW,0); kv.Y2[c].assign(WW,0); kv.XY[c].assign(WW,0); }
-        kY_rect(kv, vi, 0,0,W-1,W-1);
-        g_crop_on = false; t.resize(WW);
+        // sum rect = geometry rect U original-coverage bbox, grown by the window margin
+        int sx0=gx0, sy0=gy0, sx1=gx1, sy1=gy1;
+        if (g_cr_x1[vi] >= g_cr_x0[vi]) { sx0=std::min(sx0,g_cr_x0[vi]); sy0=std::min(sy0,g_cr_y0[vi]);
+                                          sx1=std::max(sx1,g_cr_x1[vi]); sy1=std::max(sy1,g_cr_y1[vi]); }
+        if (sx1 < sx0) { sx0=sy0=0; sx1=sy1=W-1; }        // degenerate safety: full frame
+        const int Rm = 2*R_RAD + 2;
+        sx0=std::max(0,sx0-Rm); sy0=std::max(0,sy0-Rm); sx1=std::min(W-1,sx1+Rm); sy1=std::min(W-1,sy1+Rm);
         for (int c=0;c<3;++c){
-            r_boxsum(g_orig_n[vi][c], kv.Sx[c], W);
-            for (size_t k=0;k<WW;++k) t[k]=g_orig_n[vi][c][k]*g_orig_n[vi][c][k];
-            r_boxsum(t, kv.Sxx[c], W);
-            r_boxsum(kv.Y[c],kv.Sy[c],W); r_boxsum(kv.Y2[c],kv.Syy[c],W); r_boxsum(kv.XY[c],kv.Sxy[c],W);
+            kv.Y[c].assign(WW,YB); kv.Y2[c].assign(WW,YB2);
+            kv.XY[c].resize(WW);
+            const std::vector<float>& X = g_orig_n[vi][c];
+            for (size_t k=0;k<WW;++k) kv.XY[c][k] = X[k]*YB;
+        }
+        if (gx1 >= gx0) kY_rect(kv, vi, gx0,gy0,gx1,gy1); // overwrite where geometry renders
+        t.resize(WW);
+        for (int c=0;c<3;++c){
+            kv.Sx[c].assign(WW,SB); kv.Sxx[c].assign(WW,SB2);
+            kv.Sy[c].assign(WW,SB); kv.Syy[c].assign(WW,SB2); kv.Sxy[c].assign(WW,SB2);
+            const std::vector<float>& X = g_orig_n[vi][c];
+            for (size_t k=0;k<WW;++k) t[k] = X[k]*X[k];
+            kboxsum_rect(X, kv.Sx[c],  W, sx0,sy0,sx1,sy1);
+            kboxsum_rect(t, kv.Sxx[c], W, sx0,sy0,sx1,sy1);
+            kboxsum_rect(kv.Y[c],  kv.Sy[c],  W, sx0,sy0,sx1,sy1);
+            kboxsum_rect(kv.Y2[c], kv.Syy[c], W, sx0,sy0,sx1,sy1);
+            kboxsum_rect(kv.XY[c], kv.Sxy[c], W, sx0,sy0,sx1,sy1);
         }
         kv.Cw.assign(WW,0.0); kv.Mw.assign(WW,0);
         kv.A = 0.0; kv.N = 0;
-        for (int y=R_RAD;y<W-R_RAD;++y) for (int x=R_RAD;x<W-R_RAD;++x){
+        const int wy0=std::max(R_RAD,sy0), wy1=std::min(W-R_RAD-1,sy1);
+        const int wx0=std::max(R_RAD,sx0), wx1=std::min(W-R_RAD-1,sx1);
+        for (int y=wy0;y<=wy1;++y) for (int x=wx0;x<=wx1;++x){
             size_t k=(size_t)y*W+x;
             char m=(g_orig_cov[vi][k]||kv.fid[k]>=0)?1:0; if(!m) continue;
             double c=kwin_ssim(kv,k); kv.A+=c; kv.N+=1; kv.Cw[k]=c; kv.Mw[k]=1;
@@ -1830,6 +1890,38 @@ static void kern_verify() {
     }
     std::fprintf(stderr, "[kern] flips: %d tested maxerr=%.3e\n", done, fmaxe);
 }
+// one greedy tangential trial of a vertex: 4 tangent-plane candidates at 0.35*mean-edge,
+// commit the best if its kernel delta > 1e-7 and no incident face degenerates.
+// Returns 1 = moved, 0 = tried but kept, -1 = skipped (isolated/degenerate frame).
+static int kern_try_vertex(int v, const std::vector<Vec3>& base, double cap) {
+    Vec3 n=Vec3::Zero(); double el=0; int ne=0;
+    for (int f : vfaces[v]) { if(!face_alive[f]) continue; const int* t=faces[f].data();
+        n += (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
+        for (int j=0;j<3;++j) if (t[j]!=v) { el += (pos[t[j]]-pos[v]).norm(); ++ne; } }
+    if (!ne) return -1; el/=ne; double nl=n.norm(); if (nl<1e-30) return -1; n/=nl;
+    Vec3 t1=n.cross(Vec3(0,0,1)); if (t1.norm()<1e-6) t1=n.cross(Vec3(1,0,0)); t1/=t1.norm();
+    Vec3 t2=n.cross(t1);
+    const Vec3 old = pos[v]; const double st = 0.35*el;
+    const Vec3 cands[4] = { old+st*t1, old-st*t1, old+st*t2, old-st*t2 };
+    double bestd = 1e-7; int bi = -1;
+    for (int c2=0;c2<4;++c2) {
+        Vec3 p = cands[c2];
+        { Vec3 off=p-base[v]; double ol=off.norm(); if (ol>cap) p=base[v]+off*(cap/ol); }
+        const double d = kern_move(v, p);
+        bool ok = true;                                    // no degenerate incident face
+        for (int f : vfaces[v]) { if(!face_alive[f]) continue; const int* t=faces[f].data();
+            Vec3 cr=(pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
+            if (0.5*cr.norm() < kAreaEps) { ok=false; break; } }
+        if (ok && d > bestd) { bestd=d; bi=c2; }
+        kern_move(v, old);                                 // revert (bit-exact restore)
+    }
+    if (bi >= 0) {
+        Vec3 p = cands[bi];
+        { Vec3 off=p-base[v]; double ol=off.norm(); if (ol>cap) p=base[v]+off*(cap/ol); }
+        kern_move(v, p); return 1;
+    }
+    return 0;
+}
 // ---- Stage-B evidence probe (G_KERNOPT=1): greedy TANGENTIAL registration descent ----
 // Tests the leaders-hypothesis directly: tangent-plane vertex moves barely change any
 // face normal (near-zero analytic gradient) but SLIDE the facet boundaries across
@@ -1849,32 +1941,9 @@ static void kern_opt() {
     for (int sw=0; sw<sweeps; ++sw) {
         for (int v : av) {
             if (r_elapsed() > t_end) { sw = sweeps; break; }
-            Vec3 n=Vec3::Zero(); double el=0; int ne=0;
-            for (int f : vfaces[v]) { if(!face_alive[f]) continue; const int* t=faces[f].data();
-                n += (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
-                for (int j=0;j<3;++j) if (t[j]!=v) { el += (pos[t[j]]-pos[v]).norm(); ++ne; } }
-            if (!ne) continue; el/=ne; double nl=n.norm(); if (nl<1e-30) continue; n/=nl;
-            Vec3 t1=n.cross(Vec3(0,0,1)); if (t1.norm()<1e-6) t1=n.cross(Vec3(1,0,0)); t1/=t1.norm();
-            Vec3 t2=n.cross(t1);
-            const Vec3 old = pos[v]; const double st = 0.35*el;
-            const Vec3 cands[4] = { old+st*t1, old-st*t1, old+st*t2, old-st*t2 };
-            double bestd = 1e-7; int bi = -1;
-            for (int c2=0;c2<4;++c2) {
-                Vec3 p = cands[c2];
-                { Vec3 off=p-base[v]; double ol=off.norm(); if (ol>cap) p=base[v]+off*(cap/ol); }
-                const double d = kern_move(v, p); ++tried;
-                bool ok = true;                                    // no degenerate incident face
-                for (int f : vfaces[v]) { if(!face_alive[f]) continue; const int* t=faces[f].data();
-                    Vec3 cr=(pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
-                    if (0.5*cr.norm() < kAreaEps) { ok=false; break; } }
-                if (ok && d > bestd) { bestd=d; bi=c2; }
-                kern_move(v, old);                                 // revert (bit-exact restore)
-            }
-            if (bi >= 0) {
-                Vec3 p = cands[bi];
-                { Vec3 off=p-base[v]; double ol=off.norm(); if (ol>cap) p=base[v]+off*(cap/ol); }
-                kern_move(v, p); ++moved;
-            }
+            const int r = kern_try_vertex(v, base, cap);
+            if (r >= 0) tried += 4;
+            if (r == 1) ++moved;
         }
         std::fprintf(stderr, "[kopt] sweep %d: kern=%.9f (%+.6f) moved=%ld tried=%ld t=%.1f\n",
                      sw, kern_score(), kern_score()-sk0, moved, tried, r_elapsed());
@@ -1882,6 +1951,96 @@ static void kern_opt() {
     const double sf1 = refine_score_grad(nullptr);
     std::fprintf(stderr, "[kopt] RESULT Sn %.6f -> %.6f (D=%+.6f) | kern %.9f -> %.9f | moved %ld / tried %ld\n",
                  sf0, sf1, sf1-sf0, sk0, kern_score(), moved, tried);
+}
+// ---- in-box slice (G_KERNOPT2=<budget s>): deficit-prioritized registration descent ----
+// The judge-feasible form: build the kernel, rank vertices by the summed SSIM deficit of
+// the counted windows their faces cover (front-loads the gain), then greedy tangential
+// descent best-first under a hard CPU budget. Multiple passes while time & gains remain.
+static void kern_opt_fast(double budget_s) {
+    const double t0 = r_elapsed(), t_end = t0 + budget_s;
+    kern_begin();
+    const double tb = r_elapsed(), sk0 = kern_score();
+    std::vector<double> pr(pos.size(), 0.0);          // per-vertex window-deficit priority
+    for (int vi=0; vi<6; ++vi) { const KView& kv=g_kv[vi]; const int W=g_kW;
+        for (int y=R_RAD;y<W-R_RAD;++y) for (int x=R_RAD;x<W-R_RAD;++x) { const size_t k=(size_t)y*W+x;
+            if (!kv.Mw[k]) continue; const int f=kv.fid[k]; if (f<0) continue;
+            const double d = 3.0 - kv.Cw[k]; if (d<=0) continue;
+            const int* t=faces[f].data(); pr[t[0]]+=d; pr[t[1]]+=d; pr[t[2]]+=d; } }
+    std::vector<int> av; av.reserve(alive_count);
+    for (size_t i=0;i<pos.size();++i) if (alive[i] && pr[i]>0.0) av.push_back((int)i);
+    std::sort(av.begin(), av.end(), [&](int a,int b){ return pr[a]>pr[b]; });
+    Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);}
+    const double diag=(hi-lo).norm(), cap=0.01*diag;
+    const std::vector<Vec3> base = pos;
+    long moved=0, tried=0; bool out=false;
+    for (int pass=0; pass<6 && !out; ++pass) {
+        const long m0 = moved;
+        for (size_t idx=0; idx<av.size(); ++idx) {
+            if ((idx & 15u)==0 && r_elapsed()>t_end) { out=true; break; }
+            const int r = kern_try_vertex(av[idx], base, cap);
+            if (r >= 0) tried += 4;
+            if (r == 1) ++moved;
+        }
+        if (moved == m0) break;                        // converged before the budget
+    }
+    std::fprintf(stderr, "KOPT2 begin=%.2fs dS=%+.6f moved=%ld tried=%ld t=%.1f (budget %.1f)\n",
+                 tb-t0, kern_score()-sk0, moved, tried, r_elapsed()-t0, budget_s);
+}
+// ---- kernel-scored edge-flip sweep (G_KERNFLIP=<budget s>): connectivity by the TRUE metric ----
+// The graveyard killed cheap-PROXY flips (mean objective, anti-correlated). This is the real
+// thing: every interior edge trialled by its exact rendered-SSIM delta, accepted only when
+// the true metric rises. Discrete pattern repaints — the resolution-brittleness that killed
+// per-vertex registration descent should not apply (measure, don't assume).
+static void kern_flip_sweep(double budget_s) {
+    const double t0 = r_elapsed(), t_end = t0 + budget_s;
+    kern_begin();
+    const double sk0 = kern_score();
+    std::vector<double> pr(pos.size(), 0.0);            // same deficit priority as kern_opt_fast
+    for (int vi=0; vi<6; ++vi) { const KView& kv=g_kv[vi]; const int W=g_kW;
+        for (int y=R_RAD;y<W-R_RAD;++y) for (int x=R_RAD;x<W-R_RAD;++x) { const size_t k=(size_t)y*W+x;
+            if (!kv.Mw[k]) continue; const int f=kv.fid[k]; if (f<0) continue;
+            const double d = 3.0 - kv.Cw[k]; if (d<=0) continue;
+            const int* t=faces[f].data(); pr[t[0]]+=d; pr[t[1]]+=d; pr[t[2]]+=d; } }
+    struct KE { float p; int u, v; };
+    std::vector<KE> edges; edges.reserve(faces.size()*3/2);
+    { std::unordered_set<long long> seen; seen.reserve(faces.size()*3);
+      const long long NV = (long long)pos.size();
+      for (int f=0; f<(int)faces.size(); ++f) { if (!face_alive[f]) continue;
+          const int* t = faces[f].data();
+          for (int e2=0;e2<3;++e2) { int u=t[e2], v=t[(e2+1)%3]; if (u>v) std::swap(u,v);
+              if (seen.insert((long long)u*NV+v).second)
+                  edges.push_back({ (float)(pr[u]+pr[v]), u, v }); } }
+    }
+    std::sort(edges.begin(), edges.end(), [](const KE&a, const KE&b){ return a.p>b.p; });
+    long tried=0, done=0;
+    for (const KE& e : edges) {
+        if ((tried & 7)==0 && r_elapsed()>t_end) break;
+        const int u=e.u, v=e.v;
+        int f1=-1, f2=-1;                                // the two alive faces sharing (u,v) NOW
+        for (int f : vfaces[u]) { if (!face_alive[f]) continue; const int* t=faces[f].data();
+            if ((t[0]==v||t[1]==v||t[2]==v)) { if (f1<0) f1=f; else { f2=f; break; } } }
+        if (f2<0) continue;
+        const int* t1a=faces[f1].data(); const int* t2a=faces[f2].data();
+        int a=-1,b=-1,c=-1,d=-1;
+        for (int k2=0;k2<3;++k2){ int x=t1a[k2],y=t1a[(k2+1)%3];
+            if ((x==u&&y==v)||(x==v&&y==u)) { a=x;b=y;c=t1a[(k2+2)%3]; break; } }
+        for (int k2=0;k2<3;++k2){ int x=t2a[k2]; if (x!=a&&x!=b) d=x; }
+        if (a<0||d<0||c==d||EdgeExists(c,d)) continue;
+        Vec3 o1=(pos[t1a[1]]-pos[t1a[0]]).cross(pos[t1a[2]]-pos[t1a[0]]);
+        Vec3 o2=(pos[t2a[1]]-pos[t2a[0]]).cross(pos[t2a[2]]-pos[t2a[0]]);
+        Vec3 om=o1+o2;
+        Vec3 n1=(pos[d]-pos[a]).cross(pos[c]-pos[a]);
+        Vec3 n2=(pos[b]-pos[d]).cross(pos[c]-pos[d]);
+        if (0.5*n1.norm()<kAreaEps || 0.5*n2.norm()<kAreaEps) continue;   // degenerate result
+        if (n1.dot(om)<=0.0 || n2.dot(om)<=0.0) continue;                 // orientation guard
+        const std::array<int,3> s1=faces[f1], s2=faces[f2];
+        kset_face(f1,{a,d,c}); kset_face(f2,{d,b,c});
+        const double dS = kern_apply(std::vector<int>{f1,f2}, -1); ++tried;
+        if (dS > 1e-7) { ++done; }
+        else { kset_face(f1,s1); kset_face(f2,s2); kern_apply(std::vector<int>{f1,f2}, -1); }
+    }
+    std::fprintf(stderr, "KFLIP dS=%+.6f flips=%ld/%ld edges=%zu t=%.1f (budget %.1f)\n",
+                 kern_score()-sk0, done, tried, edges.size(), r_elapsed()-t0, budget_s);
 }
 #pragma endregion
 
@@ -2169,6 +2328,21 @@ void emitCase3Read() {
     if (g_refine_res < 1024) render_orig_hires(1024);   // hybrid phase B may not have fired
     g_res = 1024; g_refine_res = 1024;
     mini_refine(1.2);                          // repair the collapse damage at judge res
+    if (const char* e = getenv("G_KERNOPT2")) kern_opt_fast(atof(e));   // registration slice (read experiment; judge-inert)
+    if (const char* e = getenv("G_KERNFLIP")) {     // true-metric flip sweep at 1024 (judge-inert)
+        const double pre = refine_score_grad(nullptr);
+        kern_flip_sweep(atof(e));
+        const double post = refine_score_grad(nullptr);
+        std::fprintf(stderr, "KFLIPV Sn1024 %.6f -> %.6f (D=%+.6f)\n", pre, post, post-pre);
+    }
+    if (const char* e = getenv("G_KERNOPT512")) {   // 512-descent -> 1024-survival experiment (judge-inert)
+        const double pre = refine_score_grad(nullptr);              // Sn at 1024, pre-descent
+        render_orig_hires(512);                                      // 512 orig maps for the kernel
+        kern_opt_fast(atof(e));                                      // descend fast at 512
+        render_orig_hires(1024);                                     // restore judge-res maps
+        const double post = refine_score_grad(nullptr);              // same-run 1024 survival
+        std::fprintf(stderr, "KOPT512 Sn1024 %.6f -> %.6f (D=%+.6f) t=%.1f\n", pre, post, post-pre, r_elapsed());
+    }
     const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
     const double S2 = 0.5*Sn2 + 0.5*Sd2;
     std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
