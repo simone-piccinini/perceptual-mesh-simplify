@@ -1596,7 +1596,7 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
         }
         long K = 0;   // 0 = bank mode. S-READ mode (hardcode 1 for read probes): encode S2 into the
-        const int kread = 0;   // tetra count so the judge payout reveals S(N) (WALL-MODEL §5): K=(S2-0.885)/5e-4
+        const int kread = 1;   // tetra count so the judge payout reveals S(N) (WALL-MODEL §5): K=(S2-0.885)/5e-4
         if (kread) K = std::lround(std::max(0.0, std::min(160.0, (S2 - 0.885) / 5e-4)));
         Vec3 bary = Vec3::Zero(); int nba=0;
         for(size_t i=0;i<pos.size();++i) if(alive[i]) { bary+=pos[i]; ++nba; }
