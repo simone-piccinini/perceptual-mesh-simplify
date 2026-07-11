@@ -17,8 +17,11 @@ BANK      90.400249  (7/7)   [JUDGE 20022405, 2026-07-10] — **90.40 CROSSED.**
                                exact) -> throughput replicates judge-side -> funded un-starved mini_refine ->
                                c3 descent 6940->6835 and c4 4970->4920, c5 4212->4165. c3 deterministic;
                                c4/c5 now per-run coins (boxed mini/stock with the fast kernel) — re-roll
-                               --force on a coin loss. OPEN: c3@6830 ('x' 22.2s ambiguous, retryable),
-                               c4@4910, c5@4160. Snapshot: submissions/v114-crossed-9040-90400249.
+                               --force on a coin loss. WALLS FINAL (all WA-clean): c3 6835 (6830 WA 20.9s), c4 4920
+                               (4910 WA 18.3s), c5 4165 (4160 WA 21.1s). Paradigm fully harvested.
+                               90.50 = +0.0998: needs the NEXT unlock (web research after 5:10 reset; more
+                               kernel speed = free judge-side iters, the COLCROP lesson; or a new mechanism).
+                               Snapshot: submissions/v114-crossed-9040-90400249 (bank cfg, verified).
 LEADER    91.48      [JUDGE, leaderboard 2026-07-09]   #1 希望ヶ峰学園 CG研究会.  gap to #1 = 1.17
                                                        (top-3 cluster 91.46; we were rank 12)
 ```
