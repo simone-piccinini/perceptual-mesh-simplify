@@ -1828,7 +1828,7 @@ int main(int argc, char** argv) {
         g_res = 1024; g_refine_res = 1024;
         if (ctT > 0 && alive_count > c3t) {   // image-driven tail at judge res (deterministic: no time box in the choice)
             g_force_nocrop = 1;
-            ctail_pass(c3t, 36, 8);
+            ctail_pass(c3t, 48, 12);
             g_force_nocrop = 0;
             for (int rw = 0; rw < 2 && alive_count > c3t; ++rw) {   // safety: finish by QEM if the tail stalled
                 seed_heap(); Decimate(c3t);
