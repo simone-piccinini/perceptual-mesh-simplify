@@ -1,4 +1,4 @@
-// MICRO2 2026-07-10: c3@6872 (wall in (6870,6875]) + c4@4925 (wall (4920,4930]). c5@4165 bank. Q: 2 reads, both = +0.0046 over 90.366792.
+// C4-MINI 2026-07-10: c4 mini_refine was STARVED (1.5s=3 iters): 2.2s+cap32 = +7e-4 S2n -> c4@4900 sits +3.7e-4 ABOVE banked cfg. c3@6875+c5@4165 bank. Q: c4@4900 = +0.0142 over 90.366792.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -304,7 +304,7 @@ static int hybrid_for(int V) { return (V > 7000 && V <= 30000) ? 1 : 0; }  // c3
 // sub-wall). Default (1<<30) = legacy time-box. c4 band (30k–40k) only for the first ship; c3/c6 stay
 // on the coin (best-counts re-rolls them free). docs/ROADS.md R-κ.
 static int maxit_for(int V) {
-    if (V > 30000 && V <= 40000) return 36;   // c4: local convergence 38; cap 36 (2 below) binds on the slower judge, near-converged quality
+    if (V > 30000 && V <= 40000) return 32;   // c4: local convergence 38; cap 36 (2 below) binds on the slower judge, near-converged quality
     return (1<<30);                           // all other bands: unchanged (time-box governs)
 }
 // (env G_BUDGET: local convergence tests only)
@@ -538,7 +538,11 @@ static double remesh_flip_local(int rounds, int K, double tbox) {
     const double cur = 0;   // no baseline render needed (2-ring-independent flips are additively net-positive)
     std::vector<std::array<int,3>> sf=faces; std::vector<std::vector<int>> svf=vfaces;   // manifold-safety snapshot
     const int W=g_res;
+    const bool loose = getenv("G_LOOSE") != nullptr;   // 1-ring marking (more flips/round, deltas NOT additive) -> verify render per round, revert on loss
     for (int rr=0; rr<rounds && r_elapsed()<tbox; ++rr) {
+        const double rb = loose ? refine_score_grad(nullptr) : 0.0;
+        std::vector<std::array<int,3>> rsf; std::vector<std::vector<int>> rsvf;
+        if (loose) { rsf=faces; rsvf=vfaces; }
         remesh_cache_render();   // render_faceid x6 (rasterize only; NO box-SSIM)
         // cheap per-face rendered-normal error (|Y-X| over the face's pixels; NO box-SSIM render) -> edge deficit rank
         std::vector<double> ferr(faces.size(),0.0);
@@ -573,7 +577,13 @@ static double remesh_flip_local(int rounds, int K, double tbox) {
             faces[f1]={A,D,C}; faces[f2]={D,B,C}; ++applied;
             // 2-RING independence: mark all faces incident to the quad's 4 verts -> applied flips don't share the
             // 11px box window -> their deltas are additive -> net gain guaranteed WITHOUT a verify render.
-            for(int vtx : {A,B,C,D}) for(int ff : vfaces[vtx]) touched[ff]=1;
+            if (loose) { touched[f1]=1; touched[f2]=1; }
+            else for(int vtx : {A,B,C,D}) for(int ff : vfaces[vtx]) touched[ff]=1;
+        }
+        if (loose && applied>0) {   // overlapping windows -> verify the whole round on the true rendered score
+            const double ra = refine_score_grad(nullptr);
+            if (ra <= rb + 1e-9) { faces.swap(rsf); vfaces.swap(rsvf); applied = 0; }
+            if(getenv("G_RDBG")) std::fprintf(stderr,"[loose] r%d %.6f -> %.6f %s\n",rr,rb,ra,(ra<=rb+1e-9)?"REVERT":"keep");
         }
         if(getenv("G_RDBG")) std::fprintf(stderr,"[locflip] r%d +%d flips t=%.2f\n",rr,applied,r_elapsed());
         if(applied==0) break;   // trust the VALIDATED local eval: no expensive per-round verify render
@@ -1707,7 +1717,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6872;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6875;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1829,11 +1839,11 @@ int main(int argc, char** argv) {
         }
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        int c4t = 4925; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
+        int c4t = 4900; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
         seed_heap(); Decimate(c4t);                // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
-        mini_refine(1.5);                          // case 4's first 1024 polish
+        mini_refine(2.2);                          // case 4's first 1024 polish (starved at 1.5: +1.2e-3 at 2.6; cap32 funds it)
         if (g_remesh) {   // FLIP remesher on c4 (time headroom; test if the appearance-flip lever helps CAD-ish c4)
             g_force_nocrop = 1;
             remesh_flip_local(10, 1600, r_elapsed() + 3.6);
