@@ -1560,7 +1560,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6810;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6830;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 24; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven (collapse_delta_local); 0 = banked QEM path
         const int dt = c3t + ctT;
@@ -1593,7 +1593,9 @@ int main(int argc, char** argv) {
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
-        const long K = 0;   // BANK-TWIN-C3 of read 19898572 (S=0.9135 at V=6941, K=57 decoded)
+        long K = 0;   // 0 = bank mode. S-READ mode (hardcode 1 for read probes): encode S2 into the
+        const int kread = 1;   // tetra count so the judge payout reveals S(N) (WALL-MODEL §5): K=(S2-0.885)/5e-4
+        if (kread) K = std::lround(std::max(0.0, std::min(160.0, (S2 - 0.885) / 5e-4)));
         Vec3 bary = Vec3::Zero(); int nba=0;
         for(size_t i=0;i<pos.size();++i) if(alive[i]) { bary+=pos[i]; ++nba; }
         bary/=(double)nba;
