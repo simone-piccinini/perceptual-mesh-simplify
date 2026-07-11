@@ -1,4 +1,4 @@
-// C3-6810-BOXCUT 2026-07-11: phase-A box 10->6s (local mesh IDENTICAL, judge -4s: the box was always full there). pB6+mini1.6+CTAIL24 @6810. Q: casetime ~18 -> +0.0144 -> 90.4182.
+// C3-6830-BOXCUT 2026-07-11: safe rung first (S(6830)~0.9140 clears the threshold on EVERY phase-A draw; 6810 became a coin - the 6s box made judge phase-A binding/variable). casetime ~18.6. Q: +0.0072 -> 90.4110.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1811,7 +1811,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6810;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6830;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 24; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven (collapse_delta_local); 0 = banked QEM path
         const int dt = c3t + ctT;
