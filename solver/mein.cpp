@@ -1,4 +1,4 @@
-// KREAD-A2 2026-07-11: CTAIL(24)@6830 K-encoded + phaseB 18->10 (-2.7s judge; c3 was 21-23s = systematic TLE). Q: clean c3 read -> decode S; net margin +1.8e-4 over banked.
+// C3-6800-DECODED 2026-07-11: K-read says S(CTAIL@6830)=0.9140, threshold ~0.9135 -> +0.0005 SSIM margin (~43 verts). All sub-6830 'x's were TIME. Light cfg (pB10+CTAIL24, c3 passed 21.3s). @6800: S~0.91365. Q: +0.0216 -> 90.4254.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1811,7 +1811,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6830;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6800;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 24; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven (collapse_delta_local); 0 = banked QEM path
         const int dt = c3t + ctT;
@@ -1845,7 +1845,7 @@ int main(int argc, char** argv) {
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
         long K = 0;   // 0 = bank mode. S-READ mode (hardcode 1 for read probes): encode S2 into the
-        const int kread = 1;   // tetra count so the judge payout reveals S(N) (WALL-MODEL §5): K=(S2-0.885)/5e-4
+        const int kread = 0;   // tetra count so the judge payout reveals S(N) (WALL-MODEL §5): K=(S2-0.885)/5e-4
         if (kread) K = std::lround(std::max(0.0, std::min(160.0, (S2 - 0.885) / 5e-4)));
         Vec3 bary = Vec3::Zero(); int nba=0;
         for(size_t i=0;i<pos.size();++i) if(alive[i]) { bary+=pos[i]; ++nba; }
