@@ -1,4 +1,4 @@
-// C3-6835 2026-07-10: half-step after 6830 'x' (22.2s ambiguous). c4@4920+c5@4165. Q: +0.0036 over 90.396658 -> 90.4003 = TARGET.
+// BANK-90.400249 2026-07-10: THE bank config. c3@6835 + c4@4920 + c5@4165 (walls final: 6830/4910/4160 all WA'd clean). Flip remesher + COLCROP-funded mini. Sub 20022405.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
