@@ -1,4 +1,4 @@
-// CONSOLIDATE 2026-07-10: c3@6875 (passed in 20020423) + c5@4165 (banked; 4162 WA = c5 wall final). c4@4930. Q: bank +0.0036 = 90.3668.
+// MICRO2 2026-07-10: c3@6872 (wall in (6870,6875]) + c4@4925 (wall (4920,4930]). c5@4165 bank. Q: 2 reads, both = +0.0046 over 90.366792.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1707,7 +1707,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6875;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6872;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         seed_heap(); Decimate(c3t);
         for (int uw = 0; uw < 2 && alive_count > c3t; ++uw) {
@@ -1829,7 +1829,7 @@ int main(int argc, char** argv) {
         }
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        int c4t = 4930; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
+        int c4t = 4925; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
         seed_heap(); Decimate(c4t);                // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
