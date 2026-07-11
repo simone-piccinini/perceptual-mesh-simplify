@@ -1,4 +1,4 @@
-// C3-6810-TIMEFIT 2026-07-11: pB6+mini1.6 (-1.7s local ~-3.5s judge); S(6810)~0.91393 = +4.3e-4 over the 0.9135 threshold (read-calibrated). Q: time fits -> +0.0144 -> 90.4182.
+// C3-6810-BOXCUT 2026-07-11: phase-A box 10->6s (local mesh IDENTICAL, judge -4s: the box was always full there). pB6+mini1.6+CTAIL24 @6810. Q: casetime ~18 -> +0.0144 -> 90.4182.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1121,7 +1121,7 @@ static void refine_positions() {
     }
     {   // optional: cap the first convergence pass to leave budget for basin hops (G_T1 seconds)
         double t1 = g_refine_budget;
-        if (g_hybrid) t1 = g_refine_budget - 6.0;   // leave room for the 1024 phase (A converges by ~8s)
+        if (g_hybrid) t1 = g_refine_budget - 10.0;   // phase-A box 6s: local converges in ~4s (box non-binding locally, mesh identical); on the judge the old 10s box was ALWAYS full = the hidden 4s
         if (const char* e = getenv("G_T1")) t1 = atof(e);
         const double save_budget = g_refine_budget; g_refine_budget = std::min(g_refine_budget, t1);
         stock_pass(step);
