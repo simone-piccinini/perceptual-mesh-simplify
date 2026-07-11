@@ -11,7 +11,8 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, main.cpp decimation track)
 
 ```
-BANK      90.400249  (7/7)   [JUDGE 20022405, 2026-07-10] — **90.40 CROSSED.** c3@6835 + c4@4920 + c5@4165.
+BANK      90.403841  (7/7)   [JUDGE 20022585, 2026-07-10] — c3@6830+pB18 + c4@4920 + c5@4165 (VT-GATE:
+                               row-major boxsum for c3/c5, banked per-column kernel for c4). Was 90.400249 (90.40 CROSSED).
                                Session 90.285538 -> 90.400249 (+0.1147, 16 banks). The unlock chain: flip
                                remesher -> refine speed pass -> wide boxes -> COLCROP (boxsum column-crop,
                                exact) -> throughput replicates judge-side -> funded un-starved mini_refine ->
