@@ -4,7 +4,7 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-10.**
+**Last updated: 2026-07-12 (evening).**
 
 ---
 

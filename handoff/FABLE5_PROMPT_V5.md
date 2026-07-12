@@ -65,3 +65,10 @@ Submitti da solo via `python3 scripts/judge_submit.py solver/mein_nocomments.cpp
 
 Obiettivo minimo della tua sessione: bancare 6760 (sorpasso di Loko), spingere la scala al suo
 ceiling pratico, lasciare STATUS/ROADS/ENVELOPE aggiornati e questo file rimpiazzato da un V6.
+
+## AGGIORNAMENTO FINALE SESSIONE (12/07 sera, dopo la stesura sopra)
+- MPC-READ @6760: c3 WA a 19.6s PULITO = S(MPC@6760) < soglia. **6760 chiuso anche col MPC.**
+  Ceiling pratico CONFERMATO = 6790 (bancato). Il file è in config bancata, MPC dietro `G_MPC`.
+- Restano da incassare: il coin c5@4160 (+0.0016) e nient'altro di misurato in questo paradigma.
+- Per superare Loko servono +0.02 = OLTRE il ceiling → via 4 (anisotropia DENTRO la coda) o
+  un'idea di classe nuova. Falsifier-first + K-read, sempre.
