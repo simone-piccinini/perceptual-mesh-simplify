@@ -524,6 +524,10 @@ static int ctail_lazy(int target, int pool, int RB, double tbox) {
                 if(d<-1e29) continue;
                 heap.push_back({d,e.u,e.v,e.xb,vver[e.u]+vver[e.v]}); std::push_heap(heap.begin(),heap.end(),cmp); continue;
             }
+            {   // MP-at-commit: try alt placements only for the winner (max>=single keeps Minoux valid)
+                Vec3 alt[3]={0.5*(pos[e.u]+pos[e.v]), pos[e.u], pos[e.v]};
+                for(const Vec3& q : alt){ double dq=collapse_delta_local(e.u,e.v,q); if(dq>e.d){e.d=dq;e.xb=q;} }
+            }
             if(!SafeToCollapse(e.u,e.v,e.xb)) continue;
             Collapse(e.u,e.v,e.xb); --alive_count; ++done; ++commits;
             vver[e.u]+=1;   // bump: 1-ring neighbors become stale via key mismatch on (u,v) sums
@@ -1660,7 +1664,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6790;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
+        int c3t = 6760;                            // C3 N-PUSH below the flip wall (bank 6900; local slope 1.17e-5/v, phaseB-14 boost +8.4e-5). env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 200; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven (collapse_delta_local); 0 = banked QEM path
         const int dt = c3t + ctT;
@@ -1718,7 +1722,7 @@ int main(int argc, char** argv) {
             g_force_nocrop = 0;
         }
         double Sn2=0, Sd2=0, S2=0;
-        const int kread = 0;
+        const int kread = 1;
         if (kread || getenv("G_RDBG") || getenv("G_S2")) {   // score needed for K-encoding; debug-gated otherwise
             Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
