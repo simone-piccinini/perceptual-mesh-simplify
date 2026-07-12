@@ -1,4 +1,4 @@
-// ANISOQ-R-READ 2026-07-12: robust (bilateral-smoothed) curvature frame, w=1 c3-band + K-read @6790. Rough proxy +8.7e-4. Q: S_judge vs 0.91356.
+// BANK-CFG 2026-07-12: c3@6790 lazy tail + c4@4920 + c5@4160 probe. ANISOQ dead x2 on judge (w=0).
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1331,7 +1331,7 @@ void Initialize() {
         // judge-falsified (-2.6e-3, raw-scan noise misdirects the frame); this smooths FACE NORMALS
         // bilaterally (3 iters, similarity-weighted ring average) before the covariance, so the frame
         // tracks low-frequency shape, not scan noise. All plain-double (judge Eigen-template cliff).
-        double w = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 1.0 : 0.0;   // robust-frame w=1: rough-proxy +8.7e-4; judge K-read decides
+        double w = 0.0;   // JUDGE-FALSIFIED x2 (naive -2.6e-3 sub 20029030; robust-frame -4e-3 sub 20029061). Quadric-level anisotropy is DEAD on the real scans; rough proxy misled (+8.7e-4)
         if (const char* e = getenv("G_ANISOQ")) w = atof(e);
         int smIt = 3; if (const char* e = getenv("G_ANISM")) smIt = atoi(e);
         if (w > 0) {
@@ -1977,7 +1977,7 @@ int main(int argc, char** argv) {
             g_force_nocrop = 0;
         }
         double Sn2=0, Sd2=0, S2=0;
-        const int kread = 1;
+        const int kread = 0;
         if (kread || getenv("G_RDBG") || getenv("G_S2")) {   // score needed for K-encoding; debug-gated otherwise
             Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());

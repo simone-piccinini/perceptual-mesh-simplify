@@ -1112,7 +1112,7 @@ void Initialize() {
     }
 
     {   // ROAD B2: anisotropic quadrics over a NOISE-ROBUST curvature field. Naive version was
-        double w = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 1.0 : 0.0;   // robust-frame w=1: rough-proxy +8.7e-4; judge K-read decides
+        double w = 0.0;   // JUDGE-FALSIFIED x2 (naive -2.6e-3 sub 20029030; robust-frame -4e-3 sub 20029061). Quadric-level anisotropy is DEAD on the real scans; rough proxy misled (+8.7e-4)
         if (const char* e = getenv("G_ANISOQ")) w = atof(e);
         int smIt = 3; if (const char* e = getenv("G_ANISM")) smIt = atoi(e);
         if (w > 0) {
@@ -1718,7 +1718,7 @@ int main(int argc, char** argv) {
             g_force_nocrop = 0;
         }
         double Sn2=0, Sd2=0, S2=0;
-        const int kread = 1;
+        const int kread = 0;
         if (kread || getenv("G_RDBG") || getenv("G_S2")) {   // score needed for K-encoding; debug-gated otherwise
             Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());

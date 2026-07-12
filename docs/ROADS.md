@@ -356,3 +356,12 @@ judge mesh** while gaining +8e-4 (family mean) on the smooth proxy — the canon
 signature (§9.1). NOT dead-forever: the thesis requires a NOISE-ROBUST curvature field (bilateral/
 multi-ring smoothing of the frame) before the metric is trustworthy on raw scans. That is the
 real Road B2 build; budget days, use K-reads at every milestone.
+
+**ROAD B2 SECOND VERDICT (2026-07-12, K-read 20029061):** the noise-robust frame (3-iter bilateral
+normal smoothing) read S_judge = **0.9095 = −4e-3** — WORSE than naive. Quadric-level anisotropy is
+judge-dead in both forms. ⚠ The rough proxy (ab_orig) PREDICTED +8.7e-4 and was wrong for this
+mechanism class — its transfer validity is mechanism-dependent (held for collapse-ordering metrics,
+failed for quadric-term additions). Any B2 revival must (a) put anisotropy in the image-driven TAIL
+(which self-corrects against the true rendered metric) not in global quadrics, and (b) trust only
+K-reads. The collapse-paradigm ceiling (~6650 = ~90.55) stands as the roof until a mechanism of a
+different class exists.
