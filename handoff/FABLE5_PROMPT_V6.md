@@ -82,3 +82,14 @@ bordo, che paga 2:1 in normale (SIL misurato). Con +1e-4 il 6760 resta ~al livel
 6775 (fail probabile). PROSSIMI PASSI SENSATI: (a) K-read del cov-tail @6760 per tipizzare (1 sub);
 (b) allargare il gate (2 anelli di vicinato) e riprovare la famiglia; (c) se piatto, il fronte
 depth è chiuso DAVVERO e il gioco resta: tempo (via 3) + anisotropia nel MPC (via 2).
+
+
+## ESITO CANTIERE 2 (12/07 notte): normal-painting via micro-pieghe — TEORIA VIVA, SEMINA CIECA MORTA
+Idea (derivata dalla formula): flat shading ⇒ micro-pieghe (ε~0.003, invisibili a depth/Hausdorff)
+rendono il campo normale un DOF quasi-libero ("dipingere" la normal map per inseguire il σxy).
+Il gradiente per-vertice non le scopre (mossa collettiva). FALSIFIER: semina a scacchiera cieca
+= −7e-3 (ρ=0 ⇒ σ' non correlata = caso peggiore, come da matematica del termine struttura).
+CONCLUSIONE: l'attacco richiede pieghe GUIDATE dal target (l'oracolo g_orig_n c'è!) — direzione
+di ricerca legittima e forse LA spiegazione dei 93: seminare il zigzag con segno/ampiezza dal
+RESIDUO normale locale (target − corrente al pixel proiettato), poi refine. Nessuno l'ha provato.
+È il cantiere col tetto più alto rimasto. Falsifier-first, famiglie, K-read.

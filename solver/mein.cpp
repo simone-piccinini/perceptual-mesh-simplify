@@ -2120,6 +2120,16 @@ int main(int argc, char** argv) {
             if (vertex_remove_pass(alive_count - dt) == 0) break;
             seed_heap(); Decimate(dt);
         }
+        if (const char* fe = getenv("G_FOLD")) {   // micro-fold seed: collective zigzag the per-vertex gradient can't discover
+            double eps = atof(fe);
+            for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i]) continue;
+                double nl = nref[i].norm(); if (nl < 1e-20) continue;
+                // checkerboard sign from position hash (deterministic)
+                long hx = (long)std::floor(pos[i].x()*97.0), hy = (long)std::floor(pos[i].y()*97.0), hz = (long)std::floor(pos[i].z()*97.0);
+                double sgn = ((hx+hy+hz) & 1) ? 1.0 : -1.0;
+                pos[i] += (sgn*eps/nl) * nref[i];
+            }
+        }
         if (g_refine_res < 1024) render_orig_hires(1024);   // hybrid phase B may not have fired
         g_res = 1024; g_refine_res = 1024;
         if (getenv("G_CVAL")) {   // VALIDATION: collapse_delta_local vs full-render delta on ~20 candidates (local only)
