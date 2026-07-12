@@ -51,15 +51,19 @@ def bankcommit(tag):
     sh(f"git add -A && git commit -q -m 'night filler2: NEW BANK ({tag})' && git push origin CleanRepoForAI")
 
 def main():
+    import sys
     c3 = 6700
+    if "--p3" in sys.argv:
+        c3 = 6720
+        phase3(c3); return
     # Phase 1: 6700-mpc3 gamble
     if build(6700):
         log({"ev": "f2_buildfail_6700"}); c3 = 6720
         patch([(r"int c3t = \d+;", "int c3t = 6720;")])
         if build(6720): log({"ev": "f2_fatal"}); return
     else:
-        c3fail = 0; tle = 0
-        for i in range(3):
+        c3fail = 1; tle = 0   # roll#0 (pre-restart) was a typed c3-WA [f2_6700 23:22Z]
+        for i in range(1, 3):
             if deadline(): break
             cases, fails, nb = submit(f"F2 c3@6700 mpc3 roll#{i}")
             log({"ev": "f2_6700", "cases": cases, "fails": fails, "newbank": nb})
@@ -72,8 +76,17 @@ def main():
                 if nb: break
             time.sleep(300)
         if c3fail >= 2 or tle >= 2:
+            # K-READ at 6700-mpc3: measure the mechanism's exact judge S2 before retreating.
+            # Read passes via pads (V'=6700+4K, S2=0.885+K*5e-4); decode vs 0.9145@6775 family
+            # anchor quantifies MP-continuous transfer to 1e-4.
+            patch([(r"const int kread = \d;", "const int kread = 1;")])
+            r = sh(f"python3 scripts/strip_comments.py {SRC} {NC} && g++ -O2 -std=c++17 -Isolver {NC} -o /tmp/nfill2")
+            if r.returncode == 0:
+                cases, fails, nb = submit("F2 K-READ c3@6700 mpc3 (quantify MP-continuous transfer)")
+                log({"ev": "f2_read_6700", "cases": cases, "fails": fails, "newbank": nb})
+                time.sleep(300)
+            patch([(r"const int kread = \d;", "const int kread = 0;"), (r"int c3t = \d+;", "int c3t = 6720;")])
             c3 = 6720
-            patch([(r"int c3t = \d+;", "int c3t = 6720;")])
             if build(6720): log({"ev": "f2_fatal2"}); return
             log({"ev": "f2_fallback_6720"})
     # Phase 2: c2@27 probe
@@ -90,13 +103,33 @@ def main():
             patch([(r"return 0\.006589;", "return 0.00725;")])
             build(c3)
         time.sleep(300)
-    # Phase 3: consolidation
-    banks = 0
-    while not deadline() and banks < 3:
-        cases, fails, nb = submit(f"F2 consolidate c3={c3}")
-        log({"ev": "f2_roll", "cases": cases, "newbank": nb})
-        if nb: banks += 1; bankcommit("consolidate")
-        time.sleep(330)
+    phase3(c3)
+
+def phase3(c3):
+    # adaptive dual-rung roller (c3@6710-mpc3 + c4@4910; both = live questions + upside)
+    c3r, c4r = 6710, 4910
+    c3fails, c4fails, banks = 0, 0, 0
+    while not deadline() and banks < 4:
+        patch([(r"int c3t = \d+;", f"int c3t = {c3r};"), (r"int c4t = \d+;", f"int c4t = {c4r};")])
+        r = sh(f"python3 scripts/strip_comments.py {SRC} {NC} && g++ -O2 -std=c++17 -Isolver {NC} -o /tmp/nfill2")
+        if r.returncode != 0: log({"ev": "f2_p3_compilefail"}); break
+        r = sh("/tmp/nfill2 < /tmp/c3proxy.in 2>/dev/null | head -1", timeout=900)
+        if not r.stdout.split() or int(r.stdout.split()[0]) != c3r: log({"ev": "f2_p3_prova3"}); break
+        r = sh("/tmp/nfill2 < /tmp/c4c.in 2>/dev/null | head -1", timeout=900)
+        if not r.stdout.split() or int(r.stdout.split()[0]) != c4r: log({"ev": "f2_p3_prova4"}); break
+        cases, fails, nb = submit(f"F2 dual c3={c3r} c4={c4r}")
+        log({"ev": "f2_dual", "c3": c3r, "c4": c4r, "cases": cases, "fails": fails, "newbank": nb})
+        if nb: banks += 1; bankcommit(f"dual c3={c3r} c4={c4r}")
+        if cases and len(cases) >= 7:
+            if cases[2] == "x":
+                c3fails += 1
+                if c3fails >= 3 and c3r != 6720: c3r = 6720; log({"ev": "f2_c3_retreat"})
+            else: c3fails = 0
+            if cases[3] == "x":
+                c4fails += 1
+                if c4fails >= 4 and c4r != 4920: c4r = 4920; log({"ev": "f2_c4_retreat"})
+            else: c4fails = 0
+        time.sleep(300)
     log({"ev": "f2_done", "banks": banks})
 
 if __name__ == "__main__":
