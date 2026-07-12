@@ -23,16 +23,20 @@ work; this file is WHERE we are.*
 5. **K-READ [JUDGE 20031760]: S2_judge(deep@6775) ≈ 0.9145 (V'≈7011, K≈59) = +1.0e-3 OVER the
    0.9135 threshold. c3@6775 PASSES.** Slope 1.25e-5/v ⇒ zero-crossing ≈ 6695. MPC-aniso (via-2
    V6): local marginal ~0 (+3.4e-5/−1.6e-5) — parked, env mpcm=2.
-6. **BANK attempt c3@6760 IN FLIGHT** (pool1000/T500/box7.5, kread off, est margin +7.8e-4);
-   then ladder 6740→6720→6700. c4 = the only lottery per roll.
+6. **BANKED: c3@6760 judge-PASS [20031783, c4-coin x] → c3@6740 ALL GREEN = NEW BANK 90.466160**
+   (sub ~20031805, SUM6 542.796960, +0.033585). Ladder continues 6720→6700 (zero-crossing ~6695).
+   ⚠ c3 CASETIME 21.9s hot — ladder toxic-filter set at 22.5.
 
 ## BANK (best all-green, mein.cpp decimation track)
 
 ```
-BANK      90.432575  (7/7)   [JUDGE ~20026xxx ladder 2026-07-11 22:08] — c3@6790 lazy tail + c4@4920 +
-                               c5@4165. FINAL walls: c3 6790 (6775/6760 SSIM-closed even w/ MPC, read-typed),
-                               c4 4920, c5 4165 (4160 probe open). ~~Practical ceiling~~ WRONG — starved-tail
-                               artifact, see NIGHT UPDATE.
+BANK      90.466160  (7/7)   [JUDGE ~20031805, 2026-07-12 night] — c3@6740 DEEP TAIL (prefix-sum
+                               collapse_delta_local, pool 800/T 500/box 6.5/MPC-classic) + c4@4920 +
+                               c5@4172 (tail OFF: cov-tail TLE fix) + c2/c6/c7 banked. Read calib:
+                               S2_judge(deep@6775)=0.9145 [20031760], slope 1.25e-5/v.
+PRIOR     90.432575  (7/7)   [~20026xxx ladder 07-11] c3@6790 + c4@4920 + c5@4165. The "6775/6760
+                               closed walls" of that era = STARVED-TAIL artifacts (judge did ~half
+                               the local tail work in the 6.5s wall box) — fixed by prefix-sum.
                                Prior bank 90.421800: c3@6805 via ROAD A (image-driven collapse
                                tail: lazy-greedy, burst16 K64 T100, collapse_delta_local validated ratio 1.0)
                                + c4@4920 + c5@4165. JUDGE-VALIDATED: 6805 never passed under QEM order.

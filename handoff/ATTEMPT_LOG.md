@@ -4,6 +4,16 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-12 night (newest first)
+- **DEAD-ROAD RE-AUDIT with the fixed instrument (prefix-sum tail) — TWO VERDICTS FLIPPED [LOCAL,
+  family]:** (1) c4 tail was "NEGATIVE −5.7e-4, CAD prefers QEM" → lazy600/T300 @4920 reads
+  **+4.1e-4 S2** (0.861954→0.862366; MPC marginal ~0 on CAD). (2) c5 was "deterministic wall 4165,
+  0/12 below" → lazy600 **@4150 reads +2.36e-3 over base@4172** (0.845783→0.848142) — S2 RISES
+  while DESCENDING rungs. Both old verdicts were measured through the starved O(121) tail.
+  BLOCKER on both: judge time (c4 +2.3s ≈ 22s; c5 lazy@4150 13.3s local ≈ ~28s judge) — needs
+  render-thrift (RB 24→48, pool/T trims) before judge tests. c3 ladder has priority tonight
+  (payout/vert 2.2x c5's).
+- **BANK 90.466160 (7/7, sub ~20031805): c3@6740 deep tail.** Ladder then confirmed c3@6720
+  PASSES ×2 (only c4-coin x) — descent continues autonomously.
 - **K-READ deep tail @6775 → c3 PASSES, S2_judge ≈ 0.9145 (sub 20031760, V'≈7011 → K≈59).**
   The "6775/6760 read-typed S-fail walls" were a STARVED-TAIL artifact: the 6.5s wall-clock tail
   box × slower judge CPU = judge did ~half the local tail work (local sweep: 3.2s-equivalent box
