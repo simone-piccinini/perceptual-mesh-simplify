@@ -1,4 +1,4 @@
-// BANK-CFG 2026-07-12 evening: c3@6790 lazy + c4@4920 + c5@4160 probe. MPC@6760 SSIM-falsified (WA 19.6s clean); practical ceiling = 6790. kread 0, MPC env-gated.
+// LSEED-LADDER 2026-07-12 night: guided L2 normal-residual seed (lam=-1, +1.35e-4 S2, 2/3 depth) + cov-tail. Ladder 6775 step 5. Q: rungs below 6790 open.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -2129,6 +2129,33 @@ int main(int argc, char** argv) {
         for (int rw = 0; rw < 3 && alive_count > dt; ++rw) {
             if (vertex_remove_pass(alive_count - dt) == 0) break;
             seed_heap(); Decimate(dt);
+        }
+        {   // GUIDED L2 SEED (family-validated +1.35e-4 S2 at -1.0, smooth plateau; 2/3 of the gain is DEPTH/silhouette)
+            double lam = -1.0; if (const char* le = getenv("G_LSEED")) lam = atof(le);
+            g_res = 1024; fnc_fill();
+            std::vector<double> racc(pos.size(), 0.0); std::vector<int> rcnt(pos.size(), 0);
+            std::vector<int> fid;
+            for (int v6 = 0; v6 < 6; ++v6) { render_faceid(v6, fid);
+                for (size_t k = 0; k < fid.size(); ++k) { int f = fid[k]; if (f < 0) continue;
+                    const int* t = faces[f].data();
+                    for (int c = 0; c < 3; ++c) {
+                        int vi = t[c]; double nl = nref[vi].norm(); if (nl < 1e-20) continue;
+                        // residual of the pixel's channel-decoded target vs current face normal, projected on the vertex normal
+                        double rdot = 0;
+                        for (int ch = 0; ch < 3; ++ch) {
+                            double tgt = g_orig_n[v6][ch][k]/127.5 - 1.0;
+                            double curv = g_fnc[f][ch];
+                            rdot += (tgt - curv) * (nref[vi][ch]/nl);
+                        }
+                        racc[vi] += rdot; rcnt[vi]++;
+                    } } }
+            double diag2; { Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} diag2=(hi-lo).norm(); }
+            for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i] || rcnt[i]==0) continue;
+                double nl = nref[i].norm(); if (nl < 1e-20) continue;
+                double step = lam * 1e-3 * diag2 * (racc[i]/rcnt[i]);
+                if (step > 2e-3*diag2) step = 2e-3*diag2; if (step < -2e-3*diag2) step = -2e-3*diag2;
+                pos[i] += (step/nl) * nref[i];
+            }
         }
         if (const char* fe = getenv("G_FOLD")) {   // micro-fold seed: collective zigzag the per-vertex gradient can't discover
             double eps = atof(fe);

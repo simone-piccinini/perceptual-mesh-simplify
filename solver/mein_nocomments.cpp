@@ -1858,6 +1858,32 @@ int main(int argc, char** argv) {
             if (vertex_remove_pass(alive_count - dt) == 0) break;
             seed_heap(); Decimate(dt);
         }
+        {   // GUIDED L2 SEED (family-validated +1.35e-4 S2 at -1.0, smooth plateau; 2/3 of the gain is DEPTH/silhouette)
+            double lam = -1.0; if (const char* le = getenv("G_LSEED")) lam = atof(le);
+            g_res = 1024; fnc_fill();
+            std::vector<double> racc(pos.size(), 0.0); std::vector<int> rcnt(pos.size(), 0);
+            std::vector<int> fid;
+            for (int v6 = 0; v6 < 6; ++v6) { render_faceid(v6, fid);
+                for (size_t k = 0; k < fid.size(); ++k) { int f = fid[k]; if (f < 0) continue;
+                    const int* t = faces[f].data();
+                    for (int c = 0; c < 3; ++c) {
+                        int vi = t[c]; double nl = nref[vi].norm(); if (nl < 1e-20) continue;
+                        double rdot = 0;
+                        for (int ch = 0; ch < 3; ++ch) {
+                            double tgt = g_orig_n[v6][ch][k]/127.5 - 1.0;
+                            double curv = g_fnc[f][ch];
+                            rdot += (tgt - curv) * (nref[vi][ch]/nl);
+                        }
+                        racc[vi] += rdot; rcnt[vi]++;
+                    } } }
+            double diag2; { Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} diag2=(hi-lo).norm(); }
+            for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i] || rcnt[i]==0) continue;
+                double nl = nref[i].norm(); if (nl < 1e-20) continue;
+                double step = lam * 1e-3 * diag2 * (racc[i]/rcnt[i]);
+                if (step > 2e-3*diag2) step = 2e-3*diag2; if (step < -2e-3*diag2) step = -2e-3*diag2;
+                pos[i] += (step/nl) * nref[i];
+            }
+        }
         if (const char* fe = getenv("G_FOLD")) {   // micro-fold seed: collective zigzag the per-vertex gradient can't discover
             double eps = atof(fe);
             for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i]) continue;
