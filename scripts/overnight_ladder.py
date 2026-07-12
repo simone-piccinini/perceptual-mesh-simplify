@@ -55,8 +55,8 @@ def submit(note):
 
 def toxic(times):
     if not times: return True
-    c2 = times.get("2", 0); c6 = times.get("6", 0)
-    return (c2 and c2 > 12) or (c6 and c6 > 26) or len(times) < 7
+    c2 = times.get("2", 0); c6 = times.get("6", 0); c3 = times.get("3", 0)
+    return (c2 and c2 > 12) or (c6 and c6 > 26) or (c3 and c3 > 22.5) or len(times) < 7
 
 def decode_read(score, n):
     c3b = 100*(1 - 6805/C3_V)
