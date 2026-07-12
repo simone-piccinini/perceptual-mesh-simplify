@@ -371,3 +371,63 @@ wall band [8661, 8681] tighter than the keep-ladder suggested).
    **Mandatory since 2026-07-05: before every submission, run the BINARY on the relevant proxy
    and check the output vertex count matches the intended keep** (the "prova del nove").
 5. Every judge-limit probe result lands in THIS file the same day.
+
+---
+
+## 10. Discoveries from the 2026-07-10..12 campaign (~150 submissions) — the machine model
+
+*This section is the distilled judge-side knowledge from the flip-remesher / Road-A campaign
+(bank 90.2855 → 90.4326). Every item cost real submissions to learn; do not relearn them.*
+
+### 10.1 The pass threshold is measurable, and reads are cheap
+- **[MEASURED, subs 20025436 + 19898572]** The case-3 pass threshold expressed in OUR self-score
+  (S2 = 0.5·S2n + 0.5·S2d) is **≈ 0.9135** (historic wall N=6941 read S2=0.9135; a config reading
+  S2=0.9140 at N=6830 passes with margin). This calibrates every rung choice: local S2n deltas map
+  ~1:1 onto judge S2 for structural (ordering/topology) changes.
+- **[MEASURED]** K-tetra reads (V' = mesh + 4K, K = (S2−0.885)/5e-4) **PASS** — tetras are legal
+  and invisible; the reduced payout IS the reading. Resolution 5e-4. Decodable only when case 3 is
+  the sole payout that differs. ⚠ the S2 computation must not be behind a debug env-gate (cost one
+  wasted read: K silently 0).
+
+### 10.2 CASETIME is WALL, billing is CPU, and machines vary a lot
+- **[MEASURED, many]** Decoded CASETIMEs are wall-clock: 23.3s, 24.3s, 29.3s, even 137.3s runs have
+  PASSED (contended machine: same CPU bill, long wall). The CPU ceiling [21,22) stands.
+- **[MEASURED]** On a contended/slow machine each iteration costs MORE CPU → every internal CPU
+  box (refine/mini/flip/tail) yields FEWER iterations → worse mesh → WA at a rung that passes on a
+  healthy machine. **Every time-boxed component is a per-run coin whose bias tracks machine health.**
+- **[MEASURED, 60-sub night run]** Machine health has DAYPARTS: late night (~00–07 CET) runners
+  were systematically slow — case 3 failed 0/60 AT AMPLE SSIM MARGIN purely on time; morning and
+  afternoon runners are healthy. Late evening showed 502s and garbage draws (missing casetimes,
+  incoherent values). **Do not classify walls at night; schedule bank pushes in daytime.**
+- Detector that works: casetime for the 4k-vertex dust case (case 2) > 12s, the 377k case (case 6)
+  > 26s, or the 23k organic case (case 3) > 22.5s ⇒ toxic draw, ignore and wait.
+
+### 10.3 Judge/local speed ratio is NOT uniform — and speedups don't all replicate
+- **[MEASURED]** Per-case wall ratios differ: the case-3 pipeline (running on our new kernels) sees
+  ~2.1–2.4× vs local; cases 4/5 ~1.8×.
+- **[MEASURED, transpose episode]** LESS-WORK speedups (column-cropped boxsum: fewer operations)
+  replicate on the judge ≈ fully. CACHE-LOCALITY speedups (row-major transpose; bit-identical
+  output, −38% local) replicate SUB-1 — and the extra boxed iterations they buy locally may not
+  exist judge-side. On the CAD-ish case (case 4) the transposed-kernel mesh was judge-NEGATIVE at a
+  rung the old kernel passed ×3 (fix: per-band kernel gate `g_vt_on`).
+- **[MEASURED ×3, free money]** Components that auto-terminate locally but are CPU-boxed still
+  consume their FULL box on the judge (slower iterations fill it). Shrinking such boxes to just
+  above the local auto-termination point is judge-time for free: banner-score gate (−1.2s), flip
+  box 3.0→2.4 (−0.6s), mini 1.6→1.2 (−0.4s) — all at ≤1e-5 local S2n cost. Corollary: the phase-A
+  box was silently eating 4s judge-side (box 10→6s converted 22.8s casetimes into 18.6s and turned
+  a dead rung into a bank).
+
+### 10.4 Structure transfers; positions don't; budgets lie
+- **[MEASURED]** Judge-validated transfers: SSIM-guided edge flips (broke 4 "final" walls) and the
+  image-driven collapse tail (Road A: rung 6805 never passed under QEM ordering, passed with the
+  tail). Both are ORDER/TOPOLOGY choices — deterministic, machine-independent.
+- **[MEASURED]** Position-space gains bought with bigger local budgets (starved mini, cap-boost)
+  do NOT survive: the budget needed to cover the cap on a slow judge machine doesn't exist, and on
+  the CAD case (case 4) MORE mini iterations judge-side made the mesh WORSE (non-monotone).
+- **[MEASURED]** The 512-resolution evaluator ranks collapses in a DIFFERENT order than 1024 —
+  choices made at 512 do not transfer to the 1024-judged metric (−1.8e-3). Evaluate at judge res.
+
+### 10.5 Economy facts reconfirmed
+- **[MEASURED, 35+ failures]** Best-counts is absolute: no failed submission ever touched the bank.
+- **[MEASURED]** Same-file resubmits (--force) are fresh machine draws — the correct tool whenever
+  a time-boxed component lost its coin. Worked repeatedly; the ladder automates it.
