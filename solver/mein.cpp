@@ -710,7 +710,7 @@ static int ctail_lazy(int target, int pool, int RB, double tbox) {
                 if(d<-1e29) continue;
                 heap.push_back({d,e.u,e.v,e.xb,vver[e.u]+vver[e.v]}); std::push_heap(heap.begin(),heap.end(),cmp); continue;
             }
-            {   int mpcm = 0; if (const char* me = getenv("G_MPC")) mpcm = atoi(me);   // 0 off | 1 classic 3-cand (+1.7e-4, sub 20029367) | 2 +ANISO (V6 via-2: elongated along the flat tangent, priced by the true delta)
+            {   int mpcm = 1; if (const char* me = getenv("G_MPC")) mpcm = atoi(me);   // 0 off | 1 classic 3-cand (+1.3e-4 marginal at deep pool) | 2 +ANISO (local marginal ~0)
                 if (mpcm >= 1) {
                     Vec3 alt[3]={0.5*(pos[e.u]+pos[e.v]), pos[e.u], pos[e.v]};
                     for(const Vec3& q : alt){ double dq=collapse_delta_local(e.u,e.v,q); if(dq>e.d){e.d=dq;e.xb=q;} }
@@ -1989,9 +1989,9 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6790;                            // BANKED rung (6775 read-typed S-fail even with seed+cov family). env G_C3T
+        int c3t = 6775;                            // K-READ rung: prefix-sum tail (starvation fixed) + pool1200/T600/MPC = +6.2e-4 est vs the starved family. env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
-        int ctT = 200; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven (collapse_delta_local); 0 = banked QEM path
+        int ctT = 600; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (600) funded by the prefix-sum tail
         const int dt = c3t + ctT;
         seed_heap(); Decimate(dt);
         for (int uw = 0; uw < 2 && alive_count > dt; ++uw) {
@@ -2084,7 +2084,7 @@ int main(int argc, char** argv) {
         }
         if (ctT > 0 && alive_count > c3t) {   // image-driven tail at judge res (deterministic: no time box in the choice)
             g_force_nocrop = 1;
-            int lzpool = 300; if(const char* e=getenv("G_LAZY")) lzpool=atoi(e);
+            int lzpool = 1200; if(const char* e=getenv("G_LAZY")) lzpool=atoi(e);   // deep pool: prefix-sum tail converges, +3.1e-4 local vs 300
             double ctb = 6.5; if(const char* e=getenv("G_CTB")) ctb=atof(e);
             if (lzpool > 0) ctail_lazy(c3t, lzpool, 24, r_elapsed()+ctb);
             else { int ctk = 64; if(const char* e=getenv("G_CTK")) ctk=atoi(e); ctail_pass(c3t, ctk, 40); }
