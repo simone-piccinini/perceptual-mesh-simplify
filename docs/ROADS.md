@@ -314,3 +314,38 @@ walls, depth saturation, genus-0, VSA-remesh-dead, the 77%-not-85% correction.
 independently point at a **normal-attribute quadric for PLACEMENT** (Hoppe). That is exactly R-α. So
 R-α's priority is confirmed. (Fetching meshoptimizer for a head-to-head = low-EV/confirmatory — our
 tuned perception-aware pipeline already exceeds vanilla QEM; no net access anyway.)
+
+---
+
+## ROAD B2 — CONSTRUCTIVE ANISOTROPIC TAIL (the 90.6+ / leader-gap project) — QUEUED 2026-07-12
+
+**Why this and not more tuning:** the incremental paradigm's ceiling is MEASURED ten ways
+(2026-07-11..12 lab campaign): every tail/placement/cycle refinement yields e-5..e-4; the
+no-time-limit ceiling of image-driven collapse ordering is N≈6650 (S-calibrated); the leader
+needs N≈5300-6300 = an e-3-class structural gain. The missing e-3 is ANISOTROPY: case 3's
+curvature ratio |k1|/|k2| has median 3.59 (curved-half 4.91), and mesh-adaptation theory gives
+~sqrt(aniso) vertex savings (1.9-2.2x) for curvature-aligned stretched triangles — exactly the
+leader's edge size. Our collapse-based pipeline cannot reach it: QEM/SSIM collapse ORDER produces
+isotropic-ish meshes; the anisotropy must come from PLACEMENT+CONNECTIVITY built along the
+curvature field.
+
+**Design sketch (build order):**
+1. Per-vertex curvature frame field on the INPUT mesh (2-ring quadric fit — the aniso.py pass
+   ported to C++, ~80 lines, done once, ~0.3s).
+2. Anisotropic edge-length metric M(v) = diag(1, 1/a(v)) in the principal frame (clamp a to
+   [1,4]); use METRIC edge length in the collapse ORDER (replaces/augments QEM cost) and in the
+   collapse PLACEMENT (optimal point under M, not Euclidean QEM).
+3. Tangential smoothing pass in metric space every K collapses (Palfinger-style relocation,
+   but accepted on the rendered score like mini_refine — we have the machinery).
+4. The existing lazy image-driven tail stays as the FINISHER (last 200) — it corrects the
+   metric heuristic's mistakes against the true rendered SSIM.
+5. Gate per band; c3 first; K-read calibration at each milestone (threshold 0.9135 self-score).
+
+**Risks:** VSA-remesh died on organic (flat facets) — but that was PARTITION-flat, not
+curvature-aligned smooth; Hoppe/meshopt died as METRICS, not as anisotropic placement. Neither
+buries this. The real risk is time-to-build (~1-2 days) vs contest end.
+
+**Falsifier (cheap, do FIRST):** before building the full metric pipeline, test anisotropy's
+value directly: scale the QEM quadrics per-vertex by the curvature frame (a 20-line change to
+Initialize's quadric accumulation) and measure S2n at fixed N on the c3 proxy. If metric-weighted
+quadrics gain nothing at e-4 scale, the anisotropy thesis needs rework before the big build.
