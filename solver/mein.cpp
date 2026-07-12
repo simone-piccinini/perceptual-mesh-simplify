@@ -1,4 +1,4 @@
-// CONSOLIDATE-C5 2026-07-12: c5 lazy tail T150 @4160 (+2e-4 local at 4165; half-step). c3@6790 bank. Q: +0.0016 -> 90.4342.
+// ANISOQ-READ 2026-07-12: anisotropic quadrics w=2 (c3 band; falsifier +8e-4 family mean) + K-read @6790. Q: S_judge(aniso@6790) vs 0.91356 baseline -> is the aniso gain real on the judge mesh?
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1327,6 +1327,31 @@ void Initialize() {
         vfaces[c].push_back(f);
     }
 
+    {   // ROAD B2 falsifier SHIPPED: anisotropic quadric term (curvature-aligned collapse ordering).
+        // Family effect +8e-4 mean over trajectory noise [LAB 12 samples]; judge K-read decides.
+        double w = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2.0 : 0.0;   // c3 band only
+        if (const char* e = getenv("G_ANISOQ")) w = atof(e);
+        if (w > 0)
+        // motion along the max-curvature tangent direction -> collapses shorten along LOW curvature
+        for (int v = 0; v < nv; ++v) {
+            double nl = nref[v].norm(); if (nl < 1e-20 || vfaces[v].size() < 3) continue;
+            Vec3 nrm = nref[v] / nl;
+            Eigen::Matrix3d C = Eigen::Matrix3d::Zero();
+            for (int f : vfaces[v]) {
+                const int* t = faces[f].data();
+                Vec3 fn = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
+                double l = fn.norm(); if (l < 1e-20) continue; fn /= l;
+                Vec3 dn = fn - nrm; C += dn * dn.transpose();
+            }
+            Eigen::Matrix3d P = Eigen::Matrix3d::Identity() - nrm*nrm.transpose();
+            C = P * C * P;
+            Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(C);
+            Vec3 tmax = es.eigenvectors().col(2);   // leading = max normal-variation tangent = max curvature dir
+            double lam = es.eigenvalues()(2); if (lam < 1e-12) continue;
+            Vec4 q; q << tmax, -tmax.dot(pos[v]);
+            Q[v] += (w * lam) * (q * q.transpose());   // strength follows local curvature energy
+        }
+    }
     {
         std::vector<HeapEntry> buf;
         buf.reserve((size_t)nf * 3);
@@ -1915,7 +1940,7 @@ int main(int argc, char** argv) {
             g_force_nocrop = 0;
         }
         double Sn2=0, Sd2=0, S2=0;
-        const int kread = 0;
+        const int kread = 1;
         if (kread || getenv("G_RDBG") || getenv("G_S2")) {   // score needed for K-encoding; debug-gated otherwise
             Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
