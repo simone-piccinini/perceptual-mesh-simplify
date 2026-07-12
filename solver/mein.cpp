@@ -44,6 +44,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <chrono>
@@ -1117,6 +1118,15 @@ static void mini_refine(double dt) {
     const std::vector<Vec3> base=pos; double cap=0.02*diag, stp=0.004*diag;
     const double deadline = r_elapsed() + dt;
     std::vector<Vec3> g; double cur = refine_score_grad(&g);
+    if (const char* ke = getenv("G_KICK")) {   // basin hopping: forced big steps out of the local SSIM optimum
+        int kn = atoi(ke); double ks = 5.0; if (const char* c = strchr(ke, ':')) ks = atof(c+1);
+        for (int kk = 0; kk < kn; ++kk) {
+            double gm=0; for(const Vec3&gg:g) gm=std::max(gm,gg.norm()); if (gm<1e-30) break;
+            for(size_t v=0; v<pos.size(); ++v){ if(!alive[v]) continue; Vec3 d=g[v]*(ks*stp/gm); Vec3 np=pos[v]+d;
+                Vec3 off=np-base[v]; double ol=off.norm(); if(ol>cap) np=base[v]+off*(cap/ol); pos[v]=np; }
+            cur = refine_score_grad(&g);   // forced accept: re-evaluate and keep walking
+        }
+    }
     double gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm());
     int _mi = 0;
     for (int it=0; it<200; ++it) {
