@@ -1727,7 +1727,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6760;                            // BANK rung: S2_judge(deep@6775)=0.9145 [20031760], slope 1.25e-5/v -> margin ~+7.8e-4 here. env G_C3T
+        int c3t = 6740;                            // BANK ladder: 6760 judge-PASS [20031783]; S2(deep@6775)=0.9145, slope 1.25e-5/v -> margin ~+4e-4 here. env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 500; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (500) funded by the prefix-sum tail
         const int dt = c3t + ctT;
@@ -1822,8 +1822,8 @@ int main(int argc, char** argv) {
         }
         if (ctT > 0 && alive_count > c3t) {   // image-driven tail at judge res (deterministic: no time box in the choice)
             g_force_nocrop = 1;
-            int lzpool = 1000; if(const char* e=getenv("G_LAZY")) lzpool=atoi(e);   // deep pool (1000: -2.9e-5 vs 1200, converges in box at deep rungs)
-            double ctb = 7.5; if(const char* e=getenv("G_CTB")) ctb=atof(e);   // funded by kread-off + prefix-sum speed
+            int lzpool = 800; if(const char* e=getenv("G_LAZY")) lzpool=atoi(e);   // deep pool, time-trimmed (c3 ran 23.2s at pool1000/box7.5 [20031783])
+            double ctb = 6.5; if(const char* e=getenv("G_CTB")) ctb=atof(e);
             if (lzpool > 0) ctail_lazy(c3t, lzpool, 24, r_elapsed()+ctb);
             else { int ctk = 64; if(const char* e=getenv("G_CTK")) ctk=atoi(e); ctail_pass(c3t, ctk, 40); }
             g_force_nocrop = 0;

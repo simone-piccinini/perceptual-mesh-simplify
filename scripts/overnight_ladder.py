@@ -13,7 +13,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "solver/mein.cpp")
 NC  = os.path.join(ROOT, "solver/mein_nocomments.cpp")
 LOG = os.path.join(ROOT, "handoff/overnight_log.jsonl")
-BANKED_SUM = 542.423046 + (100*(1-6805/23201) - 100*(1-6830/23201))  # sum6 at bank 90.4218 (c3@6805)
+BANKED_SUM = 542.423046 + (100*(1-6805/23201) - 100*(1-6830/23201)) \
+             + (100*(1-4172/49987) - 100*(1-4165/49987))  # c5 moved 4165->4172 (tail-off insurance, 2026-07-12 night)
 C3_V = 23201
 
 def sh(cmd, timeout=1200):
