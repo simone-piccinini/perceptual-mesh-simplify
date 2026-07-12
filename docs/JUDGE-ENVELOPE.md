@@ -431,3 +431,9 @@ wall band [8661, 8681] tighter than the keep-ladder suggested).
 - **[MEASURED, 35+ failures]** Best-counts is absolute: no failed submission ever touched the bank.
 - **[MEASURED]** Same-file resubmits (--force) are fresh machine draws — the correct tool whenever
   a time-boxed component lost its coin. Worked repeatedly; the ladder automates it.
+
+### 10.6 D1 CLOSED (2026-07-12, fin-probe sub 20029777)
+Thin closed "fin" boxes floated just off the case-5 silhouette at a wide-margin rung → WA.
+⇒ **the judge INCLUDES background pixels in silhouette-straddling SSIM windows** (our oracle's
+convention is faithful). No hidden headroom at the border; every border window is diluted toward
+saturation exactly as we compute it. The 0.9135 self-score threshold calibration stands.
