@@ -1827,6 +1827,29 @@ int main(int argc, char** argv) {
 
     Initialize();
 
+    if (getenv("G_VISCOUNT")) {   // SEALING FALSIFIER: input-mesh never-photographed surface fraction
+        // A face is HIDDEN iff it is never the front (z-nearest) face in any of the 6 axial views.
+        // These faces contribute 0 to SSIM -> their vertices are candidate free deletes (sealing).
+        // Measured on the INPUT (all-alive), per the handoff: "misuralo sull'input, non sull'output".
+        const int vres = getenv("G_VISRES") ? atoi(getenv("G_VISRES")) : 1024;
+        const int saved = g_res; g_res = vres;
+        std::vector<char> vis(faces.size(), 0); std::vector<int> fid;
+        for (int v = 0; v < 6; ++v) { render_faceid(v, fid); for (int f : fid) if (f >= 0) vis[f] = 1; }
+        g_res = saved;
+        double aTot = 0, aHid = 0; long fHid = 0;
+        for (int f = 0; f < (int)faces.size(); ++f) { const int* t = faces[f].data();
+            double a = 0.5*((pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]])).norm();
+            aTot += a; if (!vis[f]) { aHid += a; ++fHid; } }
+        std::vector<char> vhid(pos.size(), 1);   // vertex purely hidden = no incident face ever visible
+        for (int f = 0; f < (int)faces.size(); ++f) if (vis[f]) { const int* t=faces[f].data(); vhid[t[0]]=vhid[t[1]]=vhid[t[2]]=0; }
+        long vHid = 0; for (size_t i=0;i<pos.size();++i) if (vhid[i]) ++vHid;
+        std::fprintf(stderr,
+            "VISCOUNT V=%d F=%d res=%d | hidden faces %ld/%zu (%.3f%%) area %.4f%% | purely-hidden verts %ld (%.3f%%)\n",
+            (int)pos.size(), (int)faces.size(), vres, fHid, faces.size(),
+            100.0*fHid/faces.size(), 100.0*aHid/(aTot>0?aTot:1), vHid, 100.0*vHid/pos.size());
+        std::exit(0);
+    }
+
     g_refine = refine_for((int)pos.size());
     if ((int)pos.size() <= 7000) g_refine_budget = 6.0;   // tiny meshes: refine converges in well under 6s; don't burn the box
     else if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) g_refine_budget = 10.5; // RLIVE-C4: trimmed to fund the 1024 polish + self-score

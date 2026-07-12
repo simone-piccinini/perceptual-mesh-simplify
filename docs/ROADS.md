@@ -375,3 +375,31 @@ small and the 2 extra local-delta evals per commit cost more tail DEPTH than the
 the exact MPC economics, net negative. **Do not spend a K-read.** Code stays env-gated (`G_ANISOC`,
 plus `G_CTBOX` to unbox the tail for ceiling measurements). Any revival needs a ~5-10× cheaper
 per-candidate delta (e.g. reusing the ring rasterization across candidates) BEFORE re-testing.
+
+**ROUTE-2 (hidden-surface sealing) FALSIFIER VERDICT (2026-07-12, LOCAL, no submission):** the
+handoff's last open 91+ door. Measured input never-photographed surface (`G_VISCOUNT` in mein.cpp:
+faces never front-visible from the 6 axial views; PURELY-HIDDEN verts = all incident faces hidden =
+the only free deletes) on the available meshes at 1024:
+
+    mesh       hidden-face%   PURELY-HIDDEN VERT%
+    fandisk (CAD/c4 proxy)  0.20%   0.000%   (0 verts)
+    bunny (organic)         0.09%   0.000%
+    cow (organic)           1.62%   0.758%
+    armadillo (c3/c5 proxy) 3.26%   0.768%   (384 verts)
+
+Verdict: the sealable prize is TINY and already captured by decimation.
+- CAD (fandisk): ZERO purely-hidden verts. Combined with the MEASURED genus-0 single-component fact
+  for c2/c4 (no internal voids possible -> hidden surface only from shallow surface pockets), c4
+  sealing ~= 0. Route 2's "c4 cavities" hope is closed by the topology measurement + this.
+- Organic best case (armadillo, 0.768% purely-hidden on the INPUT) is decimation-eaten: the handoff
+  already measured the FINAL c3 mesh at 0.1% hidden (~7 verts). The pipeline's collapses fold hidden
+  geometry into the visible surface for free; there is no additional prize to seal on the output.
+  Worth: 7 c3-verts = +0.03 compression = +0.005 mean at the absolute best. Not a 91+ lever.
+- Residual unknown: real c6/c7 scans (no local proxy, not genus-verified) COULD self-occlude more,
+  but c6/c7 vertices are worth 4.4e-5 / 1.6e-5 pts each and their 35x decimation eats hidden geometry
+  the same way -> a read is possible but low-EV; the pattern makes it near-certainly negligible.
+
+BOTH documented legal doors to 91+ are now closed: topology surgery (genus-0, measured) AND
+hidden-surface sealing (this). The collapse-paradigm ceiling ~90.55 stands; the 92-93 tops remain
+method-undeducible (probable end-game sandbagging per the handoff). `G_VISCOUNT` kept as
+instrumentation (judge-inert: exits only when the env is set).
