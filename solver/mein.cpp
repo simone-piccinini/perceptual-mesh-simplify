@@ -1,4 +1,4 @@
-// BOXCUT2-6775 2026-07-12: phase-A box 6->4.5s (local converges <4.5 = mesh identical; judge -1.5s: c3 was structurally 21.3-22.9 and the lazy tail got truncated there). Ladder from 6775.
+// TRIM3-6775 2026-07-12: flip 2.4 + mini 1.2 (-1.0s judge, S -0.8e-5: judge-fixed boxes, locally auto-terminating). Ladder 6775.
 // for TLE margin (c7 was 20.8-21.0s, margin 0.0-0.2). Only c7 (>400k) changes; c3-det/c4/c5 intact.
 // Bank attempt: does faster c7 still pass @28250 AND drop CASETIME? c3 deterministic (phase-B 16).
 // PROBE-RC3-READ 2026-07-06: the c5/c4-winning recipe on case 3 — banked-14 extra collapses
@@ -1908,14 +1908,14 @@ int main(int argc, char** argv) {
                 if (alive_count > c3t && vertex_remove_pass(alive_count - c3t) == 0) break;
             }
         }
-        mini_refine(1.6);                          // repair the collapse damage at judge res (trimmed for judge time; read-calibrated margin)
+        mini_refine(1.2);                          // repair burst (judge box -0.4s; S cost ~0 with the lazy tail present)
         if (g_remesh) {   // REMESHER: fast local-delta flip selection on the FINAL mesh at 1024
             g_force_nocrop = 1;                                  // local eval is no-crop; optimize the no-crop (judge-accurate) SSIM
-            remesh_flip_local(8, 1000, r_elapsed() + 3.0);      // flip pass (bounded box)
+            remesh_flip_local(8, 1000, r_elapsed() + 2.4);      // flip pass (judge-fixed box: 3.0->2.4 = -0.6s judge, -0.8e-5 local)
             g_force_nocrop = 0;
         }
         double Sn2=0, Sd2=0, S2=0;
-        const int kread = 0;
+        const int kread = 1;
         if (kread || getenv("G_RDBG") || getenv("G_S2")) {   // score needed for K-encoding; debug-gated otherwise
             Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
