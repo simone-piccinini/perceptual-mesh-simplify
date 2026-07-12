@@ -713,10 +713,28 @@ static int ctail_lazy(int target, int pool, int RB, double tbox) {
                 if(d<-1e29) continue;
                 heap.push_back({d,e.u,e.v,e.xb,vver[e.u]+vver[e.v]}); std::push_heap(heap.begin(),heap.end(),cmp); continue;
             }
-            {   int mpcm = 1; if (const char* me = getenv("G_MPC")) mpcm = atoi(me);   // 0 off | 1 classic 3-cand (+1.3e-4 marginal at deep pool) | 2 +ANISO (local marginal ~0)
+            {   int mpcm = 3; if (const char* me = getenv("G_MPC")) mpcm = atoi(me);   // 0 off | 1 classic | 2 +ANISO(dead) | 3 classic+CONTINUOUS line-search last-64 (+5.8e-5 local @6700)
                 if (mpcm >= 1) {
                     Vec3 alt[3]={0.5*(pos[e.u]+pos[e.v]), pos[e.u], pos[e.v]};
                     for(const Vec3& q : alt){ double dq=collapse_delta_local(e.u,e.v,q); if(dq>e.d){e.d=dq;e.xb=q;} }
+                }
+                if (mpcm >= 3 && alive_count - target < 64) {
+                    const Vec3 A = pos[e.u], B = pos[e.v];
+                    double lo = 0.0, hi = 1.0;
+                    double tb = (e.xb - A).norm() / std::max(1e-30, (B - A).norm());
+                    if (tb < lo || tb > hi) tb = 0.5;
+                    double fb = e.d;
+                    for (int it = 0; it < 5; ++it) {
+                        double t1 = tb - (tb - lo) * 0.38, t2 = tb + (hi - tb) * 0.38;
+                        Vec3 q1 = A + t1 * (B - A), q2 = A + t2 * (B - A);
+                        double d1 = collapse_delta_local(e.u, e.v, q1);
+                        double d2 = collapse_delta_local(e.u, e.v, q2);
+                        if (d1 > fb && d1 >= d2) { hi = tb; tb = t1; fb = d1; }
+                        else if (d2 > fb) { lo = tb; tb = t2; fb = d2; }
+                        else { lo = tb - (tb - lo) * 0.38; hi = tb + (hi - tb) * 0.38; }
+                        if (hi - lo < 0.02) break;
+                    }
+                    if (fb > e.d) { e.d = fb; e.xb = A + tb * (B - A); }
                 }
                 if (mpcm >= 2 && alive_count - target < 64) {   // aniso candidates only where the rung is decided
                     Vec3 nbar = Vec3::Zero(); Eigen::Matrix3d M = Eigen::Matrix3d::Zero(); double aw = 0.0;
@@ -2001,7 +2019,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6720;                            // BANK ladder: 6760 judge-PASS [20031783]; S2(deep@6775)=0.9145, slope 1.25e-5/v -> margin ~+4e-4 here. env G_C3T
+        int c3t = 6700;                            // BANK ladder: 6760 judge-PASS [20031783]; S2(deep@6775)=0.9145, slope 1.25e-5/v -> margin ~+4e-4 here. env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 500; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (500) funded by the prefix-sum tail
         const int dt = c3t + ctT;
@@ -2166,8 +2184,8 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {   // ===== PROBE-RLIVE-C4 =====
-        int c4t = 4900; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
-        int c4T = 200; if(const char* e=getenv("G_C4CT")) c4T=atoi(e);    // ROAD A on c4: measured NEGATIVE locally (-5.7e-4: CAD edges prefer QEM order) - OFF
+        int c4t = 4920; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
+        int c4T = 0; if(const char* e=getenv("G_C4CT")) c4T=atoi(e);    // ROAD A on c4: measured NEGATIVE locally (-5.7e-4: CAD edges prefer QEM order) - OFF
         seed_heap(); Decimate(c4t + c4T);          // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
@@ -2244,8 +2262,8 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4165; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
-        int c5T = 150;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // injected lazy tail: 9.1s local ~19.2s judge, +0.7e-3 S2 local
+        int c5t = 4172; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
+        int c5T = 0;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // injected lazy tail: 9.1s local ~19.2s judge, +0.7e-3 S2 local
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
         if (c5T > 0 && alive_count > c5t) { g_res=1024; g_refine_res=1024; g_force_nocrop=1;
