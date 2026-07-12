@@ -72,3 +72,18 @@ ceiling pratico, lasciare STATUS/ROADS/ENVELOPE aggiornati e questo file rimpiaz
 - Restano da incassare: il coin c5@4160 (+0.0016) e nient'altro di misurato in questo paradigma.
 - Per superare Loko servono +0.02 = OLTRE il ceiling → via 4 (anisotropia DENTRO la coda) o
   un'idea di classe nuova. Falsifier-first + K-read, sempre.
+
+## LA ROTTA PER 91+ (analisi finale 12/07 sera — dal CONTRATTO, non da speculazioni)
+Rileggi `docs/PROBLEM-AND-JUDGE.md` (il PDF ufficiale distillato). I top a 92-93 rompono il
+rapporto S(N) — e le uniche due porte DOCUMENTATE e LEGALI mai aperte dal progetto sono lì:
+1. **TOPOLOGY SURGERY su c4 (Scoperta 5b)**: il floor c4 (~4570) è GENUS — anelli di vertici
+   intrappolati dai fori del CAD. La chirurgia è LEGALE (serve manifold chiuso, non genus
+   invariato). FALSIFIER-FIRST: conta i manici di c4 (Eulero: g = (2−V+E−F)/2 per componente,
+   sul proxy /tmp/c4c.in) e stima l'area proiettata dei fori nelle 6 viste. Fori piccoli/occlusi
+   = chiudibili quasi gratis. Se g è alto (decine), il premio è +0.3-0.5 TOTALE. Il muro c2 (28)
+   potrebbe avere la stessa natura. Poi K-read.
+2. **SEALING delle zone mai fotografate (Scoperta 2, PROVATA legale)**: cancella superficie
+   invisibile alle 6 viste E RICHIUDI (il viscount sul c3 finale dà 0.1% — ma sul mesh RAW e
+   su c4/c6 (CAD, cavità interne!) può essere molto di più: MISURALO sull'input, non sull'output).
+3. Se entrambe piccole: i 93 dei top restano inspiegati — in tal caso valuta imposter per-vista
+   (componenti-rilievo, legali per la Scoperta 2) come ricerca, con read a ogni passo.
