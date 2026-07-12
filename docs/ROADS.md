@@ -365,3 +365,13 @@ failed for quadric-term additions). Any B2 revival must (a) put anisotropy in th
 (which self-corrects against the true rendered metric) not in global quadrics, and (b) trust only
 K-reads. The collapse-paradigm ceiling (~6650 = ~90.55) stands as the roof until a mechanism of a
 different class exists.
+
+**AVENUE-4 FALSIFIER VERDICT (2026-07-12 late, LOCAL family — no submission spent):** anisotropic
+placement candidates AT COMMIT inside the lazy tail (`G_ANISOC`: +/-0.5·|uv| along the flat tangent,
+hand-rolled power-iteration frame, evaluated by `collapse_delta_local`) are **NEGATIVE at the judge
+shape**: boxed (6.5 s tail) family mean Δ(S2) = −1.0e-4, sign-consistent across rungs 6790/6775/6760
+(worst −2.3e-4 at 6790, repeats tight). Unboxed Δ = +1.2e-4 — the mechanism is real but ~10× too
+small and the 2 extra local-delta evals per commit cost more tail DEPTH than the placement buys —
+the exact MPC economics, net negative. **Do not spend a K-read.** Code stays env-gated (`G_ANISOC`,
+plus `G_CTBOX` to unbox the tail for ceiling measurements). Any revival needs a ~5-10× cheaper
+per-candidate delta (e.g. reusing the ring rasterization across candidates) BEFORE re-testing.

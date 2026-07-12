@@ -638,6 +638,11 @@ static double collapse_delta_local(int u, int v, const Vec3& xbar) {
 // dirty zone since the last render are deferred. Hypothesis: T=200 failed on POOL WIDTH (64), not depth.
 static int ctail_lazy(int target, int pool, int RB, double tbox) {
     int done=0;
+    // ANISOC (ROADS avenue-4, the one legitimate B2 revival): anisotropic placement candidates
+    // AT COMMIT, evaluated by collapse_delta_local -> self-correcting against the true metric.
+    // Value = scale in % of local edge length (e.g. 50 -> +/-0.5*|uv| along the flat tangent).
+    // Pure hand-rolled doubles (power iteration) - the judge cc1plus OOMs on new Eigen sites.
+    const int anisoc = getenv("G_ANISOC") ? atoi(getenv("G_ANISOC")) : 0;
     struct Ent { double d; int u,v; Vec3 xb; int ver; };
     auto cmp=[](const Ent&a, const Ent&b){ return a.d < b.d; };   // max-heap on delta (higher=better)
     std::vector<int> vver(pos.size(), 0);
@@ -672,6 +677,41 @@ static int ctail_lazy(int target, int pool, int RB, double tbox) {
             if (getenv("G_MPC")) {   // MP-at-commit (+1.7e-4 S, +0.8s judge): S(MPC@6760)<threshold [read 20029367] -> not enough for 6760; keep for future rungs
                 Vec3 alt[3]={0.5*(pos[e.u]+pos[e.v]), pos[e.u], pos[e.v]};
                 for(const Vec3& q : alt){ double dq=collapse_delta_local(e.u,e.v,q); if(dq>e.d){e.d=dq;e.xb=q;} }
+            }
+            if (anisoc > 0) {   // ANISOC: +/- along the merged star's FLAT tangent (min normal variation)
+                double nb0=0,nb1=0,nb2=0, m00=0,m01=0,m02=0,m11=0,m12=0,m22=0, aw=0;
+                for (int side=0; side<2; ++side) for (int f2 : vfaces[side? e.v : e.u]) {
+                    if (!face_alive[f2]) continue; const int* t=faces[f2].data();
+                    Vec3 c=(pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]); double l=c.norm(); if(l<=0) continue;
+                    const double a=0.5*l, nx=c.x()/l, ny=c.y()/l, nz=c.z()/l;
+                    nb0+=a*nx; nb1+=a*ny; nb2+=a*nz;
+                    m00+=a*nx*nx; m01+=a*nx*ny; m02+=a*nx*nz; m11+=a*ny*ny; m12+=a*ny*nz; m22+=a*nz*nz; aw+=a;
+                }
+                double nl=std::sqrt(nb0*nb0+nb1*nb1+nb2*nb2);
+                if (aw>0 && nl>1e-12*aw) {
+                    nb0/=aw; nb1/=aw; nb2/=aw;
+                    m00=m00/aw-nb0*nb0; m01=m01/aw-nb0*nb1; m02=m02/aw-nb0*nb2;
+                    m11=m11/aw-nb1*nb1; m12=m12/aw-nb1*nb2; m22=m22/aw-nb2*nb2;
+                    double ex=1.0, ey=0.7, ez=0.3;                       // power iteration -> max-variation dir
+                    for (int pi=0; pi<12; ++pi) {
+                        const double tx=m00*ex+m01*ey+m02*ez, ty=m01*ex+m11*ey+m12*ez, tz=m02*ex+m12*ey+m22*ez;
+                        const double tl=std::sqrt(tx*tx+ty*ty+tz*tz); if (tl<1e-30) { ex=ey=ez=0; break; }
+                        ex=tx/tl; ey=ty/tl; ez=tz/tl;
+                    }
+                    const double un=std::sqrt(nb0*nb0+nb1*nb1+nb2*nb2);
+                    if (un>1e-30 && (ex!=0.0||ey!=0.0||ez!=0.0)) {
+                        const double ux=nb0/un, uy=nb1/un, uz=nb2/un;    // flat dir = nbar x emax
+                        double dx=uy*ez-uz*ey, dy=uz*ex-ux*ez, dz=ux*ey-uy*ex;
+                        const double dl=std::sqrt(dx*dx+dy*dy+dz*dz);
+                        if (dl>1e-12) {
+                            dx/=dl; dy/=dl; dz/=dl;
+                            const double sc=(pos[e.u]-pos[e.v]).norm()*(0.01*anisoc);
+                            const Vec3 dv(dx,dy,dz);
+                            const Vec3 alt2[2]={ e.xb + sc*dv, e.xb - sc*dv };
+                            for (const Vec3& q : alt2){ double dq=collapse_delta_local(e.u,e.v,q); if(dq>e.d){e.d=dq;e.xb=q;} }
+                        }
+                    }
+                }
             }
             if(!SafeToCollapse(e.u,e.v,e.xb)) continue;
             Collapse(e.u,e.v,e.xb); --alive_count; ++done; ++commits;
@@ -1966,7 +2006,8 @@ int main(int argc, char** argv) {
         if (ctT > 0 && alive_count > c3t) {   // image-driven tail at judge res (deterministic: no time box in the choice)
             g_force_nocrop = 1;
             int lzpool = 300; if(const char* e=getenv("G_LAZY")) lzpool=atoi(e);
-            if (lzpool > 0) ctail_lazy(c3t, lzpool, 24, r_elapsed()+6.5);
+            double ctb = 6.5; if(const char* e=getenv("G_CTBOX")) ctb = atof(e);   // local falsifier: unbox the tail
+            if (lzpool > 0) ctail_lazy(c3t, lzpool, 24, r_elapsed()+ctb);
             else { int ctk = 64; if(const char* e=getenv("G_CTK")) ctk=atoi(e); ctail_pass(c3t, ctk, 40); }
             g_force_nocrop = 0;
             for (int rw = 0; rw < 2 && alive_count > c3t; ++rw) {   // safety: finish by QEM if the tail stalled
