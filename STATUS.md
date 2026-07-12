@@ -11,7 +11,10 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, main.cpp decimation track)
 
 ```
-BANK      90.421800  (7/7)   [JUDGE 20025786, 2026-07-11] — c3@6805 via ROAD A (image-driven collapse
+BANK      90.432575  (7/7)   [JUDGE ~20026xxx ladder 2026-07-11 22:08] — c3@6790 lazy tail + c4@4920 +
+                               c5@4165. FINAL walls: c3 6790 (6775/6760 SSIM-closed even w/ MPC, read-typed),
+                               c4 4920, c5 4165 (4160 probe open). Practical ceiling of the collapse paradigm.
+                               Prior bank 90.421800: c3@6805 via ROAD A (image-driven collapse
                                tail: lazy-greedy, burst16 K64 T100, collapse_delta_local validated ratio 1.0)
                                + c4@4920 + c5@4165. JUDGE-VALIDATED: 6805 never passed under QEM order.
                                Calibration: S2_judge(deep@6830)=0.9140 [K-read 20025436], threshold ~0.9135.
