@@ -489,10 +489,14 @@ static bool refine_valid();   // fwd decl (defined below)
 // by recomputing only the windows the flip touches (quad pixels dilated by R_RAD), from the cached original
 // image (g_orig_n) and the cached base face-id buffer (g_rfs). ~hundreds of windows/flip vs a full W*W render.
 static std::vector<int> g_rfs[6];   // cached base face-id buffers (must match the current mesh; re-cache after applying flips)
+static std::vector<float> g_rzb[6]; // cached base z-buffers (coverage-aware tail: depth channel + silhouette pricing)
 static long g_rNv[6];               // per-view foreground window count (crop OFF; matches refine_score_grad with g_force_nocrop)
 static void remesh_cache_render() {
     const int W=g_res; const int R=R_RAD;
-    for(int v=0;v<6;++v){ render_faceid(v, g_rfs[v]); long N=0;
+    for(int v=0;v<6;++v){ std::vector<double> zb; g_zb_out=&zb; render_faceid(v, g_rfs[v]); g_zb_out=nullptr;
+        g_rzb[v].assign((size_t)W*W, 255.0f);
+        for(size_t k=0;k<(size_t)W*W;++k) if(g_rfs[v][k]>=0) g_rzb[v][k]=(float)zb[k];
+        long N=0;
         for(int y=R;y<=W-R-1;++y) for(int x=R;x<=W-R-1;++x){ size_t k=(size_t)y*W+x; if(g_orig_cov[v][k]||g_rfs[v][k]>=0) ++N; }
         g_rNv[v]=N; }
 }
@@ -593,26 +597,43 @@ static double collapse_delta_local(int u, int v, const Vec3& xbar) {
         for(size_t i=0;i<ring.size();++i){ if(dead[i]) continue;
             for(int k=0;k<3;++k){ Vec3 r=nverts[i][k]-eye; double dzz=r.dot(fw); if(dzz<=0){ dead[i]=2; break; }
                 scr[i][2*k]=F*r.dot(rt)/dzz+CC; scr[i][2*k+1]=F*r.dot(up)/dzz+CC; dz3[i][k]=dzz; } }
-        for(int ch=0; ch<3; ++ch){
-            const std::vector<float>& X=g_orig_n[vw][ch];
+        // rasterize the ring ONCE (was 3x, per channel): hitmap + depth channel; coverage loss allowed
+        // ONLY on true silhouette (an 8-neighbor is background in the base render) and PRICED, not rejected.
+        std::vector<signed char> hitmap((size_t)rw*rh, -2);   // -2 untouched, -1 silhouette-uncovered, >=0 ring idx
+        std::vector<float> Zo((size_t)rw*rh), Zn((size_t)rw*rh);
+        for(int yy=ry0;yy<=ry1;++yy) for(int xx=rx0;xx<=rx1;++xx){ size_t k=(size_t)yy*W+xx; int fid=g_rfs[vw][k];
+            size_t li=(size_t)(yy-ry0)*rw+(xx-rx0);
+            Zo[li]=g_rzb[vw][k]; Zn[li]=Zo[li];
+            bool inRing=false; if(fid>=0) for(size_t i=0;i<ring.size();++i) if(ring[i]==fid){ inRing=true; break; }
+            if(!inRing) continue;
+            double cx=xx+0.5, cy=yy+0.5, bz=1e30; int hit=-1;
+            for(size_t i=0;i<ring.size();++i){ if(dead[i]) continue;
+                double u0=scr[i][0],v0=scr[i][1],u1=scr[i][2],v1=scr[i][3],u2=scr[i][4],v2=scr[i][5];
+                double det=(v1-v2)*(u0-u2)+(u2-u1)*(v0-v2); if(det>-1e-12&&det<1e-12) continue; double inv=1.0/det;
+                double w0=((v1-v2)*(cx-u2)+(u2-u1)*(cy-v2))*inv, w1=((v2-v0)*(cx-u2)+(u0-u2)*(cy-v2))*inv, w2=1-w0-w1;
+                if(w0<-1e-6||w1<-1e-6||w2<-1e-6) continue;
+                double den=w0/dz3[i][0]+w1/dz3[i][1]+w2/dz3[i][2]; if(den<=0) continue; double z=1.0/den;
+                if(z<bz){ bz=z; hit=(int)i; } }
+            if(hit<0){
+                bool sil=false;
+                for(int dy=-1;dy<=1&&!sil;++dy) for(int dx=-1;dx<=1;++dx){ int qx=xx+dx, qy=yy+dy;
+                    if(qx<0||qy<0||qx>=W||qy>=W){ sil=true; break; }
+                    if(g_rfs[vw][(size_t)qy*W+qx]<0){ sil=true; break; } }
+                if(!sil) return -1e30;   // interior un-cover: occluded geometry unknown -> reject
+                Zn[li]=255.0f; hitmap[li]=-1;
+            } else { Zn[li]=(float)bz; hitmap[li]=(signed char)hit; }
+        }
+        for(int ch=0; ch<4; ++ch){   // 3 normal channels + depth (judge weight: D = 3 N-channels)
+            const std::vector<float>& X = (ch<3) ? g_orig_n[vw][ch] : g_orig_d[vw];
             std::vector<float> Yo((size_t)rw*rh), Yn((size_t)rw*rh);
-            for(int yy=ry0;yy<=ry1;++yy) for(int xx=rx0;xx<=rx1;++xx){ size_t k=(size_t)yy*W+xx; int fid=g_rfs[vw][k];
+            if (ch==3) { Yo=Zo; Yn=Zn; }
+            else for(int yy=ry0;yy<=ry1;++yy) for(int xx=rx0;xx<=rx1;++xx){ size_t k=(size_t)yy*W+xx; int fid=g_rfs[vw][k];
                 float yb=(fid>=0)? enc(g_fnc[fid][ch]) : 127.5f; float yo=yb, yn=yb;
-                bool inRing=false; if(fid>=0) for(size_t i=0;i<ring.size();++i) if(ring[i]==fid){ inRing=true; break; }
-                if(inRing){
-                    // re-rasterize this pixel against the NEW ring faces (z-min)
-                    double cx=xx+0.5, cy=yy+0.5, bz=1e30; int hit=-1;
-                    for(size_t i=0;i<ring.size();++i){ if(dead[i]) continue;
-                        double u0=scr[i][0],v0=scr[i][1],u1=scr[i][2],v1=scr[i][3],u2=scr[i][4],v2=scr[i][5];
-                        double det=(v1-v2)*(u0-u2)+(u2-u1)*(v0-v2); if(det>-1e-12&&det<1e-12) continue; double inv=1.0/det;
-                        double w0=((v1-v2)*(cx-u2)+(u2-u1)*(cy-v2))*inv, w1=((v2-v0)*(cx-u2)+(u0-u2)*(cy-v2))*inv, w2=1-w0-w1;
-                        if(w0<-1e-6||w1<-1e-6||w2<-1e-6) continue;
-                        double den=w0/dz3[i][0]+w1/dz3[i][1]+w2/dz3[i][2]; if(den<=0) continue; double z=1.0/den;
-                        if(z<bz){ bz=z; hit=(int)i; } }
-                    if(hit<0) return -1e30;   // coverage lost (silhouette shrinks) -> conservative reject
-                    yn = enc(nn[hit][ch]);
-                }
-                size_t li=(size_t)(yy-ry0)*rw+(xx-rx0); Yo[li]=yo; Yn[li]=yn; }
+                size_t li=(size_t)(yy-ry0)*rw+(xx-rx0);
+                signed char hm=hitmap[li];
+                if(hm==-1) yn=127.5f;
+                else if(hm>=0) yn=enc(nn[hm][ch]);
+                Yo[li]=yo; Yn[li]=yn; }
             const int wx0=std::max(R,rx0+R), wx1=std::min(W-R-1,rx1-R), wy0=std::max(R,ry0+R), wy1=std::min(W-R-1,ry1-R);
             for(int wy=wy0;wy<=wy1;++wy) for(int wx=wx0;wx<=wx1;++wx){ size_t k=(size_t)wy*W+wx;
                 if(!(g_orig_cov[vw][k]||g_rfs[vw][k]>=0)) continue;
@@ -624,7 +645,7 @@ static double collapse_delta_local(int u, int v, const Vec3& xbar) {
                 double MX=SX/R_WN;
                 auto ss=[&](double SY,double SYY,double SXY)->double{ double MY=SY/R_WN, SXv=SXX/R_WN-MX*MX, SYv=SYY/R_WN-MY*MY, SXYv=SXY/R_WN-MX*MY;
                     double A=2*MX*MY+R_C1,B=2*SXYv+R_C2,Cc=MX*MX+MY*MY+R_C1,Dd=SXv+SYv+R_C2; return (A*B)/(Cc*Dd); };
-                delta += (ss(SYn,SYYn,SXYn)-ss(SYo,SYYo,SXYo)) / ((double)g_rNv[vw]*18.0);
+                delta += ((ch==3)?3.0:1.0) * (ss(SYn,SYYn,SXYn)-ss(SYo,SYYo,SXYo)) / ((double)g_rNv[vw]*36.0);
             }
         }
         for(size_t i=0;i<ring.size();++i) if(dead[i]==2) dead[i]=0;   // behind-eye flag is per-view

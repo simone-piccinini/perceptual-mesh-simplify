@@ -72,3 +72,13 @@ auto-terminano si tagliano gratis (già fatto ×3, ENVELOPE §10.3). Rimasti: tb
 
 Obiettivo minimo sessione: coverage-aware tail costruito+letto sul judge; se positivo, bancare
 ≥1 rung sotto 6790. Lascia un V7.
+
+## ESITO CANTIERE 1 (misurato 12/07 notte, già nel codice committato)
+Coverage-aware tail COSTRUITO (z-buffer cache g_rzb + 4° canale depth peso ×3 + silhouette-gate
+al posto del reject): famiglia locale = +1.0e-4 S2 combinato ai rung profondi (@6760 +9.8e-5,
+@6730 +7.0e-5; pool300-cov batte il vecchio pool500), costo +0.8s. NON i +7e-3 del tetto teorico:
+il gate onesto ammette pochi collassi di bordo; il resto del deficit depth richiede spostare il
+bordo, che paga 2:1 in normale (SIL misurato). Con +1e-4 il 6760 resta ~al livello del vecchio
+6775 (fail probabile). PROSSIMI PASSI SENSATI: (a) K-read del cov-tail @6760 per tipizzare (1 sub);
+(b) allargare il gate (2 anelli di vicinato) e riprovare la famiglia; (c) se piatto, il fronte
+depth è chiuso DAVVERO e il gioco resta: tempo (via 3) + anisotropia nel MPC (via 2).

@@ -363,10 +363,14 @@ static double refine_score_grad(std::vector<Vec3>* grad) {
 static bool refine_valid();   // fwd decl (defined below)
 
 static std::vector<int> g_rfs[6];   // cached base face-id buffers (must match the current mesh; re-cache after applying flips)
+static std::vector<float> g_rzb[6]; // cached base z-buffers (coverage-aware tail: depth channel + silhouette pricing)
 static long g_rNv[6];               // per-view foreground window count (crop OFF; matches refine_score_grad with g_force_nocrop)
 static void remesh_cache_render() {
     const int W=g_res; const int R=R_RAD;
-    for(int v=0;v<6;++v){ render_faceid(v, g_rfs[v]); long N=0;
+    for(int v=0;v<6;++v){ std::vector<double> zb; g_zb_out=&zb; render_faceid(v, g_rfs[v]); g_zb_out=nullptr;
+        g_rzb[v].assign((size_t)W*W, 255.0f);
+        for(size_t k=0;k<(size_t)W*W;++k) if(g_rfs[v][k]>=0) g_rzb[v][k]=(float)zb[k];
+        long N=0;
         for(int y=R;y<=W-R-1;++y) for(int x=R;x<=W-R-1;++x){ size_t k=(size_t)y*W+x; if(g_orig_cov[v][k]||g_rfs[v][k]>=0) ++N; }
         g_rNv[v]=N; }
 }
@@ -455,25 +459,41 @@ static double collapse_delta_local(int u, int v, const Vec3& xbar) {
         for(size_t i=0;i<ring.size();++i){ if(dead[i]) continue;
             for(int k=0;k<3;++k){ Vec3 r=nverts[i][k]-eye; double dzz=r.dot(fw); if(dzz<=0){ dead[i]=2; break; }
                 scr[i][2*k]=F*r.dot(rt)/dzz+CC; scr[i][2*k+1]=F*r.dot(up)/dzz+CC; dz3[i][k]=dzz; } }
-        for(int ch=0; ch<3; ++ch){
-            const std::vector<float>& X=g_orig_n[vw][ch];
+        std::vector<signed char> hitmap((size_t)rw*rh, -2);   // -2 untouched, -1 silhouette-uncovered, >=0 ring idx
+        std::vector<float> Zo((size_t)rw*rh), Zn((size_t)rw*rh);
+        for(int yy=ry0;yy<=ry1;++yy) for(int xx=rx0;xx<=rx1;++xx){ size_t k=(size_t)yy*W+xx; int fid=g_rfs[vw][k];
+            size_t li=(size_t)(yy-ry0)*rw+(xx-rx0);
+            Zo[li]=g_rzb[vw][k]; Zn[li]=Zo[li];
+            bool inRing=false; if(fid>=0) for(size_t i=0;i<ring.size();++i) if(ring[i]==fid){ inRing=true; break; }
+            if(!inRing) continue;
+            double cx=xx+0.5, cy=yy+0.5, bz=1e30; int hit=-1;
+            for(size_t i=0;i<ring.size();++i){ if(dead[i]) continue;
+                double u0=scr[i][0],v0=scr[i][1],u1=scr[i][2],v1=scr[i][3],u2=scr[i][4],v2=scr[i][5];
+                double det=(v1-v2)*(u0-u2)+(u2-u1)*(v0-v2); if(det>-1e-12&&det<1e-12) continue; double inv=1.0/det;
+                double w0=((v1-v2)*(cx-u2)+(u2-u1)*(cy-v2))*inv, w1=((v2-v0)*(cx-u2)+(u0-u2)*(cy-v2))*inv, w2=1-w0-w1;
+                if(w0<-1e-6||w1<-1e-6||w2<-1e-6) continue;
+                double den=w0/dz3[i][0]+w1/dz3[i][1]+w2/dz3[i][2]; if(den<=0) continue; double z=1.0/den;
+                if(z<bz){ bz=z; hit=(int)i; } }
+            if(hit<0){
+                bool sil=false;
+                for(int dy=-1;dy<=1&&!sil;++dy) for(int dx=-1;dx<=1;++dx){ int qx=xx+dx, qy=yy+dy;
+                    if(qx<0||qy<0||qx>=W||qy>=W){ sil=true; break; }
+                    if(g_rfs[vw][(size_t)qy*W+qx]<0){ sil=true; break; } }
+                if(!sil) return -1e30;   // interior un-cover: occluded geometry unknown -> reject
+                Zn[li]=255.0f; hitmap[li]=-1;
+            } else { Zn[li]=(float)bz; hitmap[li]=(signed char)hit; }
+        }
+        for(int ch=0; ch<4; ++ch){   // 3 normal channels + depth (judge weight: D = 3 N-channels)
+            const std::vector<float>& X = (ch<3) ? g_orig_n[vw][ch] : g_orig_d[vw];
             std::vector<float> Yo((size_t)rw*rh), Yn((size_t)rw*rh);
-            for(int yy=ry0;yy<=ry1;++yy) for(int xx=rx0;xx<=rx1;++xx){ size_t k=(size_t)yy*W+xx; int fid=g_rfs[vw][k];
+            if (ch==3) { Yo=Zo; Yn=Zn; }
+            else for(int yy=ry0;yy<=ry1;++yy) for(int xx=rx0;xx<=rx1;++xx){ size_t k=(size_t)yy*W+xx; int fid=g_rfs[vw][k];
                 float yb=(fid>=0)? enc(g_fnc[fid][ch]) : 127.5f; float yo=yb, yn=yb;
-                bool inRing=false; if(fid>=0) for(size_t i=0;i<ring.size();++i) if(ring[i]==fid){ inRing=true; break; }
-                if(inRing){
-                    double cx=xx+0.5, cy=yy+0.5, bz=1e30; int hit=-1;
-                    for(size_t i=0;i<ring.size();++i){ if(dead[i]) continue;
-                        double u0=scr[i][0],v0=scr[i][1],u1=scr[i][2],v1=scr[i][3],u2=scr[i][4],v2=scr[i][5];
-                        double det=(v1-v2)*(u0-u2)+(u2-u1)*(v0-v2); if(det>-1e-12&&det<1e-12) continue; double inv=1.0/det;
-                        double w0=((v1-v2)*(cx-u2)+(u2-u1)*(cy-v2))*inv, w1=((v2-v0)*(cx-u2)+(u0-u2)*(cy-v2))*inv, w2=1-w0-w1;
-                        if(w0<-1e-6||w1<-1e-6||w2<-1e-6) continue;
-                        double den=w0/dz3[i][0]+w1/dz3[i][1]+w2/dz3[i][2]; if(den<=0) continue; double z=1.0/den;
-                        if(z<bz){ bz=z; hit=(int)i; } }
-                    if(hit<0) return -1e30;   // coverage lost (silhouette shrinks) -> conservative reject
-                    yn = enc(nn[hit][ch]);
-                }
-                size_t li=(size_t)(yy-ry0)*rw+(xx-rx0); Yo[li]=yo; Yn[li]=yn; }
+                size_t li=(size_t)(yy-ry0)*rw+(xx-rx0);
+                signed char hm=hitmap[li];
+                if(hm==-1) yn=127.5f;
+                else if(hm>=0) yn=enc(nn[hm][ch]);
+                Yo[li]=yo; Yn[li]=yn; }
             const int wx0=std::max(R,rx0+R), wx1=std::min(W-R-1,rx1-R), wy0=std::max(R,ry0+R), wy1=std::min(W-R-1,ry1-R);
             for(int wy=wy0;wy<=wy1;++wy) for(int wx=wx0;wx<=wx1;++wx){ size_t k=(size_t)wy*W+wx;
                 if(!(g_orig_cov[vw][k]||g_rfs[vw][k]>=0)) continue;
@@ -485,7 +505,7 @@ static double collapse_delta_local(int u, int v, const Vec3& xbar) {
                 double MX=SX/R_WN;
                 auto ss=[&](double SY,double SYY,double SXY)->double{ double MY=SY/R_WN, SXv=SXX/R_WN-MX*MX, SYv=SYY/R_WN-MY*MY, SXYv=SXY/R_WN-MX*MY;
                     double A=2*MX*MY+R_C1,B=2*SXYv+R_C2,Cc=MX*MX+MY*MY+R_C1,Dd=SXv+SYv+R_C2; return (A*B)/(Cc*Dd); };
-                delta += (ss(SYn,SYYn,SXYn)-ss(SYo,SYYo,SXYo)) / ((double)g_rNv[vw]*18.0);
+                delta += ((ch==3)?3.0:1.0) * (ss(SYn,SYYn,SXYn)-ss(SYo,SYYo,SXYo)) / ((double)g_rNv[vw]*36.0);
             }
         }
         for(size_t i=0;i<ring.size();++i) if(dead[i]==2) dead[i]=0;   // behind-eye flag is per-view
@@ -1016,6 +1036,27 @@ static void fin_probe_build(std::vector<Vec3>& finV, std::vector<std::array<int,
             char m = 0; for (int dy = -R; dy <= R; ++dy) { int yy = y + dy; if (yy < 0 || yy >= W) continue; if (tmp[(size_t)yy * W + x]) { m = 1; break; } }
             covd[v][(size_t)y * W + x] = m; }
     }
+    static std::vector<char> nearrim[6]; const int RN = 64;
+    for (int v = 0; v < 6; ++v) {
+        std::vector<char> tmp((size_t)W * W, 0);       // 1 = some bg px within RN horizontally
+        for (int y = 0; y < W; ++y) { int run = RN + 1;   // distance to last bg px
+            for (int x = 0; x < W; ++x) { size_t k = (size_t)y * W + x;
+                if (!g_orig_cov[v][k]) run = 0; else ++run;
+                tmp[k] = (run <= RN); }
+            run = RN + 1;
+            for (int x = W - 1; x >= 0; --x) { size_t k = (size_t)y * W + x;
+                if (!g_orig_cov[v][k]) run = 0; else ++run;
+                if (run <= RN) tmp[k] = 1; } }
+        nearrim[v].assign((size_t)W * W, 0);
+        for (int x = 0; x < W; ++x) { int run = RN + 1;
+            for (int y = 0; y < W; ++y) { size_t k = (size_t)y * W + x;
+                if (tmp[k]) run = 0; else ++run;
+                nearrim[v][k] = (run <= RN); }
+            run = RN + 1;
+            for (int y = W - 1; y >= 0; --y) { size_t k = (size_t)y * W + x;
+                if (tmp[k]) run = 0; else ++run;
+                if (run <= RN) nearrim[v][k] = 1; } }
+    }
     Vec3 eyeA[6], rightA[6], upA[6], fwdA[6];
     for (int v = 0; v < 6; ++v) view_basis(v, eyeA[v], rightA[v], upA[v], fwdA[v]);
     const std::vector<Vec3>& anch = o_pos.empty() ? pos : o_pos;   // pristine ORIGINAL verts
@@ -1056,10 +1097,12 @@ static void fin_probe_build(std::vector<Vec3>& finV, std::vector<std::array<int,
     const double sizes[3] = {0.025, 0.02, 0.015};
     long dbg_stage1 = 0, dbg_rej = 0, dbg_haus = 0;
     long size_budget = 0;
+    std::unordered_map<long long,int> visited;           // quantized q cells already tried (dedupe across anchors)
     std::vector<Vec3> picked, pickedN; std::vector<double> pickedA;
     for (int si = 0; si < 3 && (int)picked.size() < nfins; ++si) {           // big fins first
         const double a = sizes[si] * diag;
-        size_budget = dbg_stage1 + 250000;
+        size_budget = dbg_stage1 + 150000;
+        visited.clear();
         for (size_t vi = 0; vi < anch.size() && (int)picked.size() < nfins && dbg_stage1 <= size_budget; vi += 2) {
             const Vec3 p = anch[vi];
             for (int v = 0; v < 6 && (int)picked.size() < nfins; ++v) {
@@ -1068,8 +1111,10 @@ static void fin_probe_build(std::vector<Vec3>& finV, std::vector<std::array<int,
                 int iu = (int)u, iv = (int)vv;
                 if (iu < 11 || iu > W - 12 || iv < 11 || iv > W - 12) continue;
                 if (!g_orig_cov[v][(size_t)iv * W + iu]) continue;           // anchor must be ON the body in this view
+                if (!nearrim[v][(size_t)iv * W + iu]) continue;              // deep-interior anchors can never reach clear bg
                 double proj_a = 800.0 * a / d;
                 bool got = false;
+                const double qc = 0.35 * a;                                  // dedupe cell
                 for (int ms = 0; ms < 4 && !got; ++ms) {
                     double shift_px = (proj_a * 0.75 + 9.0) * rings[ms];
                     for (int t = 0; t < 24; ++t) {
@@ -1077,7 +1122,8 @@ static void fin_probe_build(std::vector<Vec3>& finV, std::vector<std::array<int,
                         bool sep = true;
                         for (size_t s = 0; s < picked.size(); ++s) if ((q - picked[s]).norm() < 1.1 * (a + pickedA[s])) { sep = false; break; }
                         if (!sep) continue;
-                        if (patch_ok(q, v, a) != 2) continue;                // clear background in the anchor view
+                        long long qk = gkey((int)std::floor(q.x()/qc), (int)std::floor(q.y()/qc), (int)std::floor(q.z()/qc)) ^ ((long long)v << 42);
+                        if (!visited.emplace(qk, 1).second) continue;        // an equivalent spot was already tried
                         ++dbg_stage1;
                         {   // exact v2v hausdorff: every fin CORNER within 85% of the budget of some orig vert
                             const Vec3 n = fwdA[v];
@@ -1088,6 +1134,7 @@ static void fin_probe_build(std::vector<Vec3>& finV, std::vector<std::array<int,
                                 if (!near_orig(q + uu * (((c & 1) - 0.5) * a) + ww * (((c >> 1) - 0.5) * a), 0.85 * 0.05 * diag)) hok = false;
                             if (!hok) { ++dbg_haus; continue; }
                         }
+                        if (patch_ok(q, v, a) != 2) continue;                // clear background in the anchor view
                         bool all_ok = true;
                         for (int i = 0; i < 6 && all_ok; ++i) { if (i == v) continue; if (!patch_ok(q, i, a)) all_ok = false; }
                         if (!all_ok) { ++dbg_rej; continue; }
