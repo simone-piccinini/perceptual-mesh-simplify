@@ -3,6 +3,29 @@
 Each line is a submission or probe and its judge outcome. "WA" = wrong answer on the named case
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
+## 2026-07-13 deep night (newest first)
+- **SLIVER-PAINT falsified (v1) [LOCAL, exact scorer].** The one genuinely-new zero-vertex DOF
+  found by brainstorming the official text: doubled-bag chord triangles between existing
+  non-adjacent vertices (closed degenerate component; validity checker PASSES it — legality
+  confirmed, text requires only edge-manifold + nonzero areas). Over concavities the chord wins
+  the z-buffer and paints its flat normal. Result: channel-L1 gain positive (62 candidates) but
+  EXACT FinalSSIM monotonically negative (−0.7e-3 @10 bags, −3.2e-3 @50): constant-normal paint
+  destroys local variance → σxy structure term punishes it. Same physics that killed blind folds
+  (−7e-3), VSA-flat, AC-seeds. Striped/variance paint needs 2-4px pitch = dense vertices = the
+  falsified fold family. PAINT FAMILY CLOSED (mechanism-level, new instrument).
+- **c7/c6 closed HONESTLY with the new engine [LOCAL, 0 subs].** c7: orig-hires costs only
+  +0.24s local (+~1s judge — cheap!), but the injected tail at 28200 reads S2 −5e-4 vs the
+  28749 baseline and costs +3.5s local: c7's VSA mesh is near-optimal at its rung, S(N) steep —
+  NOT a starvation wall. 2-stage x2.5 ≈ x3 in time (no funding). c6: same conclusion a fortiori
+  (razor + no affordable mechanism). The leaderboard evaders' +1.9 did NOT come from our-style
+  tails on the big cases.
+- **MP-CONTINUOUS (line-search placement along the collapse segment, last-64) [LOCAL]:**
+  +5.8e-5 @6700 (+~1.4e-4 judge est), +1e-6 @6720 (nothing at the banked rung). Worth 3-4 judge
+  rolls at 6700-with-mpc3 in the morning (6700 was WA×8 needing ~+2.5e-4 → coin territory).
+- **Leaderboard 13/07 [user]:** top 93.32/93.19; escapees Moon Night (+1.86 with +158 tries!),
+  Vamos, Zazmuz, TMNG; the 91.5 collapse-pack is STALLED. A discrete discovery exists, found by
+  3-4 teams in days. Not identified tonight; paint family and big-case tails now excluded.
+
 ## 2026-07-12 night (newest first)
 - **DEAD-ROAD RE-AUDIT with the fixed instrument (prefix-sum tail) — TWO VERDICTS FLIPPED [LOCAL,
   family]:** (1) c4 tail was "NEGATIVE −5.7e-4, CAD prefers QEM" → lazy600/T300 @4920 reads

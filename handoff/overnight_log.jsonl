@@ -144,3 +144,5 @@
 {"ev": "csub", "note": "C5WALK 4150 T150", "score": 60.861694, "cases": "...xx..", "times": {"1": 0.0, "2": 5.9, "3": 20.7, "4": 20.7, "5": 19.4, "6": 19.0, "7": 20.1}, "fails": {"4": "Wrong Answer", "5": "Wrong Answer"}, "newbank": false, "utc": "2026-07-12T23:04:30.152154"}
 {"ev": "c5_wall", "wall": 4150, "last_pass": 4165, "utc": "2026-07-12T23:04:30.152781"}
 {"ev": "phaseB_done", "c5": 4165, "utc": "2026-07-12T23:04:30.153785"}
+{"ev": "csub", "note": "C4TAIL 4900 T200", "score": 49.022406, "cases": "..xxx..", "times": {"1": 1.9, "2": 7.6, "3": 20.7, "4": 23.1, "5": 17.3, "6": 19.4, "7": 21.6}, "fails": {"3": "Time Limit", "4": "Time Limit", "5": "Wrong Answer"}, "newbank": false, "utc": "2026-07-12T23:07:22.584157"}
+{"ev": "csub", "note": "C4TAIL 4900 T200", "score": 60.861694, "cases": "...xx..", "times": {"1": 1.8, "2": 5.6, "3": 20.4, "4": 21.9, "5": 20.1, "6": 20.3, "7": 22.6}, "fails": {"4": "Time Limit", "5": "Wrong Answer"}, "newbank": false, "utc": "2026-07-12T23:14:12.967101"}
