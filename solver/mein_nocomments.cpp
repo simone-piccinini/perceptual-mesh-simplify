@@ -1112,28 +1112,34 @@ void Initialize() {
     }
 
     {   // ROAD B2 falsifier SHIPPED: anisotropic quadric term (curvature-aligned collapse ordering).
-        double w = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2.0 : 0.0;   // c3 band only
+        double w = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2.0 : 0.0;
         if (const char* e = getenv("G_ANISOQ")) w = atof(e);
-        if (w > 0)
-        for (int v = 0; v < nv; ++v) {
+        if (w > 0) for (int v = 0; v < nv; ++v) {
             double nl = nref[v].norm(); if (nl < 1e-20 || vfaces[v].size() < 3) continue;
-            Vec3 nrm = nref[v] / nl;
-            Eigen::Matrix3d C = Eigen::Matrix3d::Zero();
+            const double nx=nref[v].x()/nl, ny=nref[v].y()/nl, nz=nref[v].z()/nl;
+            double c[3][3]={{0,0,0},{0,0,0},{0,0,0}};
             for (int f : vfaces[v]) {
                 const int* t = faces[f].data();
                 Vec3 fn = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
-                double l = fn.norm(); if (l < 1e-20) continue; fn /= l;
-                Vec3 dn = fn - nrm; C += dn * dn.transpose();
+                double l = fn.norm(); if (l < 1e-20) continue;
+                double d0=fn.x()/l-nx, d1=fn.y()/l-ny, d2=fn.z()/l-nz;
+                double dd[3]={d0,d1,d2};
+                for(int i=0;i<3;++i) for(int j=0;j<3;++j) c[i][j]+=dd[i]*dd[j];
             }
-            Eigen::Matrix3d P = Eigen::Matrix3d::Identity() - nrm*nrm.transpose();
-            C = P * C * P;
-            Vec3 tmax = P * Vec3(0.7548, 0.5698, 0.3251);   // hand-rolled power iteration (judge compile: no new Eigen solvers)
-            double tl = tmax.norm(); if (tl < 1e-12) continue; tmax /= tl;
-            double lam = 0;
-            for (int pi = 0; pi < 12; ++pi) { Vec3 nx = C * tmax; lam = nx.norm(); if (lam < 1e-14) break; tmax = nx / lam; }
+            double nvv[3]={nx,ny,nz}, pc[3][3], cp[3][3];
+            for(int i=0;i<3;++i) for(int j=0;j<3;++j){ double s2=0; for(int k=0;k<3;++k) s2+=((i==k)-nvv[i]*nvv[k])*c[k][j]; pc[i][j]=s2; }
+            for(int i=0;i<3;++i) for(int j=0;j<3;++j){ double s2=0; for(int k=0;k<3;++k) s2+=pc[i][k]*((k==j)-nvv[k]*nvv[j]); cp[i][j]=s2; }
+            double t0=0.7548-nx*(0.7548*nx+0.5698*ny+0.3251*nz), t1=0.5698-ny*(0.7548*nx+0.5698*ny+0.3251*nz), t2=0.3251-nz*(0.7548*nx+0.5698*ny+0.3251*nz);
+            double tl=std::sqrt(t0*t0+t1*t1+t2*t2); if (tl<1e-12) continue; t0/=tl; t1/=tl; t2/=tl;
+            double lam=0;
+            for(int pi=0; pi<12; ++pi){
+                double u0=cp[0][0]*t0+cp[0][1]*t1+cp[0][2]*t2, u1=cp[1][0]*t0+cp[1][1]*t1+cp[1][2]*t2, u2=cp[2][0]*t0+cp[2][1]*t1+cp[2][2]*t2;
+                lam=std::sqrt(u0*u0+u1*u1+u2*u2); if(lam<1e-14) break; t0=u0/lam; t1=u1/lam; t2=u2/lam;
+            }
             if (lam < 1e-12) continue;
-            Vec4 q; q << tmax, -tmax.dot(pos[v]);
-            Q[v] += (w * lam) * (q * q.transpose());   // strength follows local curvature energy
+            const double qv[4]={t0,t1,t2, -(t0*pos[v].x()+t1*pos[v].y()+t2*pos[v].z())};
+            const double wl = w*lam;
+            for(int i=0;i<4;++i) for(int j=0;j<4;++j) Q[v](i,j) += wl*qv[i]*qv[j];
         }
     }
     {
