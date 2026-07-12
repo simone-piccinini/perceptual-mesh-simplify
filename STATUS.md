@@ -4,16 +4,35 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-12 (evening).**
+**Last updated: 2026-07-12 (night). ⚡ THE 6790 WALL WAS A STARVATION ARTIFACT — see NIGHT UPDATE below.**
 
 ---
 
-## BANK (best all-green, main.cpp decimation track)
+## NIGHT UPDATE 2026-07-12 (supersedes the "practical ceiling" verdict)
+
+1. **FIN PROBE concluded** [JUDGE 20029777]: judge INCLUDES background px in SSIM windows — D1
+   closed, oracle convention right, depth-saturation exploit dead (ENVELOPE §10.6).
+2. **c5 TLE regression found+fixed**: cov-tail cost ~+2.9s judge = the 21.5-22.2s c5 TLEs in
+   ladder 20031261-336. c5 now tail-OFF @4172 (wall 4165 + 7v insurance): PASSES 17.7s [20031760].
+3. **TAIL THROUGHPUT UNLOCK (prefix-sum windows in collapse_delta_local, O(121)→O(1)/window):**
+   c3 11.4→7.2s local; the 6.5s tail box went from SATURATED to CONVERGED (~2.3s). The judge's
+   tail was doing ~HALF the local work (wall box × slower CPU) — the "6775/6760 SSIM-closed" walls
+   were measured with a STARVED tail. cval lines bit-identical pre/post refactor.
+4. **Deep tail now affordable**: pool 300→1000-1200, T 200→500-600, MPC-classic back ON
+   (+1.3e-4 marginal). Local family: +3.9e-4 over the starved config at 6760.
+5. **K-READ [JUDGE 20031760]: S2_judge(deep@6775) ≈ 0.9145 (V'≈7011, K≈59) = +1.0e-3 OVER the
+   0.9135 threshold. c3@6775 PASSES.** Slope 1.25e-5/v ⇒ zero-crossing ≈ 6695. MPC-aniso (via-2
+   V6): local marginal ~0 (+3.4e-5/−1.6e-5) — parked, env mpcm=2.
+6. **BANK attempt c3@6760 IN FLIGHT** (pool1000/T500/box7.5, kread off, est margin +7.8e-4);
+   then ladder 6740→6720→6700. c4 = the only lottery per roll.
+
+## BANK (best all-green, mein.cpp decimation track)
 
 ```
 BANK      90.432575  (7/7)   [JUDGE ~20026xxx ladder 2026-07-11 22:08] — c3@6790 lazy tail + c4@4920 +
                                c5@4165. FINAL walls: c3 6790 (6775/6760 SSIM-closed even w/ MPC, read-typed),
-                               c4 4920, c5 4165 (4160 probe open). Practical ceiling of the collapse paradigm.
+                               c4 4920, c5 4165 (4160 probe open). ~~Practical ceiling~~ WRONG — starved-tail
+                               artifact, see NIGHT UPDATE.
                                Prior bank 90.421800: c3@6805 via ROAD A (image-driven collapse
                                tail: lazy-greedy, burst16 K64 T100, collapse_delta_local validated ratio 1.0)
                                + c4@4920 + c5@4165. JUDGE-VALIDATED: 6805 never passed under QEM order.

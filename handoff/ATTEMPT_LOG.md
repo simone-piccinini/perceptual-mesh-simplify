@@ -3,6 +3,26 @@
 Each line is a submission or probe and its judge outcome. "WA" = wrong answer on the named case
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
+## 2026-07-12 night (newest first)
+- **K-READ deep tail @6775 → c3 PASSES, S2_judge ≈ 0.9145 (sub 20031760, V'≈7011 → K≈59).**
+  The "6775/6760 read-typed S-fail walls" were a STARVED-TAIL artifact: the 6.5s wall-clock tail
+  box × slower judge CPU = judge did ~half the local tail work (local sweep: 3.2s-equivalent box
+  costs −2.35e-4 S2). Fix = prefix-sum windows in `collapse_delta_local` (O(121)→O(1) per window;
+  c3 11.4→7.2s local, tail SATURATED→CONVERGED; cval delta lines bit-identical pre/post). Deep
+  tail then swept locally: pool 1200/T600/MPC-classic = +3.9e-4 over the starved config @6760;
+  MPC-classic marginal +1.3e-4 (affordable post-refactor); MPC-ANISO (V6 via-2) marginal ~0
+  (+3.4e-5/−1.6e-5, sign-flips — parked at env mpcm=2). Margin at 6775: +1.0e-3; slope 1.25e-5/v
+  → zero-crossing est ~6695. Same sub: **c5@4172 tail-off passes at 17.7s** — fixes the c5
+  21.5-22.2s TLE regression (cov-tail judge cost) of ladder 20031261-336. c5 tail@4165 re-timed
+  locally post-refactor: 11.4s local (~26s judge) — still unaffordable, stays off. BANK attempt
+  c3@6760 (pool1000/T500/box7.5, kread off) submitted next.
+- **FIN PROBE build trail (D1): two Compile Errors first (20029743/20029757 = COMPILE-MEMORY
+  limit, g++-15 cc1plus killed — even one new `unordered_map<NewKey,...>` instantiation tips it);
+  fix = reuse already-instantiated containers + optimize("O1") attribute on the new function —
+  which then cost a c5 TLE (20029777: O1 judge code ~4-5x slower than local clang -O2; placement
+  needed near-rim prefilter + candidate dedupe to get cheap). D1 itself concluded by the later
+  session: judge INCLUDES background px (ENVELOPE §10.6) — oracle convention right.**
+
 ## 2026-07-10 (newest first)
 - **REMESHER built (flip/split/batch, env G_REMESH) — FACTS characterizing what it needs.** Connectivity
   as a free variable, gated by true rendered normal-SSIM (nvdiffmodeling-style). Judge + local facts:

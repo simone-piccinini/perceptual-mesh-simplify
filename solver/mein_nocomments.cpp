@@ -1727,9 +1727,9 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6775;                            // K-READ rung: prefix-sum tail (starvation fixed) + pool1200/T600/MPC = +6.2e-4 est vs the starved family. env G_C3T
+        int c3t = 6760;                            // BANK rung: S2_judge(deep@6775)=0.9145 [20031760], slope 1.25e-5/v -> margin ~+7.8e-4 here. env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
-        int ctT = 600; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (600) funded by the prefix-sum tail
+        int ctT = 500; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (500) funded by the prefix-sum tail
         const int dt = c3t + ctT;
         seed_heap(); Decimate(dt);
         for (int uw = 0; uw < 2 && alive_count > dt; ++uw) {
@@ -1822,8 +1822,8 @@ int main(int argc, char** argv) {
         }
         if (ctT > 0 && alive_count > c3t) {   // image-driven tail at judge res (deterministic: no time box in the choice)
             g_force_nocrop = 1;
-            int lzpool = 1200; if(const char* e=getenv("G_LAZY")) lzpool=atoi(e);   // deep pool: prefix-sum tail converges, +3.1e-4 local vs 300
-            double ctb = 6.5; if(const char* e=getenv("G_CTB")) ctb=atof(e);
+            int lzpool = 1000; if(const char* e=getenv("G_LAZY")) lzpool=atoi(e);   // deep pool (1000: -2.9e-5 vs 1200, converges in box at deep rungs)
+            double ctb = 7.5; if(const char* e=getenv("G_CTB")) ctb=atof(e);   // funded by kread-off + prefix-sum speed
             if (lzpool > 0) ctail_lazy(c3t, lzpool, 24, r_elapsed()+ctb);
             else { int ctk = 64; if(const char* e=getenv("G_CTK")) ctk=atoi(e); ctail_pass(c3t, ctk, 40); }
             g_force_nocrop = 0;
@@ -1839,7 +1839,7 @@ int main(int argc, char** argv) {
             g_force_nocrop = 0;
         }
         double Sn2=0, Sd2=0, S2=0;
-        const int kread = 1;
+        const int kread = 0;   // BANK MODE (read 20031760 done: S2=0.9145@6775)
         if (kread || getenv("G_RDBG") || getenv("G_S2")) {   // score needed for K-encoding; debug-gated otherwise
             Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
