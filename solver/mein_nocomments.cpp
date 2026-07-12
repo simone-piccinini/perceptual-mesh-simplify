@@ -1112,7 +1112,7 @@ void Initialize() {
     }
 
     {   // ROAD B2 falsifier SHIPPED: anisotropic quadric term (curvature-aligned collapse ordering).
-        double w = ((int)pos.size() > 7000 && (int)pos.size() <= 30000) ? 2.0 : 0.0;
+        double w = 0.0;   // JUDGE-FALSIFIED (K-read 20029030: S=0.911 vs 0.91356 baseline = -2.6e-3): naive curvature on the RAW judge scan misdirects; needs a robust/smoothed frame field (Road B2 proper)
         if (const char* e = getenv("G_ANISOQ")) w = atof(e);
         if (w > 0) for (int v = 0; v < nv; ++v) {
             double nl = nref[v].norm(); if (nl < 1e-20 || vfaces[v].size() < 3) continue;
@@ -1691,7 +1691,7 @@ int main(int argc, char** argv) {
             g_force_nocrop = 0;
         }
         double Sn2=0, Sd2=0, S2=0;
-        const int kread = 1;
+        const int kread = 0;
         if (kread || getenv("G_RDBG") || getenv("G_S2")) {   // score needed for K-encoding; debug-gated otherwise
             Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());

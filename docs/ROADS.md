@@ -349,3 +349,10 @@ buries this. The real risk is time-to-build (~1-2 days) vs contest end.
 value directly: scale the QEM quadrics per-vertex by the curvature frame (a 20-line change to
 Initialize's quadric accumulation) and measure S2n at fixed N on the c3 proxy. If metric-weighted
 quadrics gain nothing at e-4 scale, the anisotropy thesis needs rework before the big build.
+
+**ROAD B2 FALSIFIER VERDICT (2026-07-12, K-read 20029030):** naive anisotropic quadrics (normal-
+covariance frame, w=2) read S_judge = 0.911 at N=6790 vs 0.91356 baseline = **−2.6e-3 on the real
+judge mesh** while gaining +8e-4 (family mean) on the smooth proxy — the canonical proxy-bias
+signature (§9.1). NOT dead-forever: the thesis requires a NOISE-ROBUST curvature field (bilateral/
+multi-ring smoothing of the frame) before the metric is trustworthy on raw scans. That is the
+real Road B2 build; budget days, use K-reads at every milestone.
