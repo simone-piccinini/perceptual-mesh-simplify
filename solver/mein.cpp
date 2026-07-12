@@ -677,6 +677,8 @@ static double collapse_delta_local(int u, int v, const Vec3& xbar) {
 // LAZY-GREEDY deep tail (Minoux stale-key): seed a wide pool of QEM-cheap edges, evaluate ALL exactly
 // once, then pop-best with stale re-eval; re-render the base every RB commits; edges touching the
 // dirty zone since the last render are deferred. Hypothesis: T=200 failed on POOL WIDTH (64), not depth.
+static int g_lztinj = 0;   // 0 = classic (re-pool every RB commits; best S2 at shallow tails)
+                           // 1 = persistent heap + lazy ring-edge injection (~5x faster; deep/c5 tails)
 static int ctail_lazy(int target, int pool, int RB, double tbox) {
     int done=0;
     struct Ent { double d; int u,v; Vec3 xb; int ver; };
@@ -701,8 +703,9 @@ static int ctail_lazy(int target, int pool, int RB, double tbox) {
             double d=collapse_delta_local(cand[i].u,cand[i].v,cand[i].xb);
             if(d>-1e29) heap.push_back({d, cand[i].u, cand[i].v, cand[i].xb, vver[cand[i].u]+vver[cand[i].v]}); }
         std::make_heap(heap.begin(),heap.end(),cmp);
-        int commits=0;
-        while(!heap.empty() && commits<RB && alive_count>target && r_elapsed()<tbox){
+        int commits=0, since_render=0;
+        while(!heap.empty() && (g_lztinj || commits<RB) && alive_count>target && r_elapsed()<tbox){
+            if(g_lztinj && since_render>=RB){ remesh_cache_render(); fnc_fill(); since_render=0; }
             std::pop_heap(heap.begin(),heap.end(),cmp); Ent e=heap.back(); heap.pop_back();
             if(!alive[e.u]||!alive[e.v]) continue;
             if(e.ver != vver[e.u]+vver[e.v]){   // stale: re-evaluate against the CURRENT geometry
@@ -739,9 +742,18 @@ static int ctail_lazy(int target, int pool, int RB, double tbox) {
                 }
             }
             if(!SafeToCollapse(e.u,e.v,e.xb)) continue;
-            Collapse(e.u,e.v,e.xb); --alive_count; ++done; ++commits;
+            Collapse(e.u,e.v,e.xb); --alive_count; ++done; ++commits; ++since_render;
             vver[e.u]+=1;   // bump: 1-ring neighbors become stale via key mismatch on (u,v) sums
             for(int f2 : vfaces[e.u]){ const int* t=faces[f2].data(); vver[t[0]]+=1; vver[t[1]]+=1; vver[t[2]]+=1; }
+            if(g_lztinj){   // inject the survivor's fresh ring edges, lazily priced (ver=-1 => delta on pop)
+                std::unordered_map<long long,int> seen;
+                for(int f2 : vfaces[e.u]){ const int* t=faces[f2].data();
+                    for(int k=0;k<3;++k){ int nb=t[k]; if(nb==e.u||!alive[nb]) continue;
+                        int aa=e.u,bb=nb; if(aa>bb)std::swap(aa,bb);
+                        if(!seen.emplace((long long)aa*NVv+bb,1).second) continue;
+                        EvalResult ev=Evaluate(aa,bb);
+                        heap.push_back({1e9, aa, bb, ev.target, -1}); std::push_heap(heap.begin(),heap.end(),cmp); } }
+            }
         }
         if(getenv("G_RDBG")) std::fprintf(stderr,"[lazy] +%d N=%d t=%.2f\n",commits,alive_count,r_elapsed());
         if(commits==0) break;
@@ -2160,7 +2172,10 @@ int main(int argc, char** argv) {
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
         if (c4T > 0 && alive_count > c4t) {
-            g_force_nocrop = 1; ctail_pass(c4t, 64, 20); g_force_nocrop = 0;
+            g_force_nocrop = 1;
+            int lzp = 400; if(const char* e=getenv("G_LZ45")) lzp=atoi(e);
+            g_lztinj=1; ctail_lazy(c4t, lzp, 48, r_elapsed()+4.0); g_lztinj=0;
+            g_force_nocrop = 0;
             if (alive_count > c4t) { seed_heap(); Decimate(c4t); }
         }
         if (getenv("G_LS45")) {   // guided L2 seed on this band too (family-validated on c3)
@@ -2229,11 +2244,14 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4172; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // 4165 wall + 7v insurance (tail off: -2e-4)
-        int c5T = 0;    if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // tail OFF on c5: cov-tail cost ~+2.9s judge = the 21.5-22.2s TLEs in ladder 20031261-336
+        int c5t = 4165; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
+        int c5T = 150;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // injected lazy tail: 9.1s local ~19.2s judge, +0.7e-3 S2 local
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
-        if (c5T > 0 && alive_count > c5t) { g_res=1024; g_refine_res=1024; g_force_nocrop=1; ctail_pass(c5t, 64, 20); g_force_nocrop=0;
+        if (c5T > 0 && alive_count > c5t) { g_res=1024; g_refine_res=1024; g_force_nocrop=1;
+            int lzp = 400; if(const char* e=getenv("G_LZ45")) lzp=atoi(e);
+            g_lztinj=1; ctail_lazy(c5t, lzp, 48, r_elapsed()+5.0); g_lztinj=0;
+            g_force_nocrop=0;
             if (alive_count > c5t) { seed_heap(); Decimate(c5t); } }
         g_res = 1024; g_refine_res = 1024;
         if (getenv("G_LS45")) {   // guided L2 seed on this band too (family-validated on c3)

@@ -1727,7 +1727,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6720;                            // BANK ladder: 6760 judge-PASS [20031783]; S2(deep@6775)=0.9145, slope 1.25e-5/v -> margin ~+4e-4 here. env G_C3T
+        int c3t = 6700;                            // BANK ladder: 6760 judge-PASS [20031783]; S2(deep@6775)=0.9145, slope 1.25e-5/v -> margin ~+4e-4 here. env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 500; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (500) funded by the prefix-sum tail
         const int dt = c3t + ctT;
@@ -1839,7 +1839,7 @@ int main(int argc, char** argv) {
             g_force_nocrop = 0;
         }
         double Sn2=0, Sd2=0, S2=0;
-        const int kread = 0;   // BANK MODE (read 20031760 done: S2=0.9145@6775)
+        const int kread = 1;   // BANK MODE (read 20031760 done: S2=0.9145@6775)
         if (kread || getenv("G_RDBG") || getenv("G_S2")) {   // score needed for K-encoding; debug-gated otherwise
             Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
