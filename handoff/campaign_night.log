@@ -1,0 +1,3 @@
+/Users/eh/Documents/perceptual-mesh-simplify-master/scripts/night_campaign.py:25: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  rec["utc"] = datetime.datetime.utcnow().isoformat()
+{"ev": "csub", "note": "C5WALK 4150 T150", "score": 60.861694, "cases": "...xx..", "times": {"1": 1.9, "2": 5.8, "3": 21.2, "4": 19.5, "5": 19.5, "6": 17.9, "7": 21.7}, "fails": {"4": "Wrong Answer", "5": "Wrong Answer"}, "newbank": false, "utc": "2026-07-12T22:57:14.463960"}

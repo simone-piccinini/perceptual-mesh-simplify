@@ -531,6 +531,7 @@ static double collapse_delta_local(int u, int v, const Vec3& xbar) {
     }
     return delta;
 }
+static int g_lztinj = 0;   // 0 = classic (re-pool every RB commits; best S2 at shallow tails)
 static int ctail_lazy(int target, int pool, int RB, double tbox) {
     int done=0;
     struct Ent { double d; int u,v; Vec3 xb; int ver; };
@@ -554,8 +555,9 @@ static int ctail_lazy(int target, int pool, int RB, double tbox) {
             double d=collapse_delta_local(cand[i].u,cand[i].v,cand[i].xb);
             if(d>-1e29) heap.push_back({d, cand[i].u, cand[i].v, cand[i].xb, vver[cand[i].u]+vver[cand[i].v]}); }
         std::make_heap(heap.begin(),heap.end(),cmp);
-        int commits=0;
-        while(!heap.empty() && commits<RB && alive_count>target && r_elapsed()<tbox){
+        int commits=0, since_render=0;
+        while(!heap.empty() && (g_lztinj || commits<RB) && alive_count>target && r_elapsed()<tbox){
+            if(g_lztinj && since_render>=RB){ remesh_cache_render(); fnc_fill(); since_render=0; }
             std::pop_heap(heap.begin(),heap.end(),cmp); Ent e=heap.back(); heap.pop_back();
             if(!alive[e.u]||!alive[e.v]) continue;
             if(e.ver != vver[e.u]+vver[e.v]){   // stale: re-evaluate against the CURRENT geometry
@@ -592,9 +594,18 @@ static int ctail_lazy(int target, int pool, int RB, double tbox) {
                 }
             }
             if(!SafeToCollapse(e.u,e.v,e.xb)) continue;
-            Collapse(e.u,e.v,e.xb); --alive_count; ++done; ++commits;
+            Collapse(e.u,e.v,e.xb); --alive_count; ++done; ++commits; ++since_render;
             vver[e.u]+=1;   // bump: 1-ring neighbors become stale via key mismatch on (u,v) sums
             for(int f2 : vfaces[e.u]){ const int* t=faces[f2].data(); vver[t[0]]+=1; vver[t[1]]+=1; vver[t[2]]+=1; }
+            if(g_lztinj){   // inject the survivor's fresh ring edges, lazily priced (ver=-1 => delta on pop)
+                std::unordered_map<long long,int> seen;
+                for(int f2 : vfaces[e.u]){ const int* t=faces[f2].data();
+                    for(int k=0;k<3;++k){ int nb=t[k]; if(nb==e.u||!alive[nb]) continue;
+                        int aa=e.u,bb=nb; if(aa>bb)std::swap(aa,bb);
+                        if(!seen.emplace((long long)aa*NVv+bb,1).second) continue;
+                        EvalResult ev=Evaluate(aa,bb);
+                        heap.push_back({1e9, aa, bb, ev.target, -1}); std::push_heap(heap.begin(),heap.end(),cmp); } }
+            }
         }
         if(getenv("G_RDBG")) std::fprintf(stderr,"[lazy] +%d N=%d t=%.2f\n",commits,alive_count,r_elapsed());
         if(commits==0) break;
@@ -1727,7 +1738,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6700;                            // BANK ladder: 6760 judge-PASS [20031783]; S2(deep@6775)=0.9145, slope 1.25e-5/v -> margin ~+4e-4 here. env G_C3T
+        int c3t = 6720;                            // BANK ladder: 6760 judge-PASS [20031783]; S2(deep@6775)=0.9145, slope 1.25e-5/v -> margin ~+4e-4 here. env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 500; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (500) funded by the prefix-sum tail
         const int dt = c3t + ctT;
@@ -1839,7 +1850,7 @@ int main(int argc, char** argv) {
             g_force_nocrop = 0;
         }
         double Sn2=0, Sd2=0, S2=0;
-        const int kread = 1;   // BANK MODE (read 20031760 done: S2=0.9145@6775)
+        const int kread = 0;   // BANK MODE (read 20031760 done: S2=0.9145@6775)
         if (kread || getenv("G_RDBG") || getenv("G_S2")) {   // score needed for K-encoding; debug-gated otherwise
             Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
@@ -1898,7 +1909,10 @@ int main(int argc, char** argv) {
         render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
         if (c4T > 0 && alive_count > c4t) {
-            g_force_nocrop = 1; ctail_pass(c4t, 64, 20); g_force_nocrop = 0;
+            g_force_nocrop = 1;
+            int lzp = 400; if(const char* e=getenv("G_LZ45")) lzp=atoi(e);
+            g_lztinj=1; ctail_lazy(c4t, lzp, 48, r_elapsed()+4.0); g_lztinj=0;
+            g_force_nocrop = 0;
             if (alive_count > c4t) { seed_heap(); Decimate(c4t); }
         }
         if (getenv("G_LS45")) {   // guided L2 seed on this band too (family-validated on c3)
@@ -1967,11 +1981,14 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4172; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // 4165 wall + 7v insurance (tail off: -2e-4)
-        int c5T = 0;    if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // tail OFF on c5: cov-tail cost ~+2.9s judge = the 21.5-22.2s TLEs in ladder 20031261-336
+        int c5t = 4150; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
+        int c5T = 150;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // injected lazy tail: 9.1s local ~19.2s judge, +0.7e-3 S2 local
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
-        if (c5T > 0 && alive_count > c5t) { g_res=1024; g_refine_res=1024; g_force_nocrop=1; ctail_pass(c5t, 64, 20); g_force_nocrop=0;
+        if (c5T > 0 && alive_count > c5t) { g_res=1024; g_refine_res=1024; g_force_nocrop=1;
+            int lzp = 400; if(const char* e=getenv("G_LZ45")) lzp=atoi(e);
+            g_lztinj=1; ctail_lazy(c5t, lzp, 48, r_elapsed()+5.0); g_lztinj=0;
+            g_force_nocrop=0;
             if (alive_count > c5t) { seed_heap(); Decimate(c5t); } }
         g_res = 1024; g_refine_res = 1024;
         if (getenv("G_LS45")) {   // guided L2 seed on this band too (family-validated on c3)

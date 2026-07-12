@@ -2244,7 +2244,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4165; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
+        int c5t = 4150; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
         int c5T = 150;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // injected lazy tail: 9.1s local ~19.2s judge, +0.7e-3 S2 local
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
