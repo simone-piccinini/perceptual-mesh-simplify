@@ -16,15 +16,19 @@ ultima azione = campagna c5-walk/c4-probe/consolidamento (scripts/night_campaign
    (era "0/12 chiuso", ora +2.4e-3 locale @4150). LEZIONE: ogni verdetto DEAD misurato prima del
    12/07 sera attraverso la coda è SOSPETTO. Riesamina prima di credere al cimitero.
 
-## LA MATEMATICA DEL 93 (l'utente riporta un 93 in classifica — 403 agli script, fidati e verifica a browser)
+## LA CLASSIFICA 13/07 (fornita dall'utente — il fatto strategico più importante del progetto)
 
-93 = somma 558 = +15 case-points su di noi. Nessun caso singolo li contiene:
-c3@3000=87% (+16 ma irraggiungibile per collasso: asintoto compute-illimitato ~6650),
-c4@2500=93% (+7), c5@2500=95% (+3.3), c7@10k=99% (+1.9), c6@4k=98.9% (+1.2).
-⇒ il 93 usa un MECCANISMO UNIFORME migliore-per-vertice che gira in 21s CPU single-thread.
-Non è tuning: è una rappresentazione/costruzione diversa. Candidati: remesh anisotropo
-image-driven costruttivo; sfruttamento aggressivo del flat shading (normal-painting GUIDATO —
-la semina cieca è morta, la guidata dal residuo NON è mai stata costruita davvero).
+1 Moon Night 93.32 (984 try, +1.86 in 3gg con SOLO +158 try) · 2 NEU 93.19 (2260) ·
+3 Vamos 92.17 (+0.94/+131 try) · 4 Zazmuz 92.07 (+1.22/+1310) · 5-10 il pack 91.2-91.5
+(希望ヶ峰/SPBU/Nuggie/turneja: +0.02..+0.06 in 3gg = FERMI al soffitto-collasso) · noi 15° 90.48.
+
+LETTURA: esiste una SCOPERTA DISCRETA (+1-2 punti, deployabile in ~150 try, trovata da 3-4
+squadre indipendenti negli ultimi giorni). Il pack fermo a 91.5 = ceiling del paradigma collasso
+(coerente col nostro asintoto). La firma "molti punti, pochi try" + il fatto che i casi GRANDI
+hanno il massimo headroom assoluto (c6 97.7→99 = +0.22 tot, c7 97.1→99 = +0.31 tot, e premiano
+THROUGHPUT puro) puntano ai casi 6/7 + varianti c3-c5. I nostri muri c6/c7 sono PRE-motore.
+93 = somma 558 = +15 case-points: c4@2500=93% (+7), c5@2500=95% (+3.3), c7@10k=99% (+1.9),
+c6@4k=98.9% (+1.2), c3 poco (asintoto ~6650). Serve il meccanismo uniforme + i casi grandi.
 
 ## PIANO GIORNO 2 (in ordine di EV misurabile)
 
