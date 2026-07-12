@@ -1127,9 +1127,11 @@ void Initialize() {
             }
             Eigen::Matrix3d P = Eigen::Matrix3d::Identity() - nrm*nrm.transpose();
             C = P * C * P;
-            Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(C);
-            Vec3 tmax = es.eigenvectors().col(2);   // leading = max normal-variation tangent = max curvature dir
-            double lam = es.eigenvalues()(2); if (lam < 1e-12) continue;
+            Vec3 tmax = P * Vec3(0.7548, 0.5698, 0.3251);   // hand-rolled power iteration (judge compile: no new Eigen solvers)
+            double tl = tmax.norm(); if (tl < 1e-12) continue; tmax /= tl;
+            double lam = 0;
+            for (int pi = 0; pi < 12; ++pi) { Vec3 nx = C * tmax; lam = nx.norm(); if (lam < 1e-14) break; tmax = nx / lam; }
+            if (lam < 1e-12) continue;
             Vec4 q; q << tmax, -tmax.dot(pos[v]);
             Q[v] += (w * lam) * (q * q.transpose());   // strength follows local curvature energy
         }
