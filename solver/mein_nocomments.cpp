@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <chrono>
@@ -919,6 +920,15 @@ static void mini_refine(double dt) {
     const std::vector<Vec3> base=pos; double cap=0.02*diag, stp=0.004*diag;
     const double deadline = r_elapsed() + dt;
     std::vector<Vec3> g; double cur = refine_score_grad(&g);
+    if (const char* ke = getenv("G_KICK")) {   // basin hopping: forced big steps out of the local SSIM optimum
+        int kn = atoi(ke); double ks = 5.0; if (const char* c = strchr(ke, ':')) ks = atof(c+1);
+        for (int kk = 0; kk < kn; ++kk) {
+            double gm=0; for(const Vec3&gg:g) gm=std::max(gm,gg.norm()); if (gm<1e-30) break;
+            for(size_t v=0; v<pos.size(); ++v){ if(!alive[v]) continue; Vec3 d=g[v]*(ks*stp/gm); Vec3 np=pos[v]+d;
+                Vec3 off=np-base[v]; double ol=off.norm(); if(ol>cap) np=base[v]+off*(cap/ol); pos[v]=np; }
+            cur = refine_score_grad(&g);   // forced accept: re-evaluate and keep walking
+        }
+    }
     double gmax=0; for(const Vec3&gg:g) gmax=std::max(gmax,gg.norm());
     int _mi = 0;
     for (int it=0; it<200; ++it) {
@@ -1848,6 +1858,15 @@ int main(int argc, char** argv) {
             if (vertex_remove_pass(alive_count - dt) == 0) break;
             seed_heap(); Decimate(dt);
         }
+        if (const char* fe = getenv("G_FOLD")) {   // micro-fold seed: collective zigzag the per-vertex gradient can't discover
+            double eps = atof(fe);
+            for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i]) continue;
+                double nl = nref[i].norm(); if (nl < 1e-20) continue;
+                long hx = (long)std::floor(pos[i].x()*97.0), hy = (long)std::floor(pos[i].y()*97.0), hz = (long)std::floor(pos[i].z()*97.0);
+                double sgn = ((hx+hy+hz) & 1) ? 1.0 : -1.0;
+                pos[i] += (sgn*eps/nl) * nref[i];
+            }
+        }
         if (g_refine_res < 1024) render_orig_hires(1024);   // hybrid phase B may not have fired
         g_res = 1024; g_refine_res = 1024;
         if (getenv("G_CVAL")) {   // VALIDATION: collapse_delta_local vs full-render delta on ~20 candidates (local only)
@@ -1999,8 +2018,8 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4450; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // FIN PROBE rung: wall 4165 + ~0.010 margin (RESTORE 4160 after)
-        int c5T = 0;    if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // tail OFF for the probe (one question per submission; RESTORE 150)
+        int c5t = 4160; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // banked-probe rung (restored)
+        int c5T = 150;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // lazy tail on c5 (restored)
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
         if (c5T > 0 && alive_count > c5t) { g_res=1024; g_refine_res=1024; g_force_nocrop=1; ctail_pass(c5t, 64, 20); g_force_nocrop=0;

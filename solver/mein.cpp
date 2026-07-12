@@ -2291,8 +2291,8 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4450; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // FIN PROBE rung: wall 4165 + ~0.010 margin (RESTORE 4160 after)
-        int c5T = 0;    if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // tail OFF for the probe (one question per submission; RESTORE 150)
+        int c5t = 4160; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // banked-probe rung (restored)
+        int c5T = 150;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // lazy tail on c5 (restored)
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
         if (c5T > 0 && alive_count > c5t) { g_res=1024; g_refine_res=1024; g_force_nocrop=1; ctail_pass(c5t, 64, 20); g_force_nocrop=0;
