@@ -1959,32 +1959,57 @@ int main(int argc, char** argv) {
             if (vertex_remove_pass(alive_count - dt) == 0) break;
             seed_heap(); Decimate(dt);
         }
-        {   // GUIDED L2 SEED (family-validated +1.35e-4 S2 at -1.0, smooth plateau; 2/3 of the gain is DEPTH/silhouette)
+        int lsiter = 1; if (const char* li = getenv("G_LSITER")) lsiter = atoi(li);
+        for (int lsit = 0; lsit < lsiter; ++lsit) {   // GUIDED L2 SEED, iterable: seed->refine->seed (family +1.35e-4 at 1 iter)
             double lam = -1.0; if (const char* le = getenv("G_LSEED")) lam = atof(le);
             g_res = 1024; fnc_fill();
             std::vector<double> racc(pos.size(), 0.0); std::vector<int> rcnt(pos.size(), 0);
+            std::vector<double> rwgt(pos.size(), 0.0);
             std::vector<int> fid;
             for (int v6 = 0; v6 < 6; ++v6) { render_faceid(v6, fid);
                 for (size_t k = 0; k < fid.size(); ++k) { int f = fid[k]; if (f < 0) continue;
                     const int* t = faces[f].data();
                     for (int c = 0; c < 3; ++c) {
                         int vi = t[c]; double nl = nref[vi].norm(); if (nl < 1e-20) continue;
-                        // residual of the pixel's channel-decoded target vs current face normal, projected on the vertex normal
                         double rdot = 0;
                         for (int ch = 0; ch < 3; ++ch) {
                             double tgt = g_orig_n[v6][ch][k]/127.5 - 1.0;
                             double curv = g_fnc[f][ch];
                             rdot += (tgt - curv) * (nref[vi][ch]/nl);
                         }
-                        racc[vi] += rdot; rcnt[vi]++;
+                        double fw = 1.0;
+                        if (!getenv("G_NOLSW")) {   // frontality weight (default ON: +2.3e-5): |n_v . view axis|^2 (grazing views = noise)
+                            double ax = (v6<2? nref[vi][0] : v6<4? nref[vi][1] : nref[vi][2]) / nl;
+                            fw = ax*ax;
+                        }
+                        racc[vi] += fw*rdot; rcnt[vi] += 0; rwgt[vi] += fw;
                     } } }
             double diag2; { Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} diag2=(hi-lo).norm(); }
-            for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i] || rcnt[i]==0) continue;
+            if (const char* l2e = getenv("G_LAC")) {   // AC seed: laplacian of the residual field = guided zigzag where the target oscillates
+                double lam2 = atof(l2e);
+                std::vector<double> rmean(pos.size(), 0.0);
+                for (size_t i = 0; i < pos.size(); ++i) rmean[i] = (rwgt[i] > 1e-9) ? racc[i]/rwgt[i] : 0.0;
+                std::vector<double> lap(pos.size(), 0.0);
+                for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i]) continue;
+                    double sum=0; int cnt=0;
+                    for (int f2 : vfaces[i]) { const int* t2 = faces[f2].data();
+                        for (int c2 = 0; c2 < 3; ++c2) if (t2[c2] != (int)i) { sum += rmean[t2[c2]]; ++cnt; } }
+                    if (cnt) lap[i] = rmean[i] - sum/cnt;
+                }
+                for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i]) continue;
+                    double nl = nref[i].norm(); if (nl < 1e-20) continue;
+                    double st = lam2 * 1e-3 * diag2 * lap[i];
+                    if (st > 2e-3*diag2) st = 2e-3*diag2; if (st < -2e-3*diag2) st = -2e-3*diag2;
+                    pos[i] += (st/nl) * nref[i];
+                }
+            }
+            for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i] || rwgt[i] < 1e-9) continue;
                 double nl = nref[i].norm(); if (nl < 1e-20) continue;
-                double step = lam * 1e-3 * diag2 * (racc[i]/rcnt[i]);
+                double step = lam * 1e-3 * diag2 * (racc[i]/rwgt[i]);
                 if (step > 2e-3*diag2) step = 2e-3*diag2; if (step < -2e-3*diag2) step = -2e-3*diag2;
                 pos[i] += (step/nl) * nref[i];
             }
+            if (lsit+1 < lsiter) { const int _sm=g_mini_maxit; g_mini_maxit=4; mini_refine(1.0); g_mini_maxit=_sm; }
         }
         if (g_refine_res < 1024) render_orig_hires(1024);   // hybrid phase B may not have fired
         g_res = 1024; g_refine_res = 1024;
@@ -2031,7 +2056,7 @@ int main(int argc, char** argv) {
             g_force_nocrop = 0;
         }
         double Sn2=0, Sd2=0, S2=0;
-        const int kread = 0;
+        const int kread = 1;
         if (kread || getenv("G_RDBG") || getenv("G_S2")) {   // score needed for K-encoding; debug-gated otherwise
             Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
@@ -2093,6 +2118,28 @@ int main(int argc, char** argv) {
             g_force_nocrop = 1; ctail_pass(c4t, 64, 20); g_force_nocrop = 0;
             if (alive_count > c4t) { seed_heap(); Decimate(c4t); }
         }
+        if (getenv("G_LS45")) {   // guided L2 seed on this band too (family-validated on c3)
+            double lam = -1.0;
+            g_res = 1024; fnc_fill();
+            std::vector<double> racc(pos.size(), 0.0); std::vector<int> rcnt(pos.size(), 0);
+            std::vector<int> fid;
+            for (int v6 = 0; v6 < 6; ++v6) { render_faceid(v6, fid);
+                for (size_t k = 0; k < fid.size(); ++k) { int f = fid[k]; if (f < 0) continue;
+                    const int* t = faces[f].data();
+                    for (int c = 0; c < 3; ++c) {
+                        int vi = t[c]; double nl = nref[vi].norm(); if (nl < 1e-20) continue;
+                        double rdot = 0;
+                        for (int ch = 0; ch < 3; ++ch) rdot += (g_orig_n[v6][ch][k]/127.5 - 1.0 - g_fnc[f][ch]) * (nref[vi][ch]/nl);
+                        racc[vi] += rdot; rcnt[vi]++;
+                    } } }
+            double dg2; { Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} dg2=(hi-lo).norm(); }
+            for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i] || rcnt[i]==0) continue;
+                double nl = nref[i].norm(); if (nl < 1e-20) continue;
+                double st = lam * 1e-3 * dg2 * (racc[i]/rcnt[i]);
+                if (st > 2e-3*dg2) st = 2e-3*dg2; if (st < -2e-3*dg2) st = -2e-3*dg2;
+                pos[i] += (st/nl) * nref[i];
+            }
+        }
         mini_refine(1.5);                          // case 4's first 1024 polish (banked cfg; mini-boost variants TLE'd/WA'd on judge)
         if (g_remesh) {   // FLIP remesher on c4 (time headroom; test if the appearance-flip lever helps CAD-ish c4)
             g_force_nocrop = 1;
@@ -2144,6 +2191,28 @@ int main(int argc, char** argv) {
         if (c5T > 0 && alive_count > c5t) { g_res=1024; g_refine_res=1024; g_force_nocrop=1; ctail_pass(c5t, 64, 20); g_force_nocrop=0;
             if (alive_count > c5t) { seed_heap(); Decimate(c5t); } }
         g_res = 1024; g_refine_res = 1024;
+        if (getenv("G_LS45")) {   // guided L2 seed on this band too (family-validated on c3)
+            double lam = -1.0;
+            g_res = 1024; fnc_fill();
+            std::vector<double> racc(pos.size(), 0.0); std::vector<int> rcnt(pos.size(), 0);
+            std::vector<int> fid;
+            for (int v6 = 0; v6 < 6; ++v6) { render_faceid(v6, fid);
+                for (size_t k = 0; k < fid.size(); ++k) { int f = fid[k]; if (f < 0) continue;
+                    const int* t = faces[f].data();
+                    for (int c = 0; c < 3; ++c) {
+                        int vi = t[c]; double nl = nref[vi].norm(); if (nl < 1e-20) continue;
+                        double rdot = 0;
+                        for (int ch = 0; ch < 3; ++ch) rdot += (g_orig_n[v6][ch][k]/127.5 - 1.0 - g_fnc[f][ch]) * (nref[vi][ch]/nl);
+                        racc[vi] += rdot; rcnt[vi]++;
+                    } } }
+            double dg2; { Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} dg2=(hi-lo).norm(); }
+            for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i] || rcnt[i]==0) continue;
+                double nl = nref[i].norm(); if (nl < 1e-20) continue;
+                double st = lam * 1e-3 * dg2 * (racc[i]/rcnt[i]);
+                if (st > 2e-3*dg2) st = 2e-3*dg2; if (st < -2e-3*dg2) st = -2e-3*dg2;
+                pos[i] += (st/nl) * nref[i];
+            }
+        }
         mini_refine(g_remesh ? 0.7 : 1.5);         // trim re-ascent to fund the remesh (c5 judge ratio ~1.6x is tight)
         if (g_remesh) {   // FLIP remesher on c5 (organic, deterministic wall may move like c3's)
             g_force_nocrop = 1;
