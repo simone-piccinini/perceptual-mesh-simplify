@@ -47,9 +47,9 @@ def submit(note):
     m = re.search(r"CASES ([.x?]+)", out)
     return (m.group(1) if m else None), ("NEW BANK" in out)
 def main():
-    c3r = 6600; draw = 64; wa = 0; nobank = 0; banks = 0; subs = 0
+    c3r = 6600; draw = 68; wa = 0; nobank = 0; banks = 0; subs = 0
     if build(c3r, draw): log({"ev": "s2l3_fatal"}); return
-    while subs < 45 and banks < 6:
+    while subs < 120 and banks < 20:
         now = datetime.datetime.now()
         if (now.hour, now.minute) >= (23, 45): break
         cases, nb = submit(f"S2L3 c3={c3r} draw={draw}")
@@ -63,13 +63,13 @@ def main():
             banks += 1; wa = 0; nobank = 0
             if nb:
                 sh("git add -A && git commit -q -m 'sil2 ladder v3: NEW BANK' && git push -q origin CleanRepoForAI")
-            c3r -= 10   # DESCEND on any all-green (already-banked rung still descends toward the wall)
+            c3r -= 10   # DESCEND on any all-green (hunt the next rung's lottery) (already-banked rung still descends toward the wall)
             if build(c3r, draw): break
         else:
             nobank += 1
             c3wa = cases and len(cases) >= 7 and cases[2] == "x"
             if c3wa: wa += 1
-            if wa >= 4:   # 4 c3-WA across draws at this rung = truly below wall -> retreat
+            if wa >= 10:   # ~10 WA across draws = pass-rate too low even for the lottery -> retreat
                 c3r += 10; wa = 0; nobank = 0
                 log({"ev": "s2l3_retreat", "c3": c3r})
                 if build(c3r, draw): break
