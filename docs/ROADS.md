@@ -395,3 +395,12 @@ Per-vertex max-dihedral importance (keep CAD sharp edges denser): -1.3e-3 @K0.5,
 QEM's quadric already preserves creases optimally; extra crease-protection starves the smooth
 faces. c4@4920 is the wall, coin-gated. All c4 levers exhausted (rim -ve, crease -ve, sil2 +ve
 already shipped 14dir-400).
+
+## 2026-07-13 — Z-preservation (friend's ABC depth-SSIM hypothesis) JUDGE-TESTED, does NOT transfer
+Friend polled 8GB ABC CAD dataset, claimed c4 wall = depth-SSIM (S2d) collapse, proposed depth-jump
+preservation penalty. Built zpresw_init (protect verts at sharp rendered-depth gradients). On the
+EXACT oracle: mechanism WORKS (S2d +3.9e-4 at K3) BUT tanks S2n -3.9e-3 (10x the depth gain).
+c4 deficit is normal 0.257 = 12x depth 0.021; the PASSING 4930 mesh wins on NORMAL not depth.
+JUDGE TEST [20038774]: c4@4920+zpres-K2 (same depth as passing-4930, lower normal) = WA -> c4 is
+NORMAL-bound on the judge, NOT depth-bound. Friend's ABC finding used a different scorer/target.
+Depth-exploit for c4 now judge-closed (not just oracle). Code: /tmp/zpres.cpp (scratch).
