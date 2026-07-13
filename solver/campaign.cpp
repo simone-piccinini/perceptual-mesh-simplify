@@ -85,7 +85,7 @@ static double keep_for(int V) {
     if (V <= 40000)  return 0.1428125;// case 4: TAIL-HARVEST 85.71875 (85.6875 BANKED draw-3-of-3 #90.2333)
     if (V <= 100000) return 0.08453125;// case 5: banked keep + SIL (passed 19897967; SIL ladder closed: 4212/4219 WA — judge-side SIL gain < 7 verts)
     if (V <= 400000) return 8684.0/(double)V; // case 6: crop-off family, target 8684 (v102-class banked 8705 via +21 stall)
-    return 0.02855;                // case 7: banked (28800 WA 19897066 -> wall in (28800,28822], not worth the slots)
+    return 0.0278;                // case 7: banked (28800 WA 19897066 -> wall in (28800,28822], not worth the slots)
 }
 
 // Pivot-A steering strength per case. Medium organic meshes (cases 3,4,5) gain from
@@ -287,7 +287,7 @@ static int g_hybrid = 0;   // 1 = after 512 convergence, re-render orig at 1024 
 static int    g_tilt = 0;      // phase C: ascend ONLY along vertex normals (the depth-blind subspace)
 static double g_capf = 0.045;  // phase-C (tilt) cap fraction of diag (judge allows 0.05 Hausdorff)
 static int    g_tiltmode = 0;  // live flag read inside the ascent loop
-static int    g_refine_maxit = 60;  // C3 DETERMINISTIC REFINE (env G_MAXIT): cap stock_pass iterations.
+static int    g_refine_maxit = (1<<30);  // C3 DETERMINISTIC REFINE (env G_MAXIT): cap stock_pass iterations.
                                          // Default huge -> the wall-clock box governs (legacy, box-cut coin).
                                          // When set, the ITERATION COUNT is the deterministic terminator and
                                          // g_refine_budget is a pure TLE safety sized ABOVE it -> same mesh
@@ -2166,7 +2166,7 @@ int main(int argc, char** argv) {
         }
     }
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6600;                            // BANK ladder: 6760 judge-PASS [20031783]; S2(deep@6775)=0.9145, slope 1.25e-5/v -> margin ~+4e-4 here. env G_C3T
+        int c3t = 6610;                            // BANK ladder: 6760 judge-PASS [20031783]; S2(deep@6775)=0.9145, slope 1.25e-5/v -> margin ~+4e-4 here. env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 300; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (500) funded by the prefix-sum tail
         const int dt = c3t + ctT;

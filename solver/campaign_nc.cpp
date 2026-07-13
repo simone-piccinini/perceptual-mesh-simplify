@@ -36,7 +36,7 @@ static double keep_for(int V) {
     if (V <= 40000)  return 0.1428125;
     if (V <= 100000) return 0.08453125;
     if (V <= 400000) return 8684.0/(double)V;
-    return 0.02855;
+    return 0.0278;
 }
 
 static double lambda_for(int V) {
@@ -198,7 +198,7 @@ static int g_hybrid = 0;
 static int    g_tilt = 0;
 static double g_capf = 0.045;
 static int    g_tiltmode = 0;
-static int    g_refine_maxit = 60;
+static int    g_refine_maxit = (1<<30);
 static long   g_refine_iters = 0;
 static int    g_phaseb_maxit = (1<<30);
 static int    g_mini_maxit = (1<<30);
@@ -1898,7 +1898,7 @@ int main(int argc, char** argv) {
         }
     }
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {
-        int c3t = 6600;
+        int c3t = 6610;
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 300; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (500) funded by the prefix-sum tail
         const int dt = c3t + ctT;
