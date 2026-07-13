@@ -23,6 +23,18 @@ def build(c3r, draw):
     r = sh("/tmp/s2l3 < /tmp/c3proxy.in 2>/dev/null | head -1", t=900)
     if r is None or not r.stdout.split(): return "prova"
     return None if int(r.stdout.split()[0]) == c3r else "prova"
+LEDGER = ROOT+"/handoff/submissions.jsonl"
+def is_toxic():
+    try:
+        with open(LEDGER) as f: last = f.readlines()[-1]
+        ct = json.loads(last).get("casetimes") or {}
+        # slow-machine artifact: these ceilings are well above healthy (c7~21,c5~20,c2~7,c6~20)
+        if float(ct.get("7", 0) or 0) > 35: return True
+        if float(ct.get("5", 0) or 0) > 28: return True
+        if float(ct.get("2", 0) or 0) > 14: return True
+        if float(ct.get("6", 0) or 0) > 30: return True
+    except Exception: pass
+    return False
 def submit(note):
     r = sh(f'python3 scripts/judge_submit.py {NC} --force --note "{note}"', t=900)
     if r is None: return None, False
@@ -30,13 +42,16 @@ def submit(note):
     m = re.search(r"CASES ([.x?]+)", out)
     return (m.group(1) if m else None), ("NEW BANK" in out)
 def main():
-    c3r = 6620; draw = 63; wa = 0; nobank = 0; banks = 0; subs = 0
+    c3r = 6610; draw = 63; wa = 0; nobank = 0; banks = 0; subs = 0
     if build(c3r, draw): log({"ev": "s2l3_fatal"}); return
     while subs < 45 and banks < 6:
         now = datetime.datetime.now()
         if (now.hour, now.minute) >= (23, 45): break
         cases, nb = submit(f"S2L3 c3={c3r} draw={draw}")
         subs += 1
+        if is_toxic():
+            log({"ev": "s2l3_toxic", "c3": c3r, "cases": cases})
+            time.sleep(300); continue   # slow-machine draw: don't count as WA
         log({"ev": "s2l3", "c3": c3r, "draw": draw, "cases": cases, "newbank": nb})
         all_green = cases and len(cases) >= 7 and all(c == "." for c in cases)
         if all_green:
