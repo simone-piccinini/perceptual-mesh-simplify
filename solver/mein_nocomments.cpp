@@ -1839,7 +1839,7 @@ int main(int argc, char** argv) {
     }
     if (g_refine) refine_positions();
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {
-        int c3t = 6690;
+        int c3t = 6700;
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 300; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (500) funded by the prefix-sum tail
         const int dt = c3t + ctT;
@@ -1923,7 +1923,7 @@ int main(int argc, char** argv) {
         mini_refine(1.2);
         if (g_remesh) {
             g_force_nocrop = 1;
-            remesh_flip_local(1, 1000, r_elapsed() + 1.6);
+            if (getenv("G_FLIPON")) remesh_flip_local(1, 1000, r_elapsed() + 1.6);   // swapped out for sil2 (time)      // flip pass; 2 rounds (r2 measured +0 flips, -0.7s judge)
             g_force_nocrop = 0;
         }
         double Sn2=0, Sd2=0, S2=0;
@@ -2029,7 +2029,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {
-        int c5t = 4172; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
+        int c5t = 4165; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
         int c5T = 0;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // injected lazy tail: 9.1s local ~19.2s judge, +0.7e-3 S2 local
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);
@@ -2067,6 +2067,7 @@ int main(int argc, char** argv) {
             remesh_flip_local(10, 1200, r_elapsed() + 2.2);
             g_force_nocrop = 0;
         }
+        g_force_nocrop = 1; sil2_pass(); g_force_nocrop = 0;
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RL S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", Sn2, Sd2, S2, r_elapsed());
