@@ -4,14 +4,12 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-13 (afternoon). Bank 90.494894 [JUDGE 20036401] = c3@6700-SIL2 +
-c4@4920+sil2c4-800 + c5@4172. SIL2 judge-validated on BOTH c3 (crossed 6700, WA'd x3 bare) and
-c4 (crossed the family-mean collapse: 0/10 day-WA before sil2c4, pass after; cost +7.2s judge,
-c4 now 20.7-21.4s = tight, day-only). sil2_ladder3 descending: 6690 next. SEALING ROAD DEAD
-[LOCAL viscount]: input invisible fraction c3/c4/c5 = 0.5-0.8% verts; c7 input 11% BUT OUTPUT
-99.37% visible - decimation already allocates to visible surface; prize <= +0.02. c2@28+SIL2
-died on TIME (21.5s: giant-triangle evals ~7x judge ratio) - light variant possible. c5+SIL2
-judge-NEGATIVE (4172+SIL2 WA'd, reverted).**
+**Last updated: 2026-07-13 (afternoon). Bank 90.502077 [JUDGE 20036839] = c3@6690 (SIL2
+diag-200 stack) + c4@4920 (sil2 14dir-400) + c5@4172 + speedfix family. 90.50 CROSSED.
+Ladder descending 6680. Judge sil2 cost model typed [20036592]: 0.8ms/eval (3.2x local;
+AoS cache gains do NOT replicate, rest of speedfix does: c3 base 21.5->19.0s). Diagonal
+rim directions judge-validated (crossed 6690 where 6-dir stack WA'd x3). Day total:
+90.4326 -> 90.502.**
 
 ---
 
