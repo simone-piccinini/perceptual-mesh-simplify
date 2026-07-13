@@ -60,7 +60,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }
 
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }
 
-static volatile int g_draw = 60;
+static volatile int g_draw = 61;
 constexpr int kSmallMeshSkip = 1000;
 
 struct EvalResult { double cost; Vec3 target; };
@@ -1752,7 +1752,7 @@ int main(int argc, char** argv) {
 
     g_refine = refine_for((int)pos.size());
     if ((int)pos.size() <= 7000) g_refine_budget = 6.0;   // tiny meshes: refine converges in well under 6s; don't burn the box
-    else if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) g_refine_budget = 10.5;
+    else if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) { g_refine_budget = 10.5; g_refine_maxit = 24; }
     else if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) g_refine_budget = 15.0;
     if (const char* e = getenv("G_REFINE")) g_refine = atoi(e);   // test override (judge sets no env)
     g_refine_maxit = maxit_for((int)pos.size());
