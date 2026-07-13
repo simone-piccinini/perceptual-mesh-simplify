@@ -60,7 +60,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }
 
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }
 
-static volatile int g_draw = 49;
+static volatile int g_draw = 51;
 constexpr int kSmallMeshSkip = 1000;
 
 struct EvalResult { double cost; Vec3 target; };
@@ -1631,7 +1631,7 @@ void save_obj() {
 #if defined(__GNUC__) && !defined(__clang__)
 __attribute__((noinline))
 #endif
-static void sil2_pass() {
+static void sil2_pass(int bdef = 150) {
             int rounds = 1; if (const char* s2e = getenv("G_SIL2")) rounds = atoi(s2e);
             if (rounds >= 1) {
             g_res = 1024; g_refine_res = 1024; g_force_nocrop = 1;
@@ -1654,7 +1654,7 @@ static void sil2_pass() {
                 Vec3 lo=pos[0],hi=pos[0]; for(size_t i=0;i<pos.size();++i){ if(!alive[i])continue; lo=lo.cwiseMin(pos[i]); hi=hi.cwiseMax(pos[i]); }
                 const double el = 0.0016 * (hi-lo).norm();
                 std::vector<char> lock(pos.size(), 0);
-                int budget = 150; if (const char* be = getenv("G_SIL2B")) budget = atoi(be);   // lite mode: top-B rim verts by local deficit
+                int budget = bdef; if (const char* be = getenv("G_SIL2B")) budget = atoi(be);   // lite mode: top-B rim verts by local deficit
                 std::vector<size_t> order;
                 if (budget < (1 << 27)) {
                     std::vector<double> vsc(pos.size(), 0.0); double smax = 0;
@@ -1992,6 +1992,7 @@ int main(int argc, char** argv) {
             g_force_nocrop = 0;
             if (alive_count > c4t) { seed_heap(); Decimate(c4t); }
         }
+        if (!getenv("G_NOSIL2C4")) sil2_pass(800);
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RC4 S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", Sn2, Sd2, S2, r_elapsed());
@@ -2067,7 +2068,6 @@ int main(int argc, char** argv) {
             remesh_flip_local(10, 1200, r_elapsed() + 2.2);
             g_force_nocrop = 0;
         }
-        g_force_nocrop = 1; sil2_pass(); g_force_nocrop = 0;
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RL S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", Sn2, Sd2, S2, r_elapsed());
