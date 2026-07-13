@@ -588,6 +588,24 @@ static int ctail_lazy(int target, int pool, int RB, double tbox) {
                     }
                     if (fb > e.d) { e.d = fb; e.xb = A + tb * (B - A); }
                 }
+                if (mpcm >= 3 && alive_count - target < 64) {
+                    const Vec3 A = pos[e.u], B = pos[e.v];
+                    double lo = 0.0, hi = 1.0;
+                    double tb = (e.xb - A).norm() / std::max(1e-30, (B - A).norm());
+                    if (tb < lo || tb > hi) tb = 0.5;
+                    double fb = e.d;
+                    for (int it = 0; it < 5; ++it) {
+                        double t1 = tb - (tb - lo) * 0.38, t2 = tb + (hi - tb) * 0.38;
+                        Vec3 q1 = A + t1 * (B - A), q2 = A + t2 * (B - A);
+                        double d1 = collapse_delta_local(e.u, e.v, q1);
+                        double d2 = collapse_delta_local(e.u, e.v, q2);
+                        if (d1 > fb && d1 >= d2) { hi = tb; tb = t1; fb = d1; }
+                        else if (d2 > fb) { lo = tb; tb = t2; fb = d2; }
+                        else { lo = tb - (tb - lo) * 0.38; hi = tb + (hi - tb) * 0.38; }
+                        if (hi - lo < 0.02) break;
+                    }
+                    if (fb > e.d) { e.d = fb; e.xb = A + tb * (B - A); }
+                }
                 if (mpcm >= 2 && alive_count - target < 64) {
                     Vec3 nbar = Vec3::Zero(); Eigen::Matrix3d M = Eigen::Matrix3d::Zero(); double aw = 0.0;
                     for (int vtx = 0; vtx < 2; ++vtx) for (int f2 : vfaces[vtx ? e.v : e.u]) {
@@ -1610,6 +1628,70 @@ void save_obj() {
     std::fwrite(out.data(), 1, out.size(), stdout);
 }
 
+#if defined(__GNUC__) && !defined(__clang__)
+__attribute__((optimize("O1"), noinline))
+#endif
+static void sil2_pass() {
+            int rounds = 1; if (const char* s2e = getenv("G_SIL2")) rounds = atoi(s2e);
+            if (rounds >= 1) {
+            g_res = 1024; g_refine_res = 1024; g_force_nocrop = 1;
+            for (int rr = 0; rr < rounds; ++rr) {
+                remesh_cache_render(); fnc_fill();
+                std::vector<char> isrim(pos.size(), 0);
+                const int W = g_res;
+                for (int v = 0; v < 6; ++v) {
+                    for (int y = 1; y < W-1; ++y) for (int x = 1; x < W-1; ++x) {
+                        size_t k = (size_t)y*W + x; int f = g_rfs[v][k]; if (f < 0) continue;
+                        if (g_rfs[v][k-1] < 0 || g_rfs[v][k+1] < 0 || g_rfs[v][k-W] < 0 || g_rfs[v][k+W] < 0) {
+                            const int* t = faces[f].data();
+                            isrim[t[0]] = isrim[t[1]] = isrim[t[2]] = 1; } }
+                }
+                Vec3 lo=pos[0],hi=pos[0]; for(size_t i=0;i<pos.size();++i){ if(!alive[i])continue; lo=lo.cwiseMin(pos[i]); hi=hi.cwiseMax(pos[i]); }
+                const double el = 0.0016 * (hi-lo).norm();
+                std::vector<char> lock(pos.size(), 0);
+                int budget = 250; if (const char* be = getenv("G_SIL2B")) budget = atoi(be);   // lite mode: top-B rim verts by local deficit
+                std::vector<size_t> order;
+                if (budget < (1 << 27)) {
+                    std::vector<double> ferr2(faces.size(), 0.0);
+                    for (int v = 0; v < 6; ++v) { const std::vector<int>& fsb = g_rfs[v];
+                        for (size_t k = 0; k < (size_t)W*W; ++k) { int f = fsb[k]; if (f < 0) continue; Vec3 n2 = face_nrm(f);
+                            ferr2[f] += std::fabs((n2[0]+1.0)*127.5 - g_orig_n[v][0][k]) + std::fabs((n2[1]+1.0)*127.5 - g_orig_n[v][1][k]) + std::fabs((n2[2]+1.0)*127.5 - g_orig_n[v][2][k]); } }
+                    std::vector<double> vsc(pos.size(), 0.0); double smax = 0;
+                    for (size_t w = 0; w < pos.size(); ++w) { if (!alive[w] || !isrim[w]) continue;
+                        double s2v = 0; for (int f2 : vfaces[w]) s2v += ferr2[f2];
+                        vsc[w] = s2v; if (s2v > smax) smax = s2v; }
+                    double thr = smax;
+                    while ((int)order.size() < budget && thr > 1e-12) {
+                        double nthr = thr * 0.5;
+                        for (size_t w = 0; w < pos.size() && (int)order.size() < budget; ++w)
+                            if (vsc[w] > nthr && vsc[w] <= thr) order.push_back(w);
+                        thr = nthr;
+                    }
+                } else {
+                    for (size_t w = 0; w < pos.size(); ++w) if (alive[w] && isrim[w]) order.push_back(w);
+                }
+                int moved = 0; double gsum = 0;
+                for (size_t w : order) {
+                    if (lock[w]) continue;
+                    double best = 1e-8; Vec3 bq;
+                    const Vec3 dirs[6] = {Vec3(1,0,0),Vec3(-1,0,0),Vec3(0,1,0),Vec3(0,-1,0),Vec3(0,0,1),Vec3(0,0,-1)};
+                    for (const Vec3& d2 : dirs) for (double st : {1.0, 2.0}) {
+                        Vec3 q = pos[w] + st*el*d2;
+                        double g = collapse_delta_local((int)w, -1, q);
+                        if (g > best) { best = g; bq = q; } }
+                    if (best > 1e-8) {
+                        pos[w] = bq; ++moved; gsum += best;
+                        for (int f2 : vfaces[w]) { const int* t = faces[f2].data();
+                            lock[t[0]] = lock[t[1]] = lock[t[2]] = 1; } }
+                }
+                std::fprintf(stderr, "[sil2] r%d moved=%d gsum=%.6f t=%.1f\n", rr, moved, gsum, r_elapsed());
+                if (!moved) break;
+            }
+            g_force_nocrop = 0;
+            }
+        
+}
+
 int main(int argc, char** argv) {
     g_t0 = std::chrono::steady_clock::now();
     if (getenv("G_ITERDBG")) std::atexit([]{ std::fprintf(stderr, "[iters] stock_pass=%ld cpu=%.2fs\n", g_refine_iters, r_elapsed()); });
@@ -1769,60 +1851,7 @@ int main(int argc, char** argv) {
             if (vertex_remove_pass(alive_count - dt) == 0) break;
             seed_heap(); Decimate(dt);
         }
-        {
-            int rounds = 1; if (const char* s2e = getenv("G_SIL2")) rounds = atoi(s2e);
-            if (rounds >= 1) {
-            g_res = 1024; g_refine_res = 1024; g_force_nocrop = 1;
-            for (int rr = 0; rr < rounds; ++rr) {
-                remesh_cache_render(); fnc_fill();
-                std::vector<char> isrim(pos.size(), 0);
-                const int W = g_res;
-                for (int v = 0; v < 6; ++v) {
-                    for (int y = 1; y < W-1; ++y) for (int x = 1; x < W-1; ++x) {
-                        size_t k = (size_t)y*W + x; int f = g_rfs[v][k]; if (f < 0) continue;
-                        if (g_rfs[v][k-1] < 0 || g_rfs[v][k+1] < 0 || g_rfs[v][k-W] < 0 || g_rfs[v][k+W] < 0) {
-                            const int* t = faces[f].data();
-                            isrim[t[0]] = isrim[t[1]] = isrim[t[2]] = 1; } }
-                }
-                Vec3 lo=pos[0],hi=pos[0]; for(size_t i=0;i<pos.size();++i){ if(!alive[i])continue; lo=lo.cwiseMin(pos[i]); hi=hi.cwiseMax(pos[i]); }
-                const double el = 0.0016 * (hi-lo).norm();
-                std::vector<char> lock(pos.size(), 0);
-                int budget = 250; if (const char* be = getenv("G_SIL2B")) budget = atoi(be);   // lite mode: top-B rim verts by local deficit
-                std::vector<size_t> order;
-                if (budget < (1 << 27)) {
-                    std::vector<double> ferr2(faces.size(), 0.0);
-                    for (int v = 0; v < 6; ++v) { const std::vector<int>& fsb = g_rfs[v];
-                        for (size_t k = 0; k < (size_t)W*W; ++k) { int f = fsb[k]; if (f < 0) continue; Vec3 n2 = face_nrm(f);
-                            ferr2[f] += std::fabs((n2[0]+1.0)*127.5 - g_orig_n[v][0][k]) + std::fabs((n2[1]+1.0)*127.5 - g_orig_n[v][1][k]) + std::fabs((n2[2]+1.0)*127.5 - g_orig_n[v][2][k]); } }
-                    std::vector<std::pair<double,size_t>> rank;
-                    for (size_t w = 0; w < pos.size(); ++w) { if (!alive[w] || !isrim[w]) continue;
-                        double s2v = 0; for (int f2 : vfaces[w]) s2v += ferr2[f2];
-                        rank.push_back({s2v, w}); }
-                    std::sort(rank.begin(), rank.end(), [](const std::pair<double,size_t>& a, const std::pair<double,size_t>& b){ return a.first > b.first; });
-                    for (size_t i = 0; i < rank.size() && (int)i < budget; ++i) order.push_back(rank[i].second);
-                } else {
-                    for (size_t w = 0; w < pos.size(); ++w) if (alive[w] && isrim[w]) order.push_back(w);
-                }
-                int moved = 0; double gsum = 0;
-                for (size_t w : order) {
-                    if (lock[w]) continue;
-                    double best = 1e-8; Vec3 bq;
-                    const Vec3 dirs[6] = {Vec3(1,0,0),Vec3(-1,0,0),Vec3(0,1,0),Vec3(0,-1,0),Vec3(0,0,1),Vec3(0,0,-1)};
-                    for (const Vec3& d2 : dirs) for (double st : {1.0, 2.0}) {
-                        Vec3 q = pos[w] + st*el*d2;
-                        double g = collapse_delta_local((int)w, -1, q);
-                        if (g > best) { best = g; bq = q; } }
-                    if (best > 1e-8) {
-                        pos[w] = bq; ++moved; gsum += best;
-                        for (int f2 : vfaces[w]) { const int* t = faces[f2].data();
-                            lock[t[0]] = lock[t[1]] = lock[t[2]] = 1; } }
-                }
-                std::fprintf(stderr, "[sil2] r%d moved=%d gsum=%.6f t=%.1f\n", rr, moved, gsum, r_elapsed());
-                if (!moved) break;
-            }
-            g_force_nocrop = 0;
-            }
-        }
+        sil2_pass();
         int lsiter = 1; if (const char* li = getenv("G_LSITER")) lsiter = atoi(li);
         for (int lsit = 0; lsit < lsiter; ++lsit) {
             double lam = -1.0; if (const char* le = getenv("G_LSEED")) lam = atof(le);
@@ -1878,31 +1907,6 @@ int main(int argc, char** argv) {
         }
         if (g_refine_res < 1024) render_orig_hires(1024);
         g_res = 1024; g_refine_res = 1024;
-        if (getenv("G_CVAL")) {   // VALIDATION: collapse_delta_local vs full-render delta on ~20 candidates (local only)
-            g_force_nocrop = 1; remesh_cache_render(); fnc_fill();
-            std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
-            const long long NVv=(long long)pos.size(); int tested=0;
-            std::vector<std::pair<int,int>> edges;
-            for(int f=0;f<(int)faces.size();++f){ if(!face_alive[f])continue; const int* t=faces[f].data();
-                for(int e=0;e<3;++e){ int a=t[e],b=t[(e+1)%3]; int aa=a,bb=b; if(aa>bb)std::swap(aa,bb);
-                    if(first.emplace((long long)aa*NVv+bb,f).second) edges.push_back({aa,bb}); } }
-            std::mt19937 rg(7);
-            for(int it=0; it<400 && tested<20; ++it){
-                auto [a,b] = edges[rg()%edges.size()];
-                if(!alive[a]||!alive[b]) continue;
-                EvalResult ev=Evaluate(a,b); if(!SafeToCollapse(a,b,ev.target)) continue;
-                double loc = collapse_delta_local(a,b,ev.target);
-                if(loc<-1e29) continue;
-                double before = refine_score_grad(nullptr);
-                auto spos=pos; auto sal=alive; auto svf=vfaces; auto sfc=faces; auto sfa=face_alive; auto sQ=Q; auto snr=nref;
-                Collapse(a,b,ev.target);
-                double truede = refine_score_grad(nullptr) - before;
-                pos=spos; alive=sal; vfaces=svf; faces=sfc; face_alive=sfa; Q=sQ; nref=snr;
-                std::fprintf(stderr,"[cval] local=%+.3e full=%+.3e ratio=%.3f\n", loc, truede, (truede!=0? loc/truede : 0.0));
-                ++tested;
-            }
-            g_force_nocrop = 0;
-        }
         if (ctT > 0 && alive_count > c3t) {
             g_force_nocrop = 1;
             int lzpool = 800; if(const char* e=getenv("G_LAZY")) lzpool=atoi(e);   // deep pool, time-trimmed (c3 ran 23.2s at pool1000/box7.5 [20031783])
@@ -1986,35 +1990,6 @@ int main(int argc, char** argv) {
             g_lztinj=1; ctail_lazy(c4t, lzp, 48, r_elapsed()+4.0); g_lztinj=0;
             g_force_nocrop = 0;
             if (alive_count > c4t) { seed_heap(); Decimate(c4t); }
-        }
-        if (getenv("G_LS45")) {   // guided L2 seed on this band too (family-validated on c3)
-            double lam = -1.0;
-            g_res = 1024; fnc_fill();
-            std::vector<double> racc(pos.size(), 0.0); std::vector<int> rcnt(pos.size(), 0);
-            std::vector<int> fid;
-            for (int v6 = 0; v6 < 6; ++v6) { render_faceid(v6, fid);
-                for (size_t k = 0; k < fid.size(); ++k) { int f = fid[k]; if (f < 0) continue;
-                    const int* t = faces[f].data();
-                    for (int c = 0; c < 3; ++c) {
-                        int vi = t[c]; double nl = nref[vi].norm(); if (nl < 1e-20) continue;
-                        double rdot = 0;
-                        for (int ch = 0; ch < 3; ++ch) rdot += (g_orig_n[v6][ch][k]/127.5 - 1.0 - g_fnc[f][ch]) * (nref[vi][ch]/nl);
-                        racc[vi] += rdot; rcnt[vi]++;
-                    } } }
-            double dg2; { Vec3 lo=pos[0],hi=pos[0]; for(const Vec3&q:pos){lo=lo.cwiseMin(q);hi=hi.cwiseMax(q);} dg2=(hi-lo).norm(); }
-            for (size_t i = 0; i < pos.size(); ++i) { if (!alive[i] || rcnt[i]==0) continue;
-                double nl = nref[i].norm(); if (nl < 1e-20) continue;
-                double st = lam * 1e-3 * dg2 * (racc[i]/rcnt[i]);
-                if (st > 2e-3*dg2) st = 2e-3*dg2; if (st < -2e-3*dg2) st = -2e-3*dg2;
-                pos[i] += (st/nl) * nref[i];
-            }
-        }
-        mini_refine(1.5);                          // case 4's first 1024 polish (banked cfg; mini-boost variants TLE'd/WA'd on judge)
-        if (g_remesh) {
-            g_force_nocrop = 1;
-            remesh_flip_local(10, 1600, r_elapsed() + 3.6);
-            g_force_nocrop = 0;
-            mini_refine(0.6);
         }
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
