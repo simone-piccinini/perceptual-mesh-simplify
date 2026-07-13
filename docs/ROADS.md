@@ -374,3 +374,6 @@ anneal (accept >-thr in r1, positive r2-r3, bug-fixed): -1.8e-4 vs pos-only. The
 deficit is RESOLUTION (polygonal rim vs smooth arc), not position — needs more rim verts
 (realloc: judge-dead) or different tessellation. DEAD: sil3 segments, sil2-big-steps,
 sil2-anneal. Code: /tmp/mein_seg.cpp (scratch).
+
+## c2@28 CLOSED x3 mechanisms [JUDGE 20036392/20036456/20037066]
+bare WA, +SIL2 WA (9.3s clean), +RIM-BUDGET WA (4.0s clean). c2 floor = 29 verts, final.
