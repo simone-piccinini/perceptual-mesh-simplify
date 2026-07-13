@@ -2,7 +2,7 @@
 """
 NIGHT-91 CAMPAIGN — systematic 10h+ hunt for the path to 91.
 
-Design (the "genialata"):
+Design:
 - Submits a SEPARATE file (solver/campaign.cpp), so the banked solver/mein.cpp is NEVER touched.
 - A portfolio of adaptive experiment FAMILIES, each a ladder over one lever on one case.
 - Every submission = one all-green-or-not verdict; best-counts protects the bank, so failures are free.
