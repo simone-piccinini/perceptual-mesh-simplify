@@ -2332,7 +2332,6 @@ int main(int argc, char** argv) {
             remesh_flip_local(10, 1200, r_elapsed() + 2.2);
             g_force_nocrop = 0;
         }
-        g_force_nocrop = 1; sil2_pass(); g_force_nocrop = 0;   // SIL2 on c5 (3.3s headroom at 17.7s)
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RL S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", Sn2, Sd2, S2, r_elapsed());
