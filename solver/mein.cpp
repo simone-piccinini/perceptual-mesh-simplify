@@ -2142,7 +2142,7 @@ int main(int argc, char** argv) {
             if (vertex_remove_pass(alive_count - dt) == 0) break;
             seed_heap(); Decimate(dt);
         }
-        sil2_pass();
+        sil2_pass(600);   // budget 600 saturates (=800 local +3.2e-4 over 150); +1.5s judge funded by the speedfix
         int lsiter = 1; if (const char* li = getenv("G_LSITER")) lsiter = atoi(li);
         for (int lsit = 0; lsit < lsiter; ++lsit) {   // GUIDED L2 SEED, iterable: seed->refine->seed (family +1.35e-4 at 1 iter)
             double lam = -1.0; if (const char* le = getenv("G_LSEED")) lam = atof(le);
