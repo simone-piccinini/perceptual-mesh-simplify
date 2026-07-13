@@ -4,12 +4,13 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-13 (afternoon). Bank 90.502077 [JUDGE 20036839] = c3@6690 (SIL2
-diag-200 stack) + c4@4920 (sil2 14dir-400) + c5@4172 + speedfix family. 90.50 CROSSED.
-Ladder descending 6680. Judge sil2 cost model typed [20036592]: 0.8ms/eval (3.2x local;
-AoS cache gains do NOT replicate, rest of speedfix does: c3 base 21.5->19.0s). Diagonal
-rim directions judge-validated (crossed 6690 where 6-dir stack WA'd x3). Day total:
-90.4326 -> 90.502.**
+**Last updated: 2026-07-13 (afternoon). Bank 90.509261 [JUDGE 20036988] = c3@6680 (RIM-BUDGET
++ diag-sil2 stack) + c4@4920-14dir + c5@4172. RIM-BUDGET judge-VALIDATED (6680 crossed at first
+roll, was 0/3 without): silhouette-normal verts collapse later in the c3 decimation order
+(cost x(1+0.7(rim_i+rim_j))); +5-8.5e-4 local, gain on the depth/silhouette channel = the rim
+RESOLUTION deficit (coordinated-move class measured DEAD the same day: position moves cannot
+harvest it, allocation can). Negative on c4/c5/c7 (gated c3-only). Ladder descending 6670.
+Day: 90.4326 -> 90.509.**
 
 ---
 
