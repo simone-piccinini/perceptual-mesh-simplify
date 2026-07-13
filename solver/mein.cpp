@@ -2148,6 +2148,7 @@ int main(int argc, char** argv) {
             double lam = -1.0; if (const char* le = getenv("G_LSEED")) lam = atof(le);
             int lsr = 1024; if (const char* lr = getenv("G_LSRES")) lsr = atoi(lr);
             g_res = lsr; fnc_fill();
+            const bool lsw_on = !getenv("G_NOLSW");   // hoisted: getenv in the per-corner loop cost ~1% CPU
             std::vector<double> racc(pos.size(), 0.0); std::vector<int> rcnt(pos.size(), 0);
             std::vector<double> rwgt(pos.size(), 0.0);
             std::vector<int> fid;
@@ -2163,7 +2164,7 @@ int main(int argc, char** argv) {
                             rdot += (tgt - curv) * (nref[vi][ch]/nl);
                         }
                         double fw = 1.0;
-                        if (!getenv("G_NOLSW")) {   // frontality weight (default ON: +2.3e-5): |n_v . view axis|^2 (grazing views = noise)
+                        if (lsw_on) {   // frontality weight (default ON: +2.3e-5): |n_v . view axis|^2 (grazing views = noise)
                             double ax = (v6<2? nref[vi][0] : v6<4? nref[vi][1] : nref[vi][2]) / nl;
                             fw = ax*ax;
                         }
