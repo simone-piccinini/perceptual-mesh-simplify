@@ -30,7 +30,7 @@ def submit(note):
     m = re.search(r"CASES ([.x?]+)", out)
     return (m.group(1) if m else None), ("NEW BANK" in out)
 def main():
-    c3r = 6620; draw = 62; wa = 0; nobank = 0; banks = 0; subs = 0
+    c3r = 6620; draw = 63; wa = 0; nobank = 0; banks = 0; subs = 0
     if build(c3r, draw): log({"ev": "s2l3_fatal"}); return
     while subs < 45 and banks < 6:
         now = datetime.datetime.now()
@@ -47,9 +47,14 @@ def main():
             if build(c3r, draw): break
         else:
             nobank += 1
-            if cases and len(cases) >= 7 and cases[2] == "x": wa += 1
-            if wa >= 3 or nobank >= 4:
-                draw += 1; wa = 0; nobank = 0
+            c3wa = cases and len(cases) >= 7 and cases[2] == "x"
+            if c3wa: wa += 1
+            if wa >= 2:   # c3 WA x2 at this rung = wall region (c4 now deterministic, c3 is the only gate)
+                c3r += 10; wa = 0; nobank = 0   # retreat, fine approach
+                log({"ev": "s2l3_retreat", "c3": c3r})
+                if build(c3r, draw): break
+            elif nobank >= 4:   # c7-timing coin: rotate draw
+                draw += 1; nobank = 0
                 log({"ev": "s2l3_rotate", "draw": draw})
                 if build(c3r, draw): break
         time.sleep(300)
