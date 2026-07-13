@@ -107,7 +107,7 @@ def main():
 
 def phase3(c3):
     # adaptive dual-rung roller (c3@6710-mpc3 + c4@4910; both = live questions + upside)
-    c3r, c4r = 6710, 4910
+    c3r, c4r = 6705, 4910   # 6710 BANKED 01:38Z (mpc3 validated); 6705 = half the residual gap; c4 4910 gets 4 more coin rolls
     c3fails, c4fails, banks = 0, 0, 0
     while not deadline() and banks < 4:
         patch([(r"int c3t = \d+;", f"int c3t = {c3r};"), (r"int c4t = \d+;", f"int c4t = {c4r};")])

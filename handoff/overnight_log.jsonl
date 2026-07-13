@@ -169,3 +169,26 @@
 {"ev": "f2_dual", "c3": 6710, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T01:23:29.458811+00:00"}
 {"ev": "f2_dual", "c3": 6710, "c4": 4920, "cases": "..xx...", "fails": {"3": "Wrong Answer", "4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T01:31:07.116239+00:00"}
 {"ev": "f2_dual", "c3": 6710, "c4": 4920, "cases": ".......", "fails": {}, "newbank": true, "utc": "2026-07-13T01:38:47.145992+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4910, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T01:42:09.612794+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4910, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T01:49:47.638264+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4910, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T01:57:25.390429+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4910, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T02:05:02.082157+00:00"}
+{"ev": "f2_c4_retreat", "utc": "2026-07-13T02:05:02.082420+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T02:12:41.374511+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T02:20:18.614522+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T02:27:56.475550+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T02:35:34.443535+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T02:43:11.598223+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": null, "fails": {}, "newbank": false, "utc": "2026-07-13T02:48:36.182910+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T02:56:14.415824+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "..xx...", "fails": {"3": "Wrong Answer", "4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T03:03:55.716329+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "..x....", "fails": {"3": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T03:11:34.561387+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T03:19:12.522767+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "..xx...", "fails": {"3": "Wrong Answer", "4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T03:26:50.175237+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T03:34:28.494332+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T03:42:05.870335+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T03:49:42.809101+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T03:57:20.630524+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T04:05:02.101757+00:00"}
+{"ev": "f2_dual", "c3": 6705, "c4": 4920, "cases": "...x...", "fails": {"4": "Wrong Answer"}, "newbank": false, "utc": "2026-07-13T04:12:45.713529+00:00"}
+{"ev": "f2_done", "banks": 0, "utc": "2026-07-13T04:17:45.727151+00:00"}
