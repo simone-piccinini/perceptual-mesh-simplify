@@ -165,6 +165,10 @@ static std::vector<double> sr;
 
 static bool   g_adaptive = false;
 static bool   g_subset_place = false;   // case3 diagnostic: subset placement (kept verts stay on original positions)
+static double g_zpen = 0.0;             // c4 DEPTH-AWARE (env G_ZPEN). MEASURED INERT 2026-07-13: byte-identical S2d on the
+                                       // calibrated ABC proxies vs baseline AND vs G_SUBSET placement. QEM ordering is already
+                                       // feature-optimal (flat-first) and refine re-optimizes positions to the same optimum ->
+                                       // c4 depth-SSIM at the rung is compression-ratio-bound, not decimation-bound. Kept env-gated.
 static double g_margin   = std::numeric_limits<double>::infinity();
 
 static std::priority_queue<HeapEntry, std::vector<HeapEntry>,
@@ -1625,6 +1629,23 @@ EvalResult Evaluate(int i, int j) {
     if (g_lambda > 0.0 && !imp.empty())                  // Pivot-A: protect contrast-deficit regions
         cost *= (1.0 + g_lambda * (imp[i] + imp[j]));
     if (!g_hidvert.empty() && g_hidvert[i] && g_hidvert[j]) cost *= 1e-4;  // both hidden -> collapse first (free, no SSIM impact)
+    if (g_zpen > 0.0) {   // DEPTH-AWARE (c4): defer collapses that flatten distinct-Z features.
+        // metric = area-weighted mean squared normal-aligned displacement of xbar from the incident
+        // ORIGINAL planes (= the depth error the axial cameras see), normalized by edge length^2 so it
+        // measures feature STEEPNESS -> catches SMALL distinct-Z steps QEM under-weights (absolute-small).
+        double dz = 0.0, aw = 0.0;
+        for (int side = 0; side < 2; ++side) for (int f : vfaces[side ? j : i]) {
+            if (!face_alive[f]) continue; const int* t = faces[f].data();
+            const Vec3 cr = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
+            const double l = cr.norm(); if (l <= 0.0) continue;
+            const double a = 0.5*l, d = (cr/l).dot(xbar - pos[t[0]]);
+            dz += a*d*d; aw += a;
+        }
+        if (aw > 0.0) {
+            const double eref = (pos[i]-pos[j]).squaredNorm() + 1e-30;
+            cost *= (1.0 + g_zpen * (dz/aw) / eref);
+        }
+    }
     return EvalResult{ cost, xbar };
 }
 
@@ -1938,6 +1959,8 @@ int main(int argc, char** argv) {
     // large meshes (judge-confirmed pass); keep-0.36 for small/medium (proven 64).
     g_fliptau = fliptau_for((int)pos.size());
     if (const char* e = getenv("G_FLIPTAU")) g_fliptau = atof(e);
+    if (const char* e = getenv("G_ZPEN")) g_zpen = atof(e);   // c4 depth-aware collapse penalty (default 0 = bank)
+    if (getenv("G_SUBSET")) g_subset_place = true;            // c4 depth: keep xbar on a real depth level (vs QEM mid-step average)
     g_adaptive = (kOpAdaptive != 0) && ((int)pos.size() > kLargeThreshold);
     g_subset_place = false;  // diagnostic done: case3 is SSIM-bound (subset @66% also red); free-QEM beats subset on SSIM anyway
     double margin = kOpMargin, floor_frac = kOpFloorFrac, keep = keep_for((int)pos.size());
