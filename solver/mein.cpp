@@ -1892,7 +1892,7 @@ void save_obj() {
 #if defined(__GNUC__) && !defined(__clang__)
 __attribute__((noinline))
 #endif
-static void sil2_pass(int bdef = 150) {
+static void sil2_pass(int bdef = 150, int diag = 0) {
    // SIL-2.0: per-rim-vertex exact 4-channel moves (coverage-changing moves are invisible to the analytic gradient)
             int rounds = 1; if (const char* s2e = getenv("G_SIL2")) rounds = atoi(s2e);
             if (rounds >= 1) {
@@ -1938,11 +1938,16 @@ static void sil2_pass(int bdef = 150) {
                 for (size_t w : order) {
                     if (lock[w]) continue;
                     double best = 1e-8; Vec3 bq;
-                    const Vec3 dirs[6] = {Vec3(1,0,0),Vec3(-1,0,0),Vec3(0,1,0),Vec3(0,-1,0),Vec3(0,0,1),Vec3(0,0,-1)};
-                    for (const Vec3& d2 : dirs) for (double st : {1.0, 2.0}) {
+                    static const double s3 = 0.5773502691896258;
+                    const Vec3 dirs[14] = {Vec3(1,0,0),Vec3(-1,0,0),Vec3(0,1,0),Vec3(0,-1,0),Vec3(0,0,1),Vec3(0,0,-1),
+                        Vec3(s3,s3,s3),Vec3(s3,s3,-s3),Vec3(s3,-s3,s3),Vec3(s3,-s3,-s3),Vec3(-s3,s3,s3),Vec3(-s3,s3,-s3),Vec3(-s3,-s3,s3),Vec3(-s3,-s3,-s3)};
+                    int ndir = diag ? 14 : 6; if (getenv("G_SILDIAG")) ndir = atoi(getenv("G_SILDIAG")) ? 14 : 6;
+                    for (int di = 0; di < ndir; ++di) { const Vec3& d2 = dirs[di];
+                    const double stmax = (di >= 6) ? 1.5 : 2.5;   // diagonals: 1 step only (funded)
+                    for (double st : {1.0, 2.0}) { if (st > stmax) continue;
                         Vec3 q = pos[w] + st*el*d2;
                         double g = collapse_delta_local((int)w, -1, q);
-                        if (g > best) { best = g; bq = q; } }
+                        if (g > best) { best = g; bq = q; } } }
                     if (best > 1e-8) {
                         pos[w] = bq; ++moved; gsum += best;
                         for (int f2 : vfaces[w]) { const int* t = faces[f2].data();
@@ -2142,7 +2147,7 @@ int main(int argc, char** argv) {
             if (vertex_remove_pass(alive_count - dt) == 0) break;
             seed_heap(); Decimate(dt);
         }
-        sil2_pass(600);   // budget 600 saturates (=800 local +3.2e-4 over 150); +1.5s judge funded by the speedfix
+        sil2_pass(600, 1);   // 600 saturates; diag-1step +2.4e-4 local; total ~+3s judge funded by the speedfix (c3 ~20.5s)
         int lsiter = 1; if (const char* li = getenv("G_LSITER")) lsiter = atoi(li);
         for (int lsit = 0; lsit < lsiter; ++lsit) {   // GUIDED L2 SEED, iterable: seed->refine->seed (family +1.35e-4 at 1 iter)
             double lam = -1.0; if (const char* le = getenv("G_LSEED")) lam = atof(le);
