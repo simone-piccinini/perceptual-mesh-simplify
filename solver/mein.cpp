@@ -1986,7 +1986,7 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_HYB")) g_hybrid = atoi(e);
     if (const char* e = getenv("G_TILT")) g_tilt = atoi(e);
     if (const char* e = getenv("G_CAPF")) g_capf = atof(e);
-    if ((g_refine && g_hybrid) || ((int)pos.size() > 1000 && (int)pos.size() <= 7000) || ((int)pos.size() > 30000 && (int)pos.size() <= 100000)) { o_pos = pos; o_faces = faces; }   // RLIVE: c2+c4+c5 need the pristine copy for the 1024 re-render
+    if ((g_refine && g_hybrid) || ((int)pos.size() > 1000 && (int)pos.size() <= 7000) || ((int)pos.size() > 30000 && (int)pos.size() <= 100000) || ((int)pos.size() > 400000 && getenv("G_SIL2C7"))) { o_pos = pos; o_faces = faces; }   // RLIVE: c2+c4+c5 need the pristine copy for the 1024 re-render
     if (const char* e = getenv("G_TET")) g_addtet = atoi(e);   // disconnected-output probe: JUDGE-ACCEPTED 7/7 (2026-07-04)
     if (r_elapsed() > 6.0) g_refine = 0;       // TLE guard (v55 case7): refine_init is NOT wall-clock-boxed;
                                                // if load+Initialize already ate the margin, skip refine entirely
@@ -2103,6 +2103,24 @@ int main(int argc, char** argv) {
         Decimate(target_count);
     }
     if (g_refine) refine_positions();          // inverse-rendering ascent on output vertices (case3), time-boxed
+    if ((int)pos.size() > 1000 && (int)pos.size() <= 7000 && getenv("G_SIL2C2")) {   // SIL2 probe on c2 (28-vert output: every vertex is rim)
+        render_orig_hires(1024);
+        g_res = 1024; g_refine_res = 1024;
+        sil2_pass(atoi(getenv("G_SIL2C2")));
+        if (getenv("G_S2")) {
+            double Sn2c = refine_score_grad(nullptr), Sd2c = sil_score_depth();
+            std::fprintf(stderr, "RC2 S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", Sn2c, Sd2c, 0.5*Sn2c+0.5*Sd2c, r_elapsed());
+        }
+    }
+    if ((int)pos.size() > 400000 && getenv("G_SIL2C7")) {   // SIL2 probe on c7 band (coverage moves never tried here)
+        render_orig_hires(1024);
+        g_res = 1024; g_refine_res = 1024;
+        sil2_pass(atoi(getenv("G_SIL2C7")));
+        if (getenv("G_S2")) {
+            double Sn7 = refine_score_grad(nullptr), Sd7 = sil_score_depth();
+            std::fprintf(stderr, "RC7 S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", Sn7, Sd7, 0.5*Sn7+0.5*Sd7, r_elapsed());
+        }
+    }
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
         int c3t = 6700;                            // BANK ladder: 6760 judge-PASS [20031783]; S2(deep@6775)=0.9145, slope 1.25e-5/v -> margin ~+4e-4 here. env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
