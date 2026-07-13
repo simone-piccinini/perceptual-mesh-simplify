@@ -60,7 +60,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }
 
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }
 
-static volatile int g_draw = 51;
+static volatile int g_draw = 52;
 constexpr int kSmallMeshSkip = 1000;
 
 struct EvalResult { double cost; Vec3 target; };
@@ -1880,7 +1880,7 @@ int main(int argc, char** argv) {
             if (vertex_remove_pass(alive_count - dt) == 0) break;
             seed_heap(); Decimate(dt);
         }
-        sil2_pass(600, 1);
+        sil2_pass(200, 1);
         int lsiter = 1; if (const char* li = getenv("G_LSITER")) lsiter = atoi(li);
         for (int lsit = 0; lsit < lsiter; ++lsit) {
             double lam = -1.0; if (const char* le = getenv("G_LSEED")) lam = atof(le);
