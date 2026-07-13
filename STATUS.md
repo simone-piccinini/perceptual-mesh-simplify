@@ -4,13 +4,14 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-13 (evening). Bank 90.530812 [JUDGE 20038320] = c3@6650 (RIM-BUDGET) +
-c4@4920-14dir + c5@4172. Branch CleanRepoForAI (usual; NEVER merge other agents' branches).
-RIM-BUDGET descended c3 6690->6650 (6 banked rungs, wall not hit, local slope -6e-6/vert). Gates
-per roll: c3 SSIM ~90%, c4 box-coin ~30%, c7 TLE ~75% (25s edge, irreducible 1M-vert decimation).
-Ladder auto-descending 6640. Day: 90.4326 -> 90.5308 (+0.098). c3 importance variations all
-falsified (rim peak). Ceiling estimate ~90.55-90.60 this paradigm; 91 needs discovery-class (not
-yet found).**
+**Last updated: 2026-07-13 (evening). Bank 90.533273 [JUDGE 20038477] = c3@6640 (RIM-BUDGET) +
+c4@4930-DETERMINIZED + c5@4172. Branch CleanRepoForAI (never merge others). BREAKTHROUGH: c4
+box-cut coin was SELF-INFLICTED by the wall-clock time-box cutting refine mid-trajectory on slow
+judge machines. Fixed by capping c4 refine at 24 iters (converged flat 20-36) -> deterministic
+mesh -> DETERMINISTIC PASS at 4930. The c4 coin that gated every c3 rung is DEAD; every rung now
+banks first-roll (~80% vs ~20%). Ladder descending c3 fast (-20/bank) with reliable c4. Day:
+90.4326 -> 90.533 (+0.10). c4@4920-converged fails (bank was box-cut luck); 4930 is the
+deterministic-safe rung (+0.00047 cost, huge throughput gain).**
 
 ---
 
