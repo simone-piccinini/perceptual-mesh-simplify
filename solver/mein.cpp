@@ -563,114 +563,13 @@ static double flip_delta_local(int a,int b,int c,int d,int f1,int f2) {
 // QEM/VSA order the bulk; the LAST few collapses decide the rung. This evaluates the TRUE box-SSIM delta of
 // one collapse (u<-v at xbar) by locally re-rasterizing the ring faces in the touched windows, from g_orig_n
 // and the cached g_rfs base render. Conservative: any pixel losing coverage (silhouette change) -> reject.
-// MOVE-mode local delta: rendered-SSIM delta of moving ONE vertex w to q (ring re-raster, no dead faces)
-static double move_delta_local(int w, const Vec3& q) {
-    const int W=g_res; const double F=800.0*(W/1024.0), CC=W/2.0; const int R=R_RAD;
-    auto enc=[](double nc){ return (float)((nc+1.0)*127.5); };
-    std::vector<int> ring; ring.reserve(16);
-    for(int f : vfaces[w]) ring.push_back(f);
-    if(ring.empty()) return -1e30;
-    std::vector<char> dead(ring.size(),0);
-    std::vector<std::array<Vec3,3>> nverts(ring.size());
-    std::vector<Vec3> nn(ring.size());
-    for(size_t i=0;i<ring.size();++i){ const int* t=faces[ring[i]].data();
-        for(int k=0;k<3;++k) nverts[i][k] = (t[k]==w) ? q : pos[t[k]];
-        Vec3 c=(nverts[i][1]-nverts[i][0]).cross(nverts[i][2]-nverts[i][0]); double l=c.norm(); if(l<1e-18) return -1e30;
-        nn[i]=c/l; }
-    double delta=0;
-    for(int vw=0; vw<6; ++vw){
-        Vec3 eye,rt,up,fw; view_basis(vw,eye,rt,up,fw);
-        double bx0=1e30,bx1=-1e30,by0=1e30,by1=-1e30; bool ok=true;
-        auto proj=[&](const Vec3& p, double& U, double& V2)->bool{ Vec3 r=p-eye; double dz=r.dot(fw); if(dz<=0) return false; U=F*r.dot(rt)/dz+CC; V2=F*r.dot(up)/dz+CC; return true; };
-        for(size_t i=0;i<ring.size() && ok;++i){ const int* t=faces[ring[i]].data();
-            for(int k=0;k<3;++k){ double U,V2; if(!proj(pos[t[k]],U,V2)){ok=false;break;} bx0=std::min(bx0,U);bx1=std::max(bx1,U);by0=std::min(by0,V2);by1=std::max(by1,V2); } }
-        { double U,V2; if(ok && proj(q,U,V2)){ bx0=std::min(bx0,U);bx1=std::max(bx1,U);by0=std::min(by0,V2);by1=std::max(by1,V2);} else ok=false; }
-        if(!ok) continue;
-        const int rx0=std::max(0,(int)std::floor(bx0)-1-2*R), rx1=std::min(W-1,(int)std::ceil(bx1)+1+2*R);
-        const int ry0=std::max(0,(int)std::floor(by0)-1-2*R), ry1=std::min(W-1,(int)std::ceil(by1)+1+2*R);
-        const int rw=rx1-rx0+1, rh=ry1-ry0+1; if(rw<=0||rh<=0) continue;
-        std::vector<std::array<double,6>> scr(ring.size()); std::vector<std::array<double,3>> dz3(ring.size());
-        for(size_t i=0;i<ring.size();++i){ if(dead[i]) continue;
-            for(int k=0;k<3;++k){ Vec3 r=nverts[i][k]-eye; double dzz=r.dot(fw); if(dzz<=0){ dead[i]=2; break; }
-                scr[i][2*k]=F*r.dot(rt)/dzz+CC; scr[i][2*k+1]=F*r.dot(up)/dzz+CC; dz3[i][k]=dzz; } }
-        std::vector<signed char> hitmap((size_t)rw*rh, -2);
-        std::vector<float> Zo((size_t)rw*rh), Zn((size_t)rw*rh);
-        for(int yy=ry0;yy<=ry1;++yy) for(int xx=rx0;xx<=rx1;++xx){ size_t k=(size_t)yy*W+xx; int fid=g_rfs[vw][k];
-            size_t li=(size_t)(yy-ry0)*rw+(xx-rx0);
-            Zo[li]=g_rzb[vw][k]; Zn[li]=Zo[li];
-            bool inRing=false; if(fid>=0) for(size_t i=0;i<ring.size();++i) if(ring[i]==fid){ inRing=true; break; }
-            if(!inRing) continue;
-            double cx=xx+0.5, cy=yy+0.5, bz=1e30; int hit=-1;
-            for(size_t i=0;i<ring.size();++i){ if(dead[i]) continue;
-                double u0=scr[i][0],v0=scr[i][1],u1=scr[i][2],v1=scr[i][3],u2=scr[i][4],v2=scr[i][5];
-                double det=(v1-v2)*(u0-u2)+(u2-u1)*(v0-v2); if(det>-1e-12&&det<1e-12) continue; double inv=1.0/det;
-                double w0=((v1-v2)*(cx-u2)+(u2-u1)*(cy-v2))*inv, w1=((v2-v0)*(cx-u2)+(u0-u2)*(cy-v2))*inv, w2=1-w0-w1;
-                if(w0<-1e-6||w1<-1e-6||w2<-1e-6) continue;
-                double den=w0/dz3[i][0]+w1/dz3[i][1]+w2/dz3[i][2]; if(den<=0) continue; double z=1.0/den;
-                if(z<bz){ bz=z; hit=(int)i; } }
-            if(hit<0){
-                bool sil=false;
-                for(int dy=-1;dy<=1&&!sil;++dy) for(int dx=-1;dx<=1;++dx){ int qx=xx+dx, qy=yy+dy;
-                    if(qx<0||qy<0||qx>=W||qy>=W){ sil=true; break; }
-                    if(g_rfs[vw][(size_t)qy*W+qx]<0){ sil=true; break; } }
-                if(!sil) return -1e30;
-                Zn[li]=255.0f; hitmap[li]=-1;
-            } else { Zn[li]=(float)bz; hitmap[li]=(signed char)hit; }
-        }
-        for(int ch=0; ch<4; ++ch){
-            const std::vector<float>& X = (ch<3) ? g_orig_n[vw][ch] : g_orig_d[vw];
-            std::vector<float> Yo((size_t)rw*rh), Yn((size_t)rw*rh);
-            if (ch==3) { Yo=Zo; Yn=Zn; }
-            else for(int yy=ry0;yy<=ry1;++yy) for(int xx=rx0;xx<=rx1;++xx){ size_t k=(size_t)yy*W+xx; int fid=g_rfs[vw][k];
-                float yb=(fid>=0)? enc(g_fnc[fid][ch]) : 127.5f; float yo=yb, yn=yb;
-                size_t li=(size_t)(yy-ry0)*rw+(xx-rx0);
-                signed char hm=hitmap[li];
-                if(hm==-1) yn=127.5f;
-                else if(hm>=0) yn=enc(nn[hm][ch]);
-                Yo[li]=yo; Yn[li]=yn; }
-            static std::vector<double> PP[8];
-            const int pw = rw + 1, ph = rh + 1;
-            for (int q2 = 0; q2 < 8; ++q2) PP[q2].assign((size_t)pw * ph, 0.0);
-            for (int yy = 0; yy < rh; ++yy) {
-                double r0=0,r1=0,r2=0,r3=0,r4=0,r5=0,r6=0,r7=0;
-                const size_t rowq = (size_t)(yy + 1) * pw, rowu = (size_t)yy * pw;
-                for (int xx = 0; xx < rw; ++xx) {
-                    const size_t li = (size_t)yy * rw + xx;
-                    const double xv = X[(size_t)(ry0 + yy) * W + (rx0 + xx)];
-                    const double yo = Yo[li], yn = Yn[li];
-                    r0 += xv; r1 += xv * xv; r2 += yo; r3 += yo * yo; r4 += xv * yo; r5 += yn; r6 += yn * yn; r7 += xv * yn;
-                    PP[0][rowq+xx+1]=PP[0][rowu+xx+1]+r0; PP[1][rowq+xx+1]=PP[1][rowu+xx+1]+r1;
-                    PP[2][rowq+xx+1]=PP[2][rowu+xx+1]+r2; PP[3][rowq+xx+1]=PP[3][rowu+xx+1]+r3;
-                    PP[4][rowq+xx+1]=PP[4][rowu+xx+1]+r4; PP[5][rowq+xx+1]=PP[5][rowu+xx+1]+r5;
-                    PP[6][rowq+xx+1]=PP[6][rowu+xx+1]+r6; PP[7][rowq+xx+1]=PP[7][rowu+xx+1]+r7;
-                }
-            }
-            auto rect = [&](int q2, int a, int b, int c, int d) -> double {
-                return PP[q2][(size_t)d*pw+b] - PP[q2][(size_t)d*pw+a] - PP[q2][(size_t)c*pw+b] + PP[q2][(size_t)c*pw+a]; };
-            const int wx0=std::max(R,rx0+R), wx1=std::min(W-R-1,rx1-R), wy0=std::max(R,ry0+R), wy1=std::min(W-R-1,ry1-R);
-            for(int wy=wy0;wy<=wy1;++wy) for(int wx=wx0;wx<=wx1;++wx){ size_t k=(size_t)wy*W+wx;
-                if(!(g_orig_cov[vw][k]||g_rfs[vw][k]>=0)) continue;
-                const int a=wx-R-rx0, b=wx+R+1-rx0, c=wy-R-ry0, d=wy+R+1-ry0;
-                double SX=rect(0,a,b,c,d), SXX=rect(1,a,b,c,d);
-                double SYo=rect(2,a,b,c,d), SYYo=rect(3,a,b,c,d), SXYo=rect(4,a,b,c,d);
-                double SYn=rect(5,a,b,c,d), SYYn=rect(6,a,b,c,d), SXYn=rect(7,a,b,c,d);
-                double MX=SX/R_WN;
-                auto ss=[&](double SY,double SYY,double SXY)->double{ double MY=SY/R_WN, SXv=SXX/R_WN-MX*MX, SYv=SYY/R_WN-MY*MY, SXYv=SXY/R_WN-MX*MY;
-                    double A2=2*MX*MY+R_C1,B2=2*SXYv+R_C2,Cc=MX*MX+MY*MY+R_C1,Dd=SXv+SYv+R_C2; return (A2*B2)/(Cc*Dd); };
-                delta += ((ch==3)?3.0:1.0) * (ss(SYn,SYYn,SXYn)-ss(SYo,SYYo,SXYo)) / ((double)g_rNv[vw]*36.0);
-            }
-        }
-        for(size_t i=0;i<ring.size();++i) if(dead[i]==2) dead[i]=0;
-    }
-    return delta;
-}
 static double collapse_delta_local(int u, int v, const Vec3& xbar) {
     const int W=g_res; const double F=800.0*(W/1024.0), CC=W/2.0; const int R=R_RAD;
     auto enc=[](double nc){ return (float)((nc+1.0)*127.5); };
     // ring faces (union of both stars); the 2 shared faces die; survivors get u/v remapped to xbar
     std::vector<int> ring; ring.reserve(24);
     for(int f : vfaces[u]) ring.push_back(f);
-    for(int f : vfaces[v]){ bool dup=false; for(int g2 : ring) if(g2==f){dup=true;break;} if(!dup) ring.push_back(f); }
+    if (v >= 0) for(int f : vfaces[v]){ bool dup=false; for(int g2 : ring) if(g2==f){dup=true;break;} if(!dup) ring.push_back(f); }   // v=-1 => MOVE mode (single-vertex reposition, no dying faces)
     std::vector<char> dead(ring.size(),0);
     std::vector<std::array<Vec3,3>> nverts(ring.size());   // post-collapse geometry per ring face
     std::vector<Vec3> nn(ring.size());
@@ -2175,7 +2074,7 @@ int main(int argc, char** argv) {
                     const Vec3 dirs[6] = {Vec3(1,0,0),Vec3(-1,0,0),Vec3(0,1,0),Vec3(0,-1,0),Vec3(0,0,1),Vec3(0,0,-1)};
                     for (const Vec3& d2 : dirs) for (double st : {1.0, 2.0}) {
                         Vec3 q = pos[w] + st*el*d2;
-                        double g = move_delta_local((int)w, q);
+                        double g = collapse_delta_local((int)w, -1, q);
                         if (g > best) { best = g; bq = q; } }
                     if (best > 1e-8) {
                         pos[w] = bq; ++moved; gsum += best;
