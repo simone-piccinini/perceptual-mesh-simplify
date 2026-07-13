@@ -428,12 +428,16 @@ static double flip_delta_local(int a,int b,int c,int d,int f1,int f2) {
     }
     return delta;
 }
+static std::vector<int> g_ringmark; static int g_ringepoch = 0;
 static double collapse_delta_local(int u, int v, const Vec3& xbar) {
     const int W=g_res; const double F=800.0*(W/1024.0), CC=W/2.0; const int R=R_RAD;
     auto enc=[](double nc){ return (float)((nc+1.0)*127.5); };
     std::vector<int> ring; ring.reserve(24);
     for(int f : vfaces[u]) ring.push_back(f);
     if (v >= 0) for(int f : vfaces[v]){ bool dup=false; for(int g2 : ring) if(g2==f){dup=true;break;} if(!dup) ring.push_back(f); }
+    if (g_ringmark.size() != faces.size()) { g_ringmark.assign(faces.size(), 0); g_ringepoch = 0; }
+    ++g_ringepoch;
+    for (size_t i = 0; i < ring.size(); ++i) g_ringmark[ring[i]] = g_ringepoch * 64 + (int)i;
     std::vector<char> dead(ring.size(),0);
     std::vector<std::array<Vec3,3>> nverts(ring.size());
     std::vector<Vec3> nn(ring.size());
@@ -465,8 +469,7 @@ static double collapse_delta_local(int u, int v, const Vec3& xbar) {
         for(int yy=ry0;yy<=ry1;++yy) for(int xx=rx0;xx<=rx1;++xx){ size_t k=(size_t)yy*W+xx; int fid=g_rfs[vw][k];
             size_t li=(size_t)(yy-ry0)*rw+(xx-rx0);
             Zo[li]=g_rzb[vw][k]; Zn[li]=Zo[li];
-            bool inRing=false; if(fid>=0) for(size_t i=0;i<ring.size();++i) if(ring[i]==fid){ inRing=true; break; }
-            if(!inRing) continue;
+            if(fid<0 || (g_ringmark[fid] / 64) != g_ringepoch) continue;
             double cx=xx+0.5, cy=yy+0.5, bz=1e30; int hit=-1;
             for(size_t i=0;i<ring.size();++i){ if(dead[i]) continue;
                 double u0=scr[i][0],v0=scr[i][1],u1=scr[i][2],v1=scr[i][3],u2=scr[i][4],v2=scr[i][5];
