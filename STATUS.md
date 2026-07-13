@@ -4,13 +4,14 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-13 (afternoon). Bank 90.491302; SIL2 coverage-moves judge-validated
-(c3@6700+SIL2 PASS where 6700+flips WA'd ×3); sil2_ladder rolling 6700→descend. Three
-judge-validated mechanisms in 36h: prefix-sum deep tail, MP-continuous, SIL2. c5@4165
-falsified ×2 mechanisms (local proxy overstates at c5's wall). Budget-swap sweep: current
-config = optimum (SIL2 rounds don't stack after refine re-polish). Leaderboard 13/07: top
-93.32/93.19; the 91.5 collapse-pack is stalled; escapees' discovery ≠ paint/big-case-tails/
-depth (all excluded by measurement).**
+**Last updated: 2026-07-13 (afternoon). Bank 90.494894 [JUDGE 20036401] = c3@6700-SIL2 +
+c4@4920+sil2c4-800 + c5@4172. SIL2 judge-validated on BOTH c3 (crossed 6700, WA'd x3 bare) and
+c4 (crossed the family-mean collapse: 0/10 day-WA before sil2c4, pass after; cost +7.2s judge,
+c4 now 20.7-21.4s = tight, day-only). sil2_ladder3 descending: 6690 next. SEALING ROAD DEAD
+[LOCAL viscount]: input invisible fraction c3/c4/c5 = 0.5-0.8% verts; c7 input 11% BUT OUTPUT
+99.37% visible - decimation already allocates to visible surface; prize <= +0.02. c2@28+SIL2
+died on TIME (21.5s: giant-triangle evals ~7x judge ratio) - light variant possible. c5+SIL2
+judge-NEGATIVE (4172+SIL2 WA'd, reverted).**
 
 ---
 
