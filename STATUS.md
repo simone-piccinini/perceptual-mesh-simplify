@@ -4,14 +4,12 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-13 (evening). Bank 90.533273 [JUDGE 20038477] = c3@6640 (RIM-BUDGET) +
-c4@4930-DETERMINIZED + c5@4172. Branch CleanRepoForAI (never merge others). BREAKTHROUGH: c4
-box-cut coin was SELF-INFLICTED by the wall-clock time-box cutting refine mid-trajectory on slow
-judge machines. Fixed by capping c4 refine at 24 iters (converged flat 20-36) -> deterministic
-mesh -> DETERMINISTIC PASS at 4930. The c4 coin that gated every c3 rung is DEAD; every rung now
-banks first-roll (~80% vs ~20%). Ladder descending c3 fast (-20/bank) with reliable c4. Day:
-90.4326 -> 90.533 (+0.10). c4@4920-converged fails (bank was box-cut luck); 4930 is the
-deterministic-safe rung (+0.00047 cost, huge throughput gain).**
+**Last updated: 2026-07-13 (evening). Bank 90.54764 [JUDGE 20038570] = c3@6620 (RIM-BUDGET) +
+c4@4930-DETERMINIZED + c5@4172. Branch CleanRepoForAI (never merge). Two breakthroughs today:
+RIM-BUDGET (c3 mechanism) + c4-DETERMINIZE (killed the box-cut coin -> every c3 rung banks
+first-roll). c3 descending past 6620 (wall not hit; 6620 WA'd twice as coins then passed on draw
+rotation). Ladder auto-descends -20/all-green, retreats +10 on 2x c3-WA. Day: 90.4326 -> 90.548
+(+0.115). c3 rim-budget wall deeper than expected.**
 
 ---
 
