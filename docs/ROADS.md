@@ -384,3 +384,8 @@ verts, cost x(1+K*struct)). ON TOP of rim: -1e-3..-5e-4 for all K (redirects bud
 silhouette where rim wins — the structure deficit lives in the SILHOUETTE windows, not interior
 detail). rim x curvature: -6e-4. lambda!=16: worse. rim-budget K0.7 sig0.2 stands as the c3 peak.
 Code: /tmp/struct.cpp (scratch, structw_init).
+
+## 2026-07-13 evening — rim-budget on huge cases (c6/c7) DEAD, c3-only confirmed
+c7 rim-budget: K0.3 -4.4e-4, K0.7 -1.4e-4 (measured via sil2c7=0 hook). Huge cases already VSA-
+normal-coherence ordered; rim redirects budget away from it. rim-budget is c3-organic-specific
+(the QEM+refine medium regime). Branch: fable-rim-solo (my work only, no merges).
