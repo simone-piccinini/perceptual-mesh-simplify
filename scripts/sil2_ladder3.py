@@ -30,7 +30,7 @@ def submit(note):
     m = re.search(r"CASES ([.x?]+)", out)
     return (m.group(1) if m else None), ("NEW BANK" in out)
 def main():
-    c3r = 6670; draw = 55; wa = 0; nobank = 0; banks = 0; subs = 0
+    c3r = 6660; draw = 59; wa = 0; nobank = 0; banks = 0; subs = 0
     if build(c3r, draw): log({"ev": "s2l3_fatal"}); return
     while subs < 45 and banks < 6:
         now = datetime.datetime.now()
@@ -40,7 +40,7 @@ def main():
         log({"ev": "s2l3", "c3": c3r, "draw": draw, "cases": cases, "newbank": nb})
         if nb:
             banks += 1; wa = 0; nobank = 0
-            sh("git add -A && git commit -q -m 'sil2 ladder v3: NEW BANK' && git push -q origin CleanRepoForAI")
+            sh("git add -A && git commit -q -m 'sil2 ladder v3: NEW BANK' && git push -q origin fable-rim-solo")
             c3r -= 10
             if build(c3r, draw): break
         else:
