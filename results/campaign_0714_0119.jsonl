@@ -1,1 +1,6 @@
 {"ev": "start", "best": {"c3": 6610, "c4": 4930, "c5": 4165, "c6": 8684, "c7": 0.0272}, "utc": "2026-07-13T23:19:45.879104+00:00", "h": 0.0}
+{"ev": "result", "task": "bank", "draw": 81, "cases": "..x....", "score": 78.661344, "id": "20039512", "allgreen": false, "newbank": false, "utc": "2026-07-13T23:22:05.296568+00:00", "h": 0.04}
+{"ev": "result", "task": "c7", "draw": 82, "cases": "..x...x", "score": 62.448011, "id": "20039534", "allgreen": false, "newbank": false, "utc": "2026-07-13T23:29:04.929267+00:00", "h": 0.16}
+{"ev": "result", "task": "c5", "draw": 83, "cases": "..x....", "score": 78.662011, "id": "20039569", "allgreen": false, "newbank": false, "utc": "2026-07-13T23:36:19.131224+00:00", "h": 0.28}
+{"ev": "push_pass", "case": "c5", "newbest": 4163, "utc": "2026-07-13T23:36:19.131757+00:00", "h": 0.28}
+{"ev": "result", "task": "bank", "draw": 84, "cases": ".......", "score": 90.580319, "id": "20039589", "allgreen": true, "newbank": true, "utc": "2026-07-13T23:43:23.648483+00:00", "h": 0.39}
