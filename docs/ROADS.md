@@ -365,3 +365,12 @@ failed for quadric-term additions). Any B2 revival must (a) put anisotropy in th
 (which self-corrects against the true rendered metric) not in global quadrics, and (b) trust only
 K-reads. The collapse-paradigm ceiling (~6650 = ~90.55) stands as the roof until a mechanism of a
 different class exists.
+
+## 2026-07-13 pm — coordinated-move class CLOSED (local, exact evaluator)
+After refine+SIL2 the c3 silhouette is a MEASURED local optimum: all 6700 exact evals of
+3-6-vertex coordinated segment slides (14 dirs x {1,2,4}el) are NEGATIVE (-2e-5..-1e-4, gate
+working, distribution instrumented). Big single steps (4x/8x el): negative. Barrier-crossing
+anneal (accept >-thr in r1, positive r2-r3, bug-fixed): -1.8e-4 vs pos-only. The residual rim
+deficit is RESOLUTION (polygonal rim vs smooth arc), not position — needs more rim verts
+(realloc: judge-dead) or different tessellation. DEAD: sil3 segments, sil2-big-steps,
+sil2-anneal. Code: /tmp/mein_seg.cpp (scratch).
