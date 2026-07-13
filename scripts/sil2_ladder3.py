@@ -30,7 +30,7 @@ def submit(note):
     m = re.search(r"CASES ([.x?]+)", out)
     return (m.group(1) if m else None), ("NEW BANK" in out)
 def main():
-    c3r = 6640; draw = 61; wa = 0; nobank = 0; banks = 0; subs = 0
+    c3r = 6640; draw = 62; wa = 0; nobank = 0; banks = 0; subs = 0
     if build(c3r, draw): log({"ev": "s2l3_fatal"}); return
     while subs < 45 and banks < 6:
         now = datetime.datetime.now()
