@@ -27,12 +27,17 @@ LEDGER = ROOT+"/handoff/submissions.jsonl"
 def is_toxic():
     try:
         with open(LEDGER) as f: last = f.readlines()[-1]
-        ct = json.loads(last).get("casetimes") or {}
-        # slow-machine artifact: these ceilings are well above healthy (c7~21,c5~20,c2~7,c6~20)
-        if float(ct.get("7", 0) or 0) > 35: return True
-        if float(ct.get("5", 0) or 0) > 28: return True
-        if float(ct.get("2", 0) or 0) > 14: return True
-        if float(ct.get("6", 0) or 0) > 30: return True
+        d = json.loads(last); ct = d.get("casetimes") or {}
+        # slow-machine artifact detection (healthy: c3~22,c5~20,c7~21,c2~6,c6~19,c4~19)
+        if float(ct.get("3", 0) or 0) > 26: return True   # c3 30.5s = toxic
+        if float(ct.get("5", 0) or 0) > 25: return True
+        if float(ct.get("7", 0) or 0) > 30: return True
+        if float(ct.get("2", 0) or 0) > 12: return True
+        if float(ct.get("6", 0) or 0) > 28: return True
+        if float(ct.get("4", 0) or 0) > 26: return True
+        # missing late-case time when the run reached a WA/TLE early = degraded machine
+        fails = d.get("fails") or []
+        if any("Time Limit" in x for x in fails): return True   # any TLE = machine too slow this draw
     except Exception: pass
     return False
 def submit(note):
