@@ -17,6 +17,10 @@ def main():
         if line.lstrip().startswith("//"):
             removed += 1
             continue
+        # also strip trailing // comments on lines with no string literal (quote-free = safe)
+        if "//" in line and '"' not in line and "'" not in line:
+            i = line.index("//")
+            line = line[:i].rstrip() + "\n"
         out.append(line)
     open(dst, "w").write("".join(out))
     import os
