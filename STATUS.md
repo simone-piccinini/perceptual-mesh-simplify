@@ -37,10 +37,12 @@ work; this file is WHERE we are.*
 ## BANK (best all-green, mein.cpp decimation track)
 
 ```
-BANK      90.466160  (7/7)   [JUDGE ~20031805, 2026-07-12 night] — c3@6740 DEEP TAIL (prefix-sum
-                               collapse_delta_local, pool 800/T 500/box 6.5/MPC-classic) + c4@4920 +
-                               c5@4172 (tail OFF: cov-tail TLE fix) + c2/c6/c7 banked. Read calib:
+BANK      90.487710  (7/7)   [JUDGE 20033638, 2026-07-13 03:38] — c3@6710 DEEP TAIL + MP-CONTINUOUS
+                               (prefix-sum collapse_delta_local, pool 800/T 500/box 6.5/mpcm=3) +
+                               c4@4920 + c5@4172 (tail OFF) + c2/c6/c7 banked. Read calib:
                                S2_judge(deep@6775)=0.9145 [20031760], slope 1.25e-5/v.
+                               c3@6705 = 90% pass (bankable, day harvest running); 6700 = WA x3 typed.
+PRIOR     90.466160  (7/7)   [~20031805] c3@6740, first prefix-sum family bank.
 PRIOR     90.432575  (7/7)   [~20026xxx ladder 07-11] c3@6790 + c4@4920 + c5@4165. The "6775/6760
                                closed walls" of that era = STARVED-TAIL artifacts (judge did ~half
                                the local tail work in the 6.5s wall box) — fixed by prefix-sum.
