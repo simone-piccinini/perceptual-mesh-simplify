@@ -23,9 +23,16 @@ work; this file is WHERE we are.*
 5. **K-READ [JUDGE 20031760]: S2_judge(deep@6775) ≈ 0.9145 (V'≈7011, K≈59) = +1.0e-3 OVER the
    0.9135 threshold. c3@6775 PASSES.** Slope 1.25e-5/v ⇒ zero-crossing ≈ 6695. MPC-aniso (via-2
    V6): local marginal ~0 (+3.4e-5/−1.6e-5) — parked, env mpcm=2.
-6. **BANKED: c3@6760 judge-PASS [20031783, c4-coin x] → c3@6740 ALL GREEN = NEW BANK 90.466160**
-   (sub ~20031805, SUM6 542.796960, +0.033585). Ladder continues 6720→6700 (zero-crossing ~6695).
-   ⚠ c3 CASETIME 21.9s hot — ladder toxic-filter set at 22.5.
+6. **BANK LADDER (12-13/07): 6740 → 6720 (90.480527) → 6710-MPC3 (90.48771, sub 20033638).**
+   MP-CONTINUOUS (line-search placement, last-64) judge-VALIDATED: 6710 was sub-wall, it crossed.
+   c3@6705 passes 90% (18/20 across 4 draw families) — bankable, blocked all night by c4.
+   c3@6700 = WA x3 even with mpc3 (typed; needs > +2.5e-4). c2@27 WA (wall x2 families).
+   c5@4150 wall typed (WA x2); c5@4165-LAZY judge-WA x2 (local +0.7e-3 did NOT transfer!).
+   **c4@4920 pass-rate CRASHED overnight (1/34, was ~30-50%): night judge machines are slower →
+   the time-boxed c4 refine starves (V6 knew: "ladder SOLO di giorno"). Day harvest relaunched.**
+   NIGHT FALSIFICATIONS [LOCAL, exact scorer]: sliver-paint (zero-vertex chord bags: legal but
+   sigma-xy punishes constant paint, family closed); c7/c6 tails (VSA mesh near-optimal at their
+   rungs — NOT starvation walls; evaders' +1.9 is NOT big-case tails).
 
 ## BANK (best all-green, mein.cpp decimation track)
 

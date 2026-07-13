@@ -39,10 +39,10 @@ def submit(note):
 
 def deadline():
     now = datetime.datetime.now()
-    return (now.hour, now.minute) >= (8, 45) and now.hour < 12
+    return (now.hour, now.minute) >= (11, 30) and now.hour < 14
 
 def main():
-    c3r = 6705; draw = 42; nobank = 0; banks = 0; c3f = 0
+    c3r = 6705; draw = 46; nobank = 0; banks = 0; c3f = 0
     patch([(r"int c3t = \d+;", f"int c3t = {c3r};"), (r"int c4t = \d+;", "int c4t = 4920;"),
            (r"g_draw = \d+;", f"g_draw = {draw};")])
     if build(c3r): log({"ev": "m_buildfail"}); return
