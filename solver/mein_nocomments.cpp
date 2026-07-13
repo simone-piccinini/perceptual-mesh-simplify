@@ -1231,64 +1231,6 @@ void Initialize() {
     }
 
     {
-        double w = 0.0;
-        if (const char* e = getenv("G_ANISOQ")) w = atof(e);
-        int smIt = 3; if (const char* e = getenv("G_ANISM")) smIt = atoi(e);
-        if (w > 0) {
-            std::vector<double> fnx(nf), fny(nf), fnz(nf);
-            for (int f = 0; f < nf; ++f) {
-                const int* t = faces[f].data();
-                Vec3 n = (pos[t[1]]-pos[t[0]]).cross(pos[t[2]]-pos[t[0]]);
-                double l = n.norm(); if (l < 1e-20) { fnx[f]=fny[f]=fnz[f]=0; continue; }
-                fnx[f]=n.x()/l; fny[f]=n.y()/l; fnz[f]=n.z()/l;
-            }
-            for (int it = 0; it < smIt; ++it) {
-                std::vector<double> gx(nf,0), gy(nf,0), gz(nf,0);
-                for (int v = 0; v < nv; ++v) {
-                    for (size_t a = 0; a < vfaces[v].size(); ++a) for (size_t b = 0; b < vfaces[v].size(); ++b) {
-                        if (a == b) continue;
-                        int fa = vfaces[v][a], fb = vfaces[v][b];
-                        double dt = fnx[fa]*fnx[fb]+fny[fa]*fny[fb]+fnz[fa]*fnz[fb];
-                        double wt = dt > 0 ? dt*dt : 0.0;
-                        gx[fa] += wt*fnx[fb]; gy[fa] += wt*fny[fb]; gz[fa] += wt*fnz[fb];
-                    }
-                }
-                for (int f = 0; f < nf; ++f) {
-                    double sx = fnx[f]+0.7*gx[f]/std::max(1.0, (double)6), sy = fny[f]+0.7*gy[f]/6.0, sz = fnz[f]+0.7*gz[f]/6.0;
-                    double l = std::sqrt(sx*sx+sy*sy+sz*sz); if (l < 1e-20) continue;
-                    fnx[f]=sx/l; fny[f]=sy/l; fnz[f]=sz/l;
-                }
-            }
-            for (int v = 0; v < nv; ++v) {
-                if (vfaces[v].size() < 3) continue;
-                double ax=0, ay=0, az=0;
-                for (int f : vfaces[v]) { ax+=fnx[f]; ay+=fny[f]; az+=fnz[f]; }
-                double al = std::sqrt(ax*ax+ay*ay+az*az); if (al < 1e-12) continue;
-                const double nx=ax/al, ny=ay/al, nz=az/al;
-                double c[3][3]={{0,0,0},{0,0,0},{0,0,0}};
-                for (int f : vfaces[v]) {
-                    double d0=fnx[f]-nx, d1=fny[f]-ny, d2=fnz[f]-nz;
-                    double dd[3]={d0,d1,d2};
-                    for(int i=0;i<3;++i) for(int j=0;j<3;++j) c[i][j]+=dd[i]*dd[j];
-                }
-                double nvv[3]={nx,ny,nz}, pc[3][3], cp[3][3];
-                for(int i=0;i<3;++i) for(int j=0;j<3;++j){ double s2=0; for(int k=0;k<3;++k) s2+=((i==k)-nvv[i]*nvv[k])*c[k][j]; pc[i][j]=s2; }
-                for(int i=0;i<3;++i) for(int j=0;j<3;++j){ double s2=0; for(int k=0;k<3;++k) s2+=pc[i][k]*((k==j)-nvv[k]*nvv[j]); cp[i][j]=s2; }
-                double t0=0.7548-nx*(0.7548*nx+0.5698*ny+0.3251*nz), t1=0.5698-ny*(0.7548*nx+0.5698*ny+0.3251*nz), t2=0.3251-nz*(0.7548*nx+0.5698*ny+0.3251*nz);
-                double tl=std::sqrt(t0*t0+t1*t1+t2*t2); if (tl<1e-12) continue; t0/=tl; t1/=tl; t2/=tl;
-                double lam=0;
-                for(int pi=0; pi<12; ++pi){
-                    double u0=cp[0][0]*t0+cp[0][1]*t1+cp[0][2]*t2, u1=cp[1][0]*t0+cp[1][1]*t1+cp[1][2]*t2, u2=cp[2][0]*t0+cp[2][1]*t1+cp[2][2]*t2;
-                    lam=std::sqrt(u0*u0+u1*u1+u2*u2); if(lam<1e-14) break; t0=u0/lam; t1=u1/lam; t2=u2/lam;
-                }
-                if (lam < 1e-12) continue;
-                const double qv[4]={t0,t1,t2, -(t0*pos[v].x()+t1*pos[v].y()+t2*pos[v].z())};
-                const double wl = w*lam;
-                for(int i=0;i<4;++i) for(int j=0;j<4;++j) Q[v](i,j) += wl*qv[i]*qv[j];
-            }
-        }
-    }
-    {
         std::vector<HeapEntry> buf;
         buf.reserve((size_t)nf * 3);
         heap = std::priority_queue<HeapEntry, std::vector<HeapEntry>,
@@ -1327,6 +1269,17 @@ static void rimw_init() {
     if (g_rimK <= 0.0) return;
     const double sg = getenv("G_RIMSG") ? atof(getenv("G_RIMSG")) : 0.2;
     g_rimw.assign(pos.size(), 0.0f);
+    if (getenv("G_RIMRENDER")) {   // variant: TRUE rendered rim of the ORIGINAL (512, 6 views) instead of the normal proxy
+        const int sv = g_res; g_res = 512; const int W = 512;
+        for (int v6 = 0; v6 < 6; ++v6) { std::vector<int> fid; render_faceid(v6, fid);
+            for (int y = 1; y < W-1; ++y) for (int x = 1; x < W-1; ++x) { size_t k = (size_t)y*W+x;
+                int f = fid[k]; if (f < 0) continue;
+                if (fid[k-1] < 0 || fid[k+1] < 0 || fid[k-W] < 0 || fid[k+W] < 0) {
+                    const int* t = faces[f].data();
+                    g_rimw[t[0]] = g_rimw[t[1]] = g_rimw[t[2]] = 1.0f; } } }
+        g_res = sv;
+        return;
+    }
     for (size_t i = 0; i < pos.size(); ++i) {
         double l = nref[i].norm(); if (l < 1e-30) continue;
         double ax = std::fabs(nref[i].x())/l, ay = std::fabs(nref[i].y())/l, az = std::fabs(nref[i].z())/l;
