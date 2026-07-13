@@ -165,6 +165,8 @@ static std::vector<double> sr;
 
 static bool   g_adaptive = false;
 static bool   g_subset_place = false;   // case3 diagnostic: subset placement (kept verts stay on original positions)
+static double g_alloc_weight = 0.0;    // c4 Z-SALIENCY ALLOCATION (env G_ALLOC_WEIGHT): scale each vertex quadric by local
+                                       // depth-steepness so QEM re-allocates budget to high-depth-variation regions (RIM-BUDGET style).
 static double g_zpen = 0.0;             // c4 DEPTH-AWARE (env G_ZPEN). MEASURED INERT 2026-07-13: byte-identical S2d on the
                                        // calibrated ABC proxies vs baseline AND vs G_SUBSET placement. QEM ordering is already
                                        // feature-optimal (flat-first) and refine re-optimizes positions to the same optimum ->
@@ -1456,6 +1458,22 @@ void Initialize() {
         vfaces[c].push_back(f);
     }
 
+    if (g_alloc_weight > 0.0) {   // Z-SALIENCY ALLOCATION: scale each vertex quadric by local depth-steepness
+        // W_v = 1 + alpha*sal, sal = mean_1ring (n_v . (p_j - p_v))^2 / mean_1ring |p_j - p_v|^2  (dimensionless
+        // depth-gradient in [0,~1]: ~0 flat, high at steps/thin walls). Scaling Q[v] makes salient verts
+        // expensive so QEM strips flat planes first and re-allocates budget to depth features. Static (once).
+        for (int v = 0; v < nv; ++v) {
+            Vec3 nvn = nref[v]; const double nl = nvn.norm(); if (nl < 1e-20) continue; nvn /= nl;
+            double sd = 0.0, se = 0.0;
+            for (int f : vfaces[v]) { const int* t = faces[f].data();
+                for (int k = 0; k < 3; ++k) { const int j = t[k]; if (j == v) continue;
+                    const Vec3 e = pos[j] - pos[v]; const double d = nvn.dot(e);
+                    sd += d*d; se += e.squaredNorm(); } }
+            if (se <= 0.0) continue;
+            Q[v] *= (1.0 + g_alloc_weight * (sd / se));
+        }
+    }
+
     {
         std::vector<HeapEntry> buf;
         buf.reserve((size_t)nf * 3);
@@ -1961,6 +1979,7 @@ int main(int argc, char** argv) {
     if (const char* e = getenv("G_FLIPTAU")) g_fliptau = atof(e);
     if (const char* e = getenv("G_ZPEN")) g_zpen = atof(e);   // c4 depth-aware collapse penalty (default 0 = bank)
     if (getenv("G_SUBSET")) g_subset_place = true;            // c4 depth: keep xbar on a real depth level (vs QEM mid-step average)
+    if (const char* e = getenv("G_ALLOC_WEIGHT")) g_alloc_weight = atof(e);   // c4 Z-saliency quadric weighting (default 0 = uniform)
     g_adaptive = (kOpAdaptive != 0) && ((int)pos.size() > kLargeThreshold);
     g_subset_place = false;  // diagnostic done: case3 is SSIM-bound (subset @66% also red); free-QEM beats subset on SSIM anyway
     double margin = kOpMargin, floor_frac = kOpFloorFrac, keep = keep_for((int)pos.size());

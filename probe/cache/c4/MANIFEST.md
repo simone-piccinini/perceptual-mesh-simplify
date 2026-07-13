@@ -34,3 +34,18 @@ compression ratio + refine convergence, NOT by decimation logic.** The depth-pen
 is dead for c4. Target S2d>=0.90 on the hard brackets (00004867 0.75 / 00005934 0.73) is a physical
 frontier of 85%-compression on those meshes, not a tuning target. A real c4 lever would have to be
 allocation (vertex budget across the mesh) or a different representation — not a collapse penalty.
+
+## Phase 4 — Z-SALIENCY ALLOCATION WORKS (2026-07-13): G_ALLOC_WEIGHT
+Static pre-pass scales each vertex quadric Q[v] *= (1 + alpha*sal), sal = mean(n.(pj-pv))^2/mean|pj-pv|^2
+(dimensionless depth-steepness). Unlike the inert cost-penalty/placement, quadric scaling PROPAGATES
+through merges -> genuinely re-allocates budget. A/B (RC4, N~4920):
+
+| proxy | a=0 S2d | a=1.0 | a=2.0 |
+|-------|--------|-------|-------|
+| 00005934 (hard) | 0.734 | **0.788 (+0.054)** | 0.751 |
+| 00009281 (easier) | 0.924 | 0.894 (-0.030) | 0.925 |
+
+**NOT inert** — allocation is the c4 lever (order/placement were inert). Best: 00005934 +0.054 at
+alpha=1.0 (meets the relative criterion). Mesh-dependent optimum: alpha=1 helps depth-deficient meshes,
+mildly hurts already-good ones. Still below the 0.90 absolute target on the hard bracket (a physical
+frontier of 85% compression). Next: refine alpha + full-family check; then JUDGE-test (local is weak).
