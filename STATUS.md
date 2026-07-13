@@ -4,12 +4,13 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-13 (evening). Bank 90.523628 [JUDGE 20038197] = c3@6660 (RIM-BUDGET) +
-c4@4920-14dir + c5@4172. BRANCH fable-rim-solo (my work only, never merge others). RIM-BUDGET
-descending c3 fast: 6690->6680->6670->6660, each a clean judge cross (local slope only -6e-6/vert
-= wall is deep). Bottleneck = c4@4920 box-cut coin (gates each rung's bank). Ladder auto-descending
-6650. Day: 90.4326 -> 90.5236 (+0.091). All c3 importance variations falsified (rim is peak):
-rim×curv, struct-variance, lambda-tune, coordinated-moves, rim-on-big-cases.**
+**Last updated: 2026-07-13 (evening). Bank 90.530812 [JUDGE 20038320] = c3@6650 (RIM-BUDGET) +
+c4@4920-14dir + c5@4172. Branch CleanRepoForAI (usual; NEVER merge other agents' branches).
+RIM-BUDGET descended c3 6690->6650 (6 banked rungs, wall not hit, local slope -6e-6/vert). Gates
+per roll: c3 SSIM ~90%, c4 box-coin ~30%, c7 TLE ~75% (25s edge, irreducible 1M-vert decimation).
+Ladder auto-descending 6640. Day: 90.4326 -> 90.5308 (+0.098). c3 importance variations all
+falsified (rim peak). Ceiling estimate ~90.55-90.60 this paradigm; 91 needs discovery-class (not
+yet found).**
 
 ---
 
