@@ -2288,7 +2288,7 @@ int main(int argc, char** argv) {
             g_force_nocrop = 0;
             if (alive_count > c4t) { seed_heap(); Decimate(c4t); }
         }
-        if (!getenv("G_NOSIL2C4")) sil2_pass(800);
+        if (!getenv("G_NOSIL2C4")) sil2_pass(400, 1);   // 14dir-400: +1.7e-4 AND fewer evals than 6dir-800 (8000 vs 9600)
         const double Sn2 = refine_score_grad(nullptr), Sd2 = sil_score_depth();
         const double S2 = 0.5*Sn2 + 0.5*Sd2;
         std::fprintf(stderr, "RC4 S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", Sn2, Sd2, S2, r_elapsed());
