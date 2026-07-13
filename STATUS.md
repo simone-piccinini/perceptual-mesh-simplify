@@ -4,14 +4,12 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-13 (evening). Bank 90.516445 [JUDGE 20038116] = c3@6670 (RIM-BUDGET +
-diag-sil2) + c4@4920-14dir + c5@4172. RIM-BUDGET (silhouette-normal verts collapse later) is the
-day's mechanism: banked c3 6690->6680->6670, each a fresh judge cross. c3 wall NOT yet hit (6670
-passes clean 22s); the BOTTLENECK is now the c4@4920 box-cut coin (SSIM-WA at wall, ~25-35%/roll
-day), which gates every c3 rung's bank. Ladder descending 6660, rotating draw families to catch
-the c4 coin. DEAD today (measured): rim on c4/c5/c7 (CAD/compression regime), rim x curvature,
-lambda!=16, coordinated-move class (segments/big-steps/anneal all -ve on exact evaluator),
-c2@28 x3 mechanisms. Day: 90.4326 -> 90.516 (+0.083, ~5 banks).**
+**Last updated: 2026-07-13 (evening). Bank 90.523628 [JUDGE 20038197] = c3@6660 (RIM-BUDGET) +
+c4@4920-14dir + c5@4172. BRANCH fable-rim-solo (my work only, never merge others). RIM-BUDGET
+descending c3 fast: 6690->6680->6670->6660, each a clean judge cross (local slope only -6e-6/vert
+= wall is deep). Bottleneck = c4@4920 box-cut coin (gates each rung's bank). Ladder auto-descending
+6650. Day: 90.4326 -> 90.5236 (+0.091). All c3 importance variations falsified (rim is peak):
+rim×curv, struct-variance, lambda-tune, coordinated-moves, rim-on-big-cases.**
 
 ---
 
