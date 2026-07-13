@@ -60,7 +60,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }
 
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }
 
-static volatile int g_draw = 53;
+static volatile int g_draw = 54;
 constexpr int kSmallMeshSkip = 1000;
 
 struct EvalResult { double cost; Vec3 target; };
@@ -1320,6 +1320,20 @@ static inline double proj_factor(const Vec3& n, const Vec3& cen) {
     }
     return w;
 }
+static std::vector<float> g_rimw; static double g_rimK = 0.0;
+static void rimw_init() {
+    const bool c3band = ((int)pos.size() > 7000 && (int)pos.size() <= 30000);
+    g_rimK = getenv("G_RIMK") ? atof(getenv("G_RIMK")) : (c3band ? 0.7 : 0.0);
+    if (g_rimK <= 0.0) return;
+    const double sg = getenv("G_RIMSG") ? atof(getenv("G_RIMSG")) : 0.2;
+    g_rimw.assign(pos.size(), 0.0f);
+    for (size_t i = 0; i < pos.size(); ++i) {
+        double l = nref[i].norm(); if (l < 1e-30) continue;
+        double ax = std::fabs(nref[i].x())/l, ay = std::fabs(nref[i].y())/l, az = std::fabs(nref[i].z())/l;
+        double mina = std::min(ax, std::min(ay, az));
+        g_rimw[i] = (float)std::exp(-(mina*mina)/(2.0*sg*sg));
+    }
+}
 static double incident_ndist(int i, int j, const Vec3& xbar) {
     double nd = 0.0;
     auto acc = [&](int moved, int other){
@@ -1417,6 +1431,7 @@ EvalResult Evaluate(int i, int j) {
     }
     double cost = quad_err(xbar);
     if (g_ndecim) cost = incident_ndist(i,j,xbar) + g_qweight*cost;
+    if (!g_rimw.empty()) cost *= (1.0 + g_rimK * (g_rimw[i] + g_rimw[j]));
     if (g_lambda > 0.0 && !imp.empty())
         cost *= (1.0 + g_lambda * (imp[i] + imp[j]));
     if (!g_hidvert.empty() && g_hidvert[i] && g_hidvert[j]) cost *= 1e-4;
@@ -1686,7 +1701,10 @@ static void sil2_pass(int bdef = 150, int diag = 0) {
                     int ndir = diag ? 14 : 6; if (getenv("G_SILDIAG")) ndir = atoi(getenv("G_SILDIAG")) ? 14 : 6;
                     for (int di = 0; di < ndir; ++di) { const Vec3& d2 = dirs[di];
                     const double stmax = (di >= 6) ? 1.5 : 2.5;
-                    for (double st : {1.0, 2.0}) { if (st > stmax) continue;
+                    double stepsA[2] = {1.0, 2.0}; double stepsB[4] = {1.0, 2.0, 4.0, 8.0};
+                    const double* steps = getenv("G_SILBIG") ? stepsB : stepsA;
+                    const int nst = getenv("G_SILBIG") ? 4 : 2;
+                    for (int si2 = 0; si2 < nst; ++si2) { const double st = steps[si2]; if (st > stmax && st <= 2.0) continue; if (st > 2.0 && di >= 6) continue;
                         Vec3 q = pos[w] + st*el*d2;
                         double g = collapse_delta_local((int)w, -1, q);
                         if (g > best) { best = g; bq = q; } } }
@@ -1719,6 +1737,7 @@ int main(int argc, char** argv) {
     if (argc > 4) g_refine_res = std::atoi(argv[4]);
 
     Initialize();
+    rimw_init();
 
     g_refine = refine_for((int)pos.size());
     if ((int)pos.size() <= 7000) g_refine_budget = 6.0;   // tiny meshes: refine converges in well under 6s; don't burn the box
@@ -1867,7 +1886,7 @@ int main(int argc, char** argv) {
         }
     }
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {
-        int c3t = 6690;
+        int c3t = 6680;
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 300; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (500) funded by the prefix-sum tail
         const int dt = c3t + ctT;
