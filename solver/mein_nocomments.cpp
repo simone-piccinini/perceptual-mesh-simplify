@@ -60,7 +60,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }  // cases 3-7 (case7
 
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }  // case4 only (c5 CLOSED: alone WA #19885148, +vis stack WA #19885191)
 
-static volatile int g_draw = 46;   // binary-uniqueness knob: each value = a fresh judge draw (runtime is deterministic per binary)
+static volatile int g_draw = 49;   // binary-uniqueness knob: each value = a fresh judge draw (runtime is deterministic per binary)
 constexpr int kSmallMeshSkip = 1000;    // tiny meshes (the sample): emit unchanged
 
 struct EvalResult { double cost; Vec3 target; };

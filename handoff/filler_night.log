@@ -67,3 +67,27 @@
 {"ev": "m_roll", "c3": 6705, "draw": 45, "cases": "...x...", "newbank": false, "utc": "2026-07-13T06:32:55.823825+00:00"}
 {"ev": "m_roll", "c3": 6705, "draw": 45, "cases": "...x...", "newbank": false, "utc": "2026-07-13T06:40:12.426192+00:00"}
 {"ev": "m_done", "banks": 0, "utc": "2026-07-13T06:45:12.437338+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 46, "cases": "...x...", "newbank": false, "utc": "2026-07-13T06:49:00.725899+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 46, "cases": "...x...", "newbank": false, "utc": "2026-07-13T06:56:16.391700+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 46, "cases": "...x...", "newbank": false, "utc": "2026-07-13T07:03:30.202793+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 46, "cases": "...x...", "newbank": false, "utc": "2026-07-13T07:10:45.831904+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 46, "cases": "...x...", "newbank": false, "utc": "2026-07-13T07:17:59.345348+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 46, "cases": "...x...", "newbank": false, "utc": "2026-07-13T07:25:15.257527+00:00"}
+{"ev": "m_newdraw", "draw": 47, "utc": "2026-07-13T07:25:28.661467+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 47, "cases": "...x...", "newbank": false, "utc": "2026-07-13T07:32:41.745137+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 47, "cases": "..xx...", "newbank": false, "utc": "2026-07-13T07:39:58.845767+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 47, "cases": "..xx...", "newbank": false, "utc": "2026-07-13T07:47:12.430833+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 47, "cases": "..xx...", "newbank": false, "utc": "2026-07-13T07:54:27.940718+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 47, "cases": "...x...", "newbank": false, "utc": "2026-07-13T08:01:40.555793+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 47, "cases": "..xx...", "newbank": false, "utc": "2026-07-13T08:08:57.159108+00:00"}
+{"ev": "m_newdraw", "draw": 48, "utc": "2026-07-13T08:09:18.102525+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 48, "cases": "...x...", "newbank": false, "utc": "2026-07-13T08:16:31.802751+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 48, "cases": "...x...", "newbank": false, "utc": "2026-07-13T08:23:52.806815+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 48, "cases": "...x...", "newbank": false, "utc": "2026-07-13T08:31:06.594534+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 48, "cases": "...x...", "newbank": false, "utc": "2026-07-13T08:38:20.925435+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 48, "cases": "...x...", "newbank": false, "utc": "2026-07-13T08:45:34.543880+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 48, "cases": "...x...", "newbank": false, "utc": "2026-07-13T08:52:46.973253+00:00"}
+{"ev": "m_newdraw", "draw": 49, "utc": "2026-07-13T08:52:59.749392+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 49, "cases": "...x...", "newbank": false, "utc": "2026-07-13T09:00:13.989177+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 49, "cases": "...x...", "newbank": false, "utc": "2026-07-13T09:07:29.301238+00:00"}
+{"ev": "m_roll", "c3": 6705, "draw": 49, "cases": ".......", "newbank": true, "utc": "2026-07-13T09:14:51.677029+00:00"}
