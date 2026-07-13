@@ -1,19 +1,22 @@
-# NIGHT-91 CAMPAIGN — start 0713_2346, 1.42h, 12 subs
+# NIGHT-91b — start 0714_0119, 0.0h, 0 subs
 
-Bank at start **90.554824**. Submitting `solver/campaign.cpp`; `solver/mein.cpp` untouched.
+Bank at start **90.554824**. `solver/mein.cpp` untouched; experiments on `campaign.cpp`.
 
-**Best reachable so far: 90.567326**
+**Best all-green banked: 90.554824** (+0.0)
 
-## NEW BANKS
-- **90.567326** — c7_push=0.0278 (sub 20039277)
+## Current best rung per case (the combined config being banked)
+- c3: 6610
+- c4: 4930
+- c5: 4165
+- c6: 8684
+- c7: 0.0272
 
-## Per-family wall map
-- **c6_push** (c6): WALL at 8600
-- **c7_push** (c7): WALL at 0.0266 — best pass 0.0272
-- **c3_det** (c3): WALL at 6600
-- **c5_push** (c5): WALL at 4160 — best pass 4165
+## Push fronts
+- c7: deepest-pass 0.0272, next 0.027, wa 0
+- c5: deepest-pass 4165, next 4163, wa 0
+- c6: deepest-pass 8684, next 8650, wa 0
+- c4: deepest-pass 4930, next 4925, wa 0
 
-## Path-to-91 read
-Reachable = start + sum(each family best-pass delta). Big-case walls that survive
-plain+determinize+rim are TRUE SSIM walls. If the sum < 91, 91 needs a new representation
-(construction), not tuning — and this map proves exactly how far tuning goes.
+## Path-to-91
+Reachable = combined deepest-pass of every case. If < 91, the walls are
+real SSIM limits (draws rotated, toxic filtered) and 91 needs a new representation, not tuning.
