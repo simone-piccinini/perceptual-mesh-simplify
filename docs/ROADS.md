@@ -389,3 +389,9 @@ Code: /tmp/struct.cpp (scratch, structw_init).
 c7 rim-budget: K0.3 -4.4e-4, K0.7 -1.4e-4 (measured via sil2c7=0 hook). Huge cases already VSA-
 normal-coherence ordered; rim redirects budget away from it. rim-budget is c3-organic-specific
 (the QEM+refine medium regime). Branch: fable-rim-solo (my work only, no merges).
+
+## 2026-07-13 evening — crease importance on c4 DEAD
+Per-vertex max-dihedral importance (keep CAD sharp edges denser): -1.3e-3 @K0.5, monotonic worse.
+QEM's quadric already preserves creases optimally; extra crease-protection starves the smooth
+faces. c4@4920 is the wall, coin-gated. All c4 levers exhausted (rim -ve, crease -ve, sil2 +ve
+already shipped 14dir-400).
