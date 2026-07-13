@@ -42,10 +42,20 @@ $PY abc_filter.py abc_obj c4_proxies
 ## Calibration (Step 6) — acceptance = reproduce the judge's c4 wall
 The topological-floor test is NOT discriminating (unbounded flip/vertex-remove collapse everything
 to ~150; the real wall is quality, not a jam — confirmed 2026-07-13). The discriminating signal is
-**rendered-normal/depth SSIM at the c4 rung (RC4)**: the fandisk sat at 0.9999 (saturated, useless
-for A/B); a real CAD part must show a gradient. First result (00001680 @N=4920): **S2n=0.997 /
-S2d=0.967 / S2=0.982** — not saturated, depth channel carries the signal ⇒ already a better c4
-instrument. Ranking the family by difficulty (lowest S2 = closest to the judge wall) — see
-`c4_ssim_test.log` / STATUS when complete.
+**rendered SSIM at the c4 rung (RC4, N~4920)**: the fandisk sat at 0.9999 (saturated, useless for
+A/B); real CAD parts span S2 0.75–0.99 and **reproduce the judge's ~0.90 wall**. Results (chunk 0):
+
+| file | in v | S2n | S2d | S2 | role |
+|------|-----|-----|-----|-----|------|
+| 00004867 | 39805 | 0.741 | 0.752 | **0.747** | hard bracket (below wall) |
+| 00005934 | 37753 | 0.973 | 0.734 | **0.854** | WALL-REGION (primary) |
+| 00009281 | 33970 | 0.973 | 0.924 | **0.949** | WALL-REGION (primary) |
+| 00001680 | 39349 | 0.997 | 0.967 | 0.982 | easy control |
+| 00002643 | 37543 | 0.993 | 0.996 | 0.994 | rejected (saturated, fandisk-like) |
+| 00007719 | 37485 | — | — | — | rejected (solver produced no output) |
+
+**KEY FINDING:** the loss is in the **DEPTH channel** (S2d → 0.73) not normals (S2n ~0.97) ⇒ the c4
+wall is **depth-SSIM**, not topology or Hausdorff. This reframes the c4 attack toward depth-aware
+placement/allocation. Calibrated family stored in `probe/cache/c4/` (+ MANIFEST).
 
 Scripts: `abc_stat_filter.py` (stat pre-filter), `abc_filter.py` (mesh watertight/genus/convert).
