@@ -4,13 +4,14 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-13 (afternoon). Bank 90.509261 [JUDGE 20036988] = c3@6680 (RIM-BUDGET
-+ diag-sil2 stack) + c4@4920-14dir + c5@4172. RIM-BUDGET judge-VALIDATED (6680 crossed at first
-roll, was 0/3 without): silhouette-normal verts collapse later in the c3 decimation order
-(cost x(1+0.7(rim_i+rim_j))); +5-8.5e-4 local, gain on the depth/silhouette channel = the rim
-RESOLUTION deficit (coordinated-move class measured DEAD the same day: position moves cannot
-harvest it, allocation can). Negative on c4/c5/c7 (gated c3-only). Ladder descending 6670.
-Day: 90.4326 -> 90.509.**
+**Last updated: 2026-07-13 (evening). Bank 90.516445 [JUDGE 20038116] = c3@6670 (RIM-BUDGET +
+diag-sil2) + c4@4920-14dir + c5@4172. RIM-BUDGET (silhouette-normal verts collapse later) is the
+day's mechanism: banked c3 6690->6680->6670, each a fresh judge cross. c3 wall NOT yet hit (6670
+passes clean 22s); the BOTTLENECK is now the c4@4920 box-cut coin (SSIM-WA at wall, ~25-35%/roll
+day), which gates every c3 rung's bank. Ladder descending 6660, rotating draw families to catch
+the c4 coin. DEAD today (measured): rim on c4/c5/c7 (CAD/compression regime), rim x curvature,
+lambda!=16, coordinated-move class (segments/big-steps/anneal all -ve on exact evaluator),
+c2@28 x3 mechanisms. Day: 90.4326 -> 90.516 (+0.083, ~5 banks).**
 
 ---
 
