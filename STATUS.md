@@ -4,7 +4,7 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-13 (evening). Bank 90.54764 [JUDGE 20038570] = c3@6620 (RIM-BUDGET) +
+**Last updated: 2026-07-13 (evening). Bank 90.554824 [JUDGE 20038759] = c3@6620 (RIM-BUDGET) +
 c4@4930-DETERMINIZED + c5@4172. Branch CleanRepoForAI (never merge). Two breakthroughs today:
 RIM-BUDGET (c3 mechanism) + c4-DETERMINIZE (killed the box-cut coin -> every c3 rung banks
 first-roll). c3 descending past 6620 (wall not hit; 6620 WA'd twice as coins then passed on draw
