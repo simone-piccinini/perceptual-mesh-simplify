@@ -1327,6 +1327,17 @@ static void rimw_init() {
     if (g_rimK <= 0.0) return;
     const double sg = getenv("G_RIMSG") ? atof(getenv("G_RIMSG")) : 0.2;
     g_rimw.assign(pos.size(), 0.0f);
+    if (getenv("G_RIMRENDER")) {   // variant: TRUE rendered rim of the ORIGINAL (512, 6 views) instead of the normal proxy
+        const int sv = g_res; g_res = 512; const int W = 512;
+        for (int v6 = 0; v6 < 6; ++v6) { std::vector<int> fid; render_faceid(v6, fid);
+            for (int y = 1; y < W-1; ++y) for (int x = 1; x < W-1; ++x) { size_t k = (size_t)y*W+x;
+                int f = fid[k]; if (f < 0) continue;
+                if (fid[k-1] < 0 || fid[k+1] < 0 || fid[k-W] < 0 || fid[k+W] < 0) {
+                    const int* t = faces[f].data();
+                    g_rimw[t[0]] = g_rimw[t[1]] = g_rimw[t[2]] = 1.0f; } } }
+        g_res = sv;
+        return;
+    }
     for (size_t i = 0; i < pos.size(); ++i) {
         double l = nref[i].norm(); if (l < 1e-30) continue;
         double ax = std::fabs(nref[i].x())/l, ay = std::fabs(nref[i].y())/l, az = std::fabs(nref[i].z())/l;
