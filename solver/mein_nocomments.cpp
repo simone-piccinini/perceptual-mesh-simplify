@@ -60,7 +60,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }
 
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }
 
-static volatile int g_draw = 52;
+static volatile int g_draw = 53;
 constexpr int kSmallMeshSkip = 1000;
 
 struct EvalResult { double cost; Vec3 target; };
