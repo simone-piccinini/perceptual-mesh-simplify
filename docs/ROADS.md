@@ -377,3 +377,10 @@ sil2-anneal. Code: /tmp/mein_seg.cpp (scratch).
 
 ## c2@28 CLOSED x3 mechanisms [JUDGE 20036392/20036456/20037066]
 bare WA, +SIL2 WA (9.3s clean), +RIM-BUDGET WA (4.0s clean). c2 floor = 29 verts, final.
+
+## 2026-07-13 evening — structure-variance importance DEAD; rim-budget is the c3 peak
+Tested importance = local rendered normal-map luminance variance (5x5, 512, 6-view, backproj to
+verts, cost x(1+K*struct)). ON TOP of rim: -1e-3..-5e-4 for all K (redirects budget away from the
+silhouette where rim wins — the structure deficit lives in the SILHOUETTE windows, not interior
+detail). rim x curvature: -6e-4. lambda!=16: worse. rim-budget K0.7 sig0.2 stands as the c3 peak.
+Code: /tmp/struct.cpp (scratch, structw_init).
