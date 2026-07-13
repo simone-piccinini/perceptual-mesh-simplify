@@ -30,7 +30,7 @@ def submit(note):
     m = re.search(r"CASES ([.x?]+)", out)
     return (m.group(1) if m else None), ("NEW BANK" in out)
 def main():
-    c3r = 6640; draw = 62; wa = 0; nobank = 0; banks = 0; subs = 0
+    c3r = 6620; draw = 62; wa = 0; nobank = 0; banks = 0; subs = 0
     if build(c3r, draw): log({"ev": "s2l3_fatal"}); return
     while subs < 45 and banks < 6:
         now = datetime.datetime.now()
@@ -38,10 +38,12 @@ def main():
         cases, nb = submit(f"S2L3 c3={c3r} draw={draw}")
         subs += 1
         log({"ev": "s2l3", "c3": c3r, "draw": draw, "cases": cases, "newbank": nb})
-        if nb:
+        all_green = cases and len(cases) >= 7 and all(c == "." for c in cases)
+        if all_green:
             banks += 1; wa = 0; nobank = 0
-            sh("git add -A && git commit -q -m 'sil2 ladder v3: NEW BANK' && git push -q origin CleanRepoForAI")
-            c3r -= 20
+            if nb:
+                sh("git add -A && git commit -q -m 'sil2 ladder v3: NEW BANK' && git push -q origin CleanRepoForAI")
+            c3r -= 20   # DESCEND on any all-green (already-banked rung still descends toward the wall)
             if build(c3r, draw): break
         else:
             nobank += 1
