@@ -1,7 +1,7 @@
 # WALL-PROBES — le sonde ai muri del giudice (sessione 2026-07-13/14)
 
 STATE: capitolo chiuso · entrambe le ipotesi falsificate sul giudice, costo zero (best-counts)
-Branch: `wall-probes` (base della sessione) → figli: `sigmaxy-remesh`, `proxy-instrument`
+Branch: `wall-probes` (base della sessione) → figli: `sigmaxy-handroll`, `proxy-instrument`
 Autore: Alberto. Submission via account team (`scripts/judge_submit.py`). Bank mai toccato.
 
 ## Sonda 1 — Il "jam topologico" del case4 → NON ESISTE
@@ -61,6 +61,6 @@ chiusa. (Nota: il proxy calibrato di `instrument/` retrodice questo WA — valid
 
 ## Seguiti (sui branch figli)
 
-- `sigmaxy-remesh` — il paradigma costruttivo tentato dopo queste sonde: split+redistribuzione
+- `sigmaxy-handroll` — il paradigma costruttivo tentato dopo queste sonde: split+redistribuzione
   σxy, 4 judge-test, chiusura pulita + sblocco del compile-cliff (hand-roll Eigen).
 - `proxy-instrument` — lo strumento che trasferisce: proxy c3 calibrato su 4 ancore judge.
