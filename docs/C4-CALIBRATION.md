@@ -64,3 +64,23 @@ allocation not placement). That is the next build (Z-saliency quadric weighting,
 - Pipeline + scripts: `probe/abc_tools/` (README + `abc_stat_filter.py` + `abc_filter.py`).
 - Calibrated proxies + full results: `probe/cache/c4/` (+ MANIFEST).
 - The depth heuristics + verdict: `solver/mein.cpp` (search `G_ZPEN` / `g_zpen`).
+
+## Phase 5 (2026-07-14) — the α map is trajectory-noise; allocation is a DEAD-END for the judge's c4
+Wide α grid (14 CAD meshes × {0,0.5,1,2}) in two compiler families + a determinism test:
+- **Deterministic per binary** (α=1 run twice = byte-identical) — no run-to-run noise. BUT **-O2 and
+  -O3-march=native give OPPOSITE signs**: 00005934 α=1 = **+0.054 (-O2) vs −0.036 (-O3)**; even the
+  baseline shifts ~0.03 between families. **The α effect (~0.04) ≈ the compiler trajectory variance (~0.03).**
+  → the QEM decimation *trajectory* (float tie-breaking) dominates S2d; α perturbs it about as much as a
+  compiler flag. ~half the meshes FLIP their helpful/harmful verdict between -O2 and -O3.
+- **Judge-relevant (-O2) map:** only the 2 HARDEST meshes (base S2d 0.73–0.75) get a consistent
+  meaningful gain (+0.054/+0.055); mid-baseline (0.87–0.97) no-help or **catastrophic** (00004629 α=1
+  = −0.293); saturated (≈1.0) no room. "Helps" does NOT predict from baseline (00004629 breaks it).
+- **Inference on the judge's c4:** it passes combined-SSIM ≥0.90 with S2n~0.97 → its rung S2d ≈0.83–0.92
+  = the MID "no-help/harmful" regime, NOT the hardest-mesh "helps" regime. α>0 is predicted to no-help
+  or hurt (and could catastrophically drop S2d like the same-baseline 00004629).
+
+**VERDICT — principled negative on weight-based allocation for the judge's c4:** (a) trajectory-fragile
+(compiler flip), (b) no baseline-predictable adaptive rule, (c) judge's c4 sits in the no-help regime.
+Do NOT spend judge submissions on it. This is §2.1 shown empirically. Tooling (winbuild -O2, fast_sweep,
+alpha_grid, config_optimizer, saliency_validator, +27 genus-0 proxies) stays reusable for any future
+mechanism whose effect is LARGER than the trajectory noise floor (~0.03 S2d).
