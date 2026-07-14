@@ -52,6 +52,8 @@ the prize is real but modest — cheap high-odds bets beat heavy low-odds builds
 | Curvature-adaptive isotropic remesh (R-β) | low-odds by theory: flat-shaded normal-SSIM favors ANISOTROPIC triangles (elongated along low-curvature) which QEM already gives; explicit aniso placement (g_aniso) is banked c4 but DEAD on organic c3/c6/c7. Isotropic is likely worse than our mild anisotropy. Demoted (not built). | `[JUDGE]`/theory |
 | **True per-collapse box-SSIM selection (R-ζ) — DEAD, CONFIRMED on the discriminating ruler 2026-07-10** | built + fail-fast tested (solver/ssim_greedy.cpp, QEM-sel vs true-rendered-SSIM-sel, same gates/placement). cow @700 +0.0022/+0.0026; smooth bunny @800 +0.0001. **RE-SCREENED on the ROUGH ruler (20k→4212, K16 R96): SSIM-sel − QEM-sel = −0.0003 — still ~zero.** Two independent scales agree ⇒ collapse-SELECTION-metric is genuinely maxed (QEM ordering near-optimal), NOT a blind-proxy artifact (Process Law #2 satisfied). **Meta: on the same test VSA-lite 0.6805 > both selection modes ~0.675 (+0.005) — our edge is normal-optimal PLACEMENT, not selection search.** Code kept. | `[LOCAL×2]` |
 
+| **c4 DEPTH attack (Z-saliency ALLOCATION `G_ALLOC_WEIGHT` + depth-PENALTY `G_ZPEN`/subset) — DEAD 2026-07-14** | Calibrated c4 proxy sourced (27 genus-0 ABC CAD parts, `probe/abc_tools/`, replacing the unfaithful fandisk) → c4 wall confirmed **DEPTH-SSIM**. **PENALTY + subset placement = INERT** (QEM ordering already depth-optimal; refine washes placement out). **ALLOCATION** (scale `Q[v]` by local depth-steepness) helps ONLY the 2 hardest proxies (base S2d 0.73–0.75: +0.054/+0.055), no-help or **CATASTROPHIC** on mid-baseline (00004629 α=1 = −0.293). Determinism test: deterministic per-binary yet **-O2 vs -O3-native FLIP the sign** (00005934 α=1 = +0.054/−0.036); α (~0.04) ≈ compiler trajectory variance (~0.03) ⇒ **TRAJECTORY-NOISE-dominated (§2.1 empirical)**. Judge c4 passes ≥0.90 ⇒ rung S2d~0.83–0.92 = no-help regime; NO baseline-predictable adaptive rule. Writeup `docs/C4-CALIBRATION.md`. Tooling kept (winbuild -O2, fast_sweep, alpha_grid, config_optimizer, saliency_validator). | `[LOCAL×2 grids]` |
+
 **Lesson from VSA (steers the queue):** the winning case-3 mesh is **smooth + dense + adaptive**
 (QEM family). Flat/partition topology is the wrong direction for an organic surface. Any road that
 introduces large flat facets is pre-doomed for case-3.
@@ -148,7 +150,7 @@ judge. Tiny (−0.0003) + unidentified mesh ⇒ suggestive, not conclusive — b
 transfer-killer is narrow-band (sub-coarse-triangle yet box-surviving detail) that real scans have
 intrinsically and displacement noise misses. Road ACTIVE; next = §3.C.2 data-sourcing (below).
 
-### R-ι — DATA-SOURCING: real judge-class meshes (ARCHITECT-REVIEW §3.C.2) — `QUEUED` TOP · make-or-break
+### R-ι — DATA-SOURCING: real judge-class meshes (ARCHITECT-REVIEW §3.C.2) — `ACTIVE` · c4 arm DELIVERED 2026-07-14 (27 genus-0 ABC CAD parts, `probe/abc_tools/`; c4 wall reproduced — but the c4 mechanisms it enabled all died, ROADS §2); c3/c5/c6/c7 arms still `QUEUED`
 The de-bias's RIGHT form (R-θ iter-4 showed synthesis is wrong; natural roughness flips R1). Get
 the judge's actual STANDARD models at its vertex counts, not decimations-of-clean-armadillo:
 - c5=49,987 ≈ Stanford armadillo (49,990) — ours reads "+0.055 friendlier" ⇒ judge uses a DIFFERENT

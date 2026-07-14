@@ -14,6 +14,26 @@ Day: 90.4326 -> 90.509.**
 
 ---
 
+## EXPERIMENT-BRANCH NOTE 2026-07-14 — `experiment/new-mechanism` (NOT the live bank; team live = 90.554824 on `CleanRepoForAI`)
+
+**c4 depth attack CLOSED — allocation is a principled DEAD-END.** Sourced a calibrated c4 proxy (27
+genus-0 ABC CAD parts, `probe/abc_tools/`) to replace the unfaithful fandisk; confirmed the **c4 wall
+is DEPTH-SSIM**. Then tested the depth mechanisms:
+- depth-PENALTY (`G_ZPEN`) + subset placement (`G_SUBSET`) = **INERT** (QEM ordering already depth-
+  optimal + refine washes placement out).
+- Z-saliency quadric **ALLOCATION** (`G_ALLOC_WEIGHT`) = helps only the 2 hardest proxies, but the
+  effect is **TRAJECTORY-NOISE**: deterministic per binary yet `-O2`/`-O3-native` FLIP its sign
+  (00005934 α=1 = +0.054/−0.036); α (~0.04) ≈ compiler trajectory variance (~0.03). Judge's c4 (passes
+  ≥0.90) sits in the **no-help/harmful** regime.
+
+Verdict: **do NOT spend judge submissions on c4 allocation.** Full writeup `docs/C4-CALIBRATION.md`;
+roads → `ROADS §2`. Reusable tooling delivered: `winbuild.sh` (-O2, judge-matching), `fast_sweep.sh`,
+`alpha_grid.py`, `config_optimizer.py`, `saliency_validator.py`, 27 calibrated proxies. Lesson: check
+a candidate mechanism's effect against the **~0.03 S2d trajectory-noise floor** before believing a
+local win. *(This branch's BANK block below is the 90.487/90.509 fork snapshot, not current.)*
+
+---
+
 ## NIGHT UPDATE 2026-07-12 (supersedes the "practical ceiling" verdict)
 
 1. **FIN PROBE concluded** [JUDGE 20029777]: judge INCLUDES background px in SSIM windows — D1
