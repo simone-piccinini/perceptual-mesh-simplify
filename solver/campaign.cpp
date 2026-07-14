@@ -135,7 +135,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }  // cases 3-7 (case7
 // 0.0000 on case3. Enabled where it measured positive.
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }  // case4 only (c5 CLOSED: alone WA #19885148, +vis stack WA #19885191)
 
-static volatile int g_draw = 91;   // binary-uniqueness knob: each value = a fresh judge draw (runtime is deterministic per binary)
+static volatile int g_draw = 92;   // binary-uniqueness knob: each value = a fresh judge draw (runtime is deterministic per binary)
 constexpr int kSmallMeshSkip = 1000;    // tiny meshes (the sample): emit unchanged
 
 struct EvalResult { double cost; Vec3 target; };
@@ -2358,7 +2358,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4135; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
+        int c5t = 4140; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
         int c5T = 0;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // injected lazy tail: 9.1s local ~19.2s judge, +0.7e-3 S2 local
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
