@@ -59,27 +59,33 @@ def log(rec):
     os.makedirs(os.path.dirname(LOG), exist_ok=True)
     open(LOG, "a").write(json.dumps(rec) + "\n"); print("LOG " + json.dumps(rec), flush=True)
 
-# ---------- STAGE 0: local pre-filter on the calibrated proxy family ----------
-def local_prefilter(case, binexe):
-    cfg = SPACE[case]; base = {}; keep = []
-    for mesh in cfg["proxies"]:
-        s2d, _ = rc4_s2_env(binexe, mesh, 0.0); base[mesh] = s2d
+# ---------- STAGE 0: PARALLEL local pre-filter (machine is NOT thermal-throttled; 6 cores) ----------
+import concurrent.futures as _cf
+
+def rc4_s2_env(binexe, mesh, alpha):
+    r = sh(f'"{binexe}" < probe/cache/c4/{mesh}.obj', timeout=2400, env={"G_ALLOC_WEIGHT": str(alpha)})
+    m = re.search(r"S2d=([\d.]+) S2=([\d.]+)", r.stderr)
+    return (float(m.group(1)), float(m.group(2))) if m else (None, None)
+
+def local_prefilter(case, binexe, workers):
+    """Run the whole (proxy x alpha) grid CONCURRENTLY. 4 runs = ~1 slow run of wall time (measured)."""
+    cfg = SPACE[case]
+    grid = [(m, 0.0) for m in cfg["proxies"]] + [(m, a) for a in cfg["local_values"] for m in cfg["proxies"]]
+    res = {}
+    with _cf.ThreadPoolExecutor(max_workers=workers) as ex:
+        futs = {ex.submit(rc4_s2_env, binexe, m, a): (m, a) for (m, a) in grid}
+        for f in _cf.as_completed(futs):
+            res[futs[f]] = f.result()[0]
+    base = {m: res[(m, 0.0)] for m in cfg["proxies"]}
+    keep = []
     for a in cfg["local_values"]:
-        deltas = []
-        for mesh in cfg["proxies"]:
-            s2d, _ = rc4_s2_env(binexe, mesh, a)
-            if s2d is not None and base[mesh] is not None: deltas.append(s2d - base[mesh])
+        deltas = [res[(m, a)] - base[m] for m in cfg["proxies"] if res.get((m, a)) is not None and base[m] is not None]
         helps_any = any(d > 0.005 for d in deltas)
         log({"ev": "local", "case": case, "alpha": a, "dS2d_by_mesh": [round(d, 4) for d in deltas],
              "helps_any": helps_any})
         if helps_any: keep.append((a, max(deltas)))
     keep.sort(key=lambda x: -x[1])
     return [a for a, _ in keep]           # ranked; best local upside first
-
-def rc4_s2_env(binexe, mesh, alpha):
-    r = sh(f'"{binexe}" < probe/cache/c4/{mesh}.obj', timeout=1800, env={"G_ALLOC_WEIGHT": str(alpha)})
-    m = re.search(r"S2d=([\d.]+) S2=([\d.]+)", r.stderr)
-    return (float(m.group(1)), float(m.group(2))) if m else (None, None)
 
 # ---------- STAGE 1/2: judge probe (bake config -> submit -> arith-decode the case's S2d) ----------
 def patch_and_build(case, alpha, build_cmd):
@@ -132,6 +138,7 @@ def main():
     ap.add_argument("--localbin", default="", help="prebuilt env-gated binary for STAGE 0 (skip local if empty)")
     ap.add_argument("--max-subs", type=int, default=8, help="hard judge-submission budget for the whole run")
     ap.add_argument("--gain", type=float, default=0.005, help="min judge dS2d over control to ADOPT")
+    ap.add_argument("--workers", type=int, default=5, help="parallel local runs (6 cores -> 5 leaves headroom)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--require-worktree", action="store_true")
     args = ap.parse_args()
@@ -150,7 +157,7 @@ def main():
         # STAGE 0
         cand = cfg["local_values"]
         if args.localbin:
-            cand = local_prefilter(case, args.localbin)
+            cand = local_prefilter(case, args.localbin, args.workers)
             if not cand:
                 log({"ev": "case_done", "case": case, "verdict": "local: hurts all proxies -> SKIP judge"})
                 winners[case] = 0.0; continue
