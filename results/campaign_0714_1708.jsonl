@@ -9,3 +9,4 @@
 {"ev": "toxic", "task": "c4", "times": {"1": 1.9, "2": 5.8, "3": 23.6, "4": 19.6, "5": 20.8, "6": 17.8, "7": 23.4}, "utc": "2026-07-14T15:46:01.371369+00:00", "h": 0.63}
 {"ev": "result", "task": "bank", "draw": 88, "cases": "..x....", "score": 78.673886, "id": "20047045", "allgreen": false, "newbank": false, "utc": "2026-07-14T15:52:57.610687+00:00", "h": 0.75}
 {"ev": "result", "task": "bank", "draw": 89, "cases": "..x....", "score": 78.673886, "id": "20047107", "allgreen": false, "newbank": false, "utc": "2026-07-14T15:59:54.565829+00:00", "h": 0.86}
+{"ev": "result", "task": "c5", "draw": 91, "cases": "..x.x..", "score": 63.387578, "id": "20047169", "allgreen": false, "newbank": false, "utc": "2026-07-14T16:06:59.844073+00:00", "h": 0.98}

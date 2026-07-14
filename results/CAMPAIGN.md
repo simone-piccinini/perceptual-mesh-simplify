@@ -1,4 +1,4 @@
-# NIGHT-91b — start 0714_1708, 0.86h, 8 subs
+# NIGHT-91b — start 0714_1708, 0.98h, 9 subs
 
 Bank at start **90.554824**. `solver/mein.cpp` untouched; experiments on `campaign.cpp`.
 
@@ -16,7 +16,7 @@ Bank at start **90.554824**. `solver/mein.cpp` untouched; experiments on `campai
 
 ## Push fronts
 - c7: deepest-pass 0.0271, next done, wa 0
-- c5: deepest-pass 4140, next 4135, wa 1
+- c5: deepest-pass 4140, next 4135, wa 2
 - c6: deepest-pass 8680, next 8670, wa 0
 - c4: deepest-pass 4925, next 4924, wa 0
 

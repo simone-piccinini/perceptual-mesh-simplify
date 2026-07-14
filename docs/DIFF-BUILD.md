@@ -64,3 +64,19 @@ Ran multi-restart position optimizer offline (unlimited time) on the QEM c3 6610
 => The ONLY place a 91-class mesh can hide is a GLOBAL vertex set that no heuristic (QEM/rim/struct)
    finds. That is exactly M1 (soft-alive differentiable simplification). Proceeding to M1 as the
    definitive test — VSA-dead evidence is against it, but M1 settles it for good.
+
+## M1 RESULT (2026-07-14) — vertex-set local search DEAD; build KILLED by falsifier
+Swap search (split highest-deficit face + collapse least-impact edge + re-refine, keep if better),
+20 swaps offline from the position optimum: S2n 0.798675 -> 0.798712 = **+1.5e-5** (1/20 accepted,
+rest reverted). The vertex set is flat/optimal around QEM — local swaps find nothing.
+
+FOUR independent lines now agree the c3 6610 mesh is ~optimal:
+  M0 positions optimal (+5.3e-4 max, no better basin); M1 swap +1.5e-5; ssim_greedy.cpp (SSIM-greedy
+  selection -0.011); VSA-dead (structural remesh 2.5x worse).
+
+VERDICT: the differentiable/global-set build would REPRODUCE QEM, not beat it. Per the design's own
+kill criterion ("M0 <1e-3 headroom -> STOP"), the 3-day build is KILLED before sinking the cost.
+A 91-class c3 mesh does not exist at achievable vertex counts by any selection/position/connectivity
+method we can build. => 91 is not reachable via c3 mesh quality; escapees' 93 is unexplained by any
+measured lever (metric interpretation / sandbag / something structurally invisible to us).
+Files: solver/diffopt_m0.cpp, solver/diffopt_m1.cpp (scratch experiments).
