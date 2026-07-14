@@ -25,3 +25,18 @@ is INSUFFICIENT ALONE - source detail-dense, then nudge.
   G_RIMK env-set segfaults this Windows build (latent bug, also c3band.obj segfaults even pristine
   - flag to team). Sign-check on the team's Mac or after the Windows bug is fixed.
 - happy_qem (0.952, slope 1.06e-5) kept as the friendlier bracket; dragon_qem (no noise) as base.
+
+## FALSIFIER RE-RUN on dragon_n10 (2026-07-14 night) — the verdict, re-priced
+M0: base S2n@6610 0.869463 -> heavy-converge **0.873729 (+4.27e-3)**; 8 perturbed restarts ALL
+worse (0.841-0.855) -> no better position basin. M1 swap search: +7.7e-5 (1/20 accepted) -> flat.
+
+1. CONFIRMED on the faithful ruler: no better position BASIN; local set-SWAPS ~flat. The
+   DIFF-BUILD kill's core holds for global-set local search.
+2. RE-PRICED: the biased ruler understated position-POLISH headroom 4x (c3band +1.06e-3 ->
+   faithful +4.27e-3 S2n ~= +2.1e-3 S2 ~= 170 c3-verts ~= +0.12 total). It is TLE-gated, not
+   optimality-gated: the SAME mechanism class as c5-POLISH (judge-validated TODAY, +0.0077).
+   => the top c3 move is a THROUGHPUT attack on mini_refine (make the polish affordable in the
+   19s box: subsampled windows / low-res-then-project / prefix-sum-class speedup), NOT a new
+   representation.
+3. UNTESTED still: deficit-field ALLOCATION (20 greedy swaps is not an allocation test). Now
+   cheap to test: 7s/run on this instrument.
