@@ -35,7 +35,7 @@ static double keep_for(int V) {
     if (V <= 30000)  return 0.2996875;// case 3: 70.03125 banked keep (R1 descent closed: 6931/6944/banked-with-R1 all WA'd)
     if (V <= 40000)  return 0.1428125;
     if (V <= 100000) return 0.08453125;
-    if (V <= 400000) return 8680.0/(double)V;
+    if (V <= 400000) return 8670.0/(double)V;
     return 0.0271;
 }
 
@@ -60,7 +60,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }
 
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }
 
-static volatile int g_draw = 137;
+static volatile int g_draw = 158;
 constexpr int kSmallMeshSkip = 1000;
 
 struct EvalResult { double cost; Vec3 target; };

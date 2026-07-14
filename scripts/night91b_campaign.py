@@ -139,12 +139,12 @@ def write_md(best, walls, banks, subs, pushes):
     open(MD,"w").write("\n".join(L))
 
 def main():
-    best={"c3":6610,"c4":4925,"c5":4163,"c6":8684,"c7":0.0272}
+    best={"c3":6610,"c4":4925,"c5":4140,"c6":8684,"c7":0.0272}
     walls={}; banks=[]; subs=0; draw=80
     # push fronts: finer steps below the v1 last-pass, toward the wall
     pushes={
       "c7":{"seq":[0.0271],"i":0,"best":0.0272,"wa":0,"next":0.0271},
-      "c5":{"seq":[4162],"i":0,"best":4163,"wa":0,"next":4162},
+      "c5":{"seq":[4135,4130,4128,4125,4122,4120],"i":0,"best":4140,"wa":0,"next":4135},
       "c6":{"seq":[8680,8670,8660,8650],"i":0,"best":8684,"wa":0,"next":8680,"var":"plain"},
       "c4":{"seq":[4924,4923,4922,4921,4920],"i":0,"best":4925,"wa":0,"next":4924},
     }
