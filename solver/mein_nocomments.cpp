@@ -2089,7 +2089,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {
-        int c5t = 4172; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
+        int c5t = 4140; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
         int c5T = 0;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // injected lazy tail: 9.1s local ~19.2s judge, +0.7e-3 S2 local
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);
@@ -2121,7 +2121,7 @@ int main(int argc, char** argv) {
                 pos[i] += (st/nl) * nref[i];
             }
         }
-        mini_refine(g_remesh ? 0.7 : 1.5);
+        mini_refine(g_remesh ? 2.0 : 1.5);
         if (g_remesh) {   // FLIP remesher on c5 (organic, deterministic wall may move like c3's)
             g_force_nocrop = 1;
             remesh_flip_local(10, 1200, r_elapsed() + 2.2);
