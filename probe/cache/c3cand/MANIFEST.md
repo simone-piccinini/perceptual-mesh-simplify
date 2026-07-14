@@ -41,3 +41,15 @@ worse (0.841-0.855) -> no better position basin. M1 swap search: +7.7e-5 (1/20 a
    representation.
 3. UNTESTED still: deficit-field ALLOCATION (20 greedy swaps is not an allocation test). Now
    cheap to test: 7s/run on this instrument.
+
+## INSTRUMENT ACCEPTANCE RESULT (2026-07-14 late night) — happy_qem PROMOTED, dragon_n10 demoted
+The zoo's controls (judge-known mechanism signs) are the real acceptance test, and they SPLIT the
+two candidates:
+- **dragon_n10: REJECTED for mechanism screening** (1 OK / 6 MISS: rim_off +0.0044, nplace_off
+  +0.0085 — judge-positive mechanisms read INVERTED). Difficulty-matched (level+slope) is NOT
+  mechanism-matched. Keep ONLY for S(N)-difficulty studies.
+- **happy_qem: PASSES 5/5 controls** (rim_off -, rim_035 -, qw_005 -, nplace_off -, areaq -; zero
+  misses) => the FIRST sign-validated c3 screening instrument. Caveats: friendlier level (base S2
+  0.9524 vs judge ~0.9135 at the rung; slope 1.06e-5 ~ judge 1.25e-5), and 3 of 5 control margins
+  sit inside the 1.5e-3 floor (sign-consistent, individually weak). Screen on happy_qem; check
+  level-sensitivity of winners on dragon_n10; confirm on the judge with K-read pairs.
