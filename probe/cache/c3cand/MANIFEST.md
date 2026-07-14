@@ -21,9 +21,10 @@ is INSUFFICIENT ALONE - source detail-dense, then nudge.
 ## Caveats (honest)
 - dragon has small handles (judge c3 is genus-0) - believed second-order for SSIM difficulty.
 - Level matched to ~2e-3 (= the c3 draw sigma); slope 1.3x steep. Good enough to START; the real
-  acceptance is reproducing a judge-measured mechanism SIGN (rim+ / MPC-aniso~0) - PENDING:
-  G_RIMK env-set segfaults this Windows build (latent bug, also c3band.obj segfaults even pristine
-  - flag to team). Sign-check on the team's Mac or after the Windows bug is fixed.
+  acceptance is reproducing judge-measured mechanism SIGNS - runnable NOW via zoo/ controls
+  (rim_off/tail_off/qw_005/nplace_off/mpc_off). ERRATUM: the earlier "G_RIMK env-set segfaults" was
+  a HARNESS bug (bash ${var:+X=y} expansions are words, not env assignments) - G_RIMK works fine.
+  The c3band.obj segfault (even pristine binary, mesh perfectly manifold) REMAINS REAL - flag to team.
 - happy_qem (0.952, slope 1.06e-5) kept as the friendlier bracket; dragon_qem (no noise) as base.
 
 ## FALSIFIER RE-RUN on dragon_n10 (2026-07-14 night) — the verdict, re-priced
