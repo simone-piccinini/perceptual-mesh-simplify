@@ -22,8 +22,10 @@ VARIANTS = [
          note="RIM-BUDGET off. Judge-VALIDATED positive (c3 wall 6700->6610) => faithful ruler must read NEGATIVE"),
     dict(name="rim_035",    family="control", kind="env", env={"G_RIMK": "0.35"}, expect="-",
          note="half rim strength: must sit between rim_off and base (monotonicity anchor)"),
-    dict(name="tail_off",   family="control", kind="env", env={"G_LAZY": "0", "G_CTK": "0"}, expect="-",
-         note="image-driven tail off. Judge-banked positive mechanism => must read NEGATIVE"),
+    dict(name="tail_off",   family="control", kind="env", env={"G_LAZY": "0", "G_CTK": "0"}, expect="0",
+         note="MEASURED DUPE(base) on this fork: Decimate already reaches c3t so the tail loop is a "
+              "no-op at 6610 here (90.51-era flow). Tail-family variants (pool/ctb/rb/mpc/traj) are "
+              "therefore UNINFORMATIVE on this branch - port the zoo to the team HEAD to screen them."),
     dict(name="qw_005",     family="control", kind="patch", expect="-",
          subs=[("static double qweight_for(int) { return 0.0; }",
                 "static double qweight_for(int) { return 0.05; }")],
@@ -77,8 +79,10 @@ VARIANTS = [
          note="NEW: steepness-saliency as rim-style COST multiplier (allocation via ordering, not quadric scale)"),
     dict(name="salcost_10", family="kernel", kind="patch_reuse", reuse="salcost_05",
          env={"G_SALCOST": "1.0"}, expect="?", note="same binary as salcost_05, strength 1.0"),
-    dict(name="subset_c3",  family="kernel", kind="env", env={"G_SUBSET": "1"}, expect="-",
-         note="subset placement (kept verts stay put): removes placement freedom - semi-control"),
+    dict(name="subset_c3",  family="kernel", kind="env", env={"G_SUBSET": "1"}, expect="0",
+         note="DEAD KNOB (found by zoo DUPE-detection): mein.cpp:1984 'g_subset_place = false' "
+              "force-disables it 3 lines after the env read -> G_SUBSET has never engaged anywhere. "
+              "Also corrects the c4-session conclusion (subset was never ON, see c4 MANIFEST erratum)."),
     dict(name="aniso_on",   family="kernel", kind="env", env={"G_ANISO": "1"}, expect="?",
          note="curvature-aligned placement candidates (banked on c4 CAD; 'dead on organic' verdict was OLD ruler)"),
     dict(name="deteps_8",   family="kernel", kind="patch", expect="?",

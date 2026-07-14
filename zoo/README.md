@@ -97,3 +97,15 @@ Every number this produces is `[LOCAL]` on a calibrated-but-provisional instrume
 **judge K-read pair**, nothing more. The controls section is the instrument's ongoing acceptance test —
 the first pass where controls read correctly is also the pass that upgrades the instrument from
 "provisional" to "sign-validated" (ROADS R-θ/R-ι).
+
+---
+## PASS-1 VERDICT (2026-07-14 night, dragon_n10 @6610) — instrument REJECTED by its own controls
+Infrastructure: all 53 variants ran (patch/env/reuse/rung all exercised); DUPE-detection caught a
+dead knob (G_SUBSET force-disabled at mein.cpp:1984 — also corrects the c4 subset erratum) and the
+fork-inert tail family. **Controls: 1 OK / 6 MISS — rim_off +0.0044 and nplace_off +0.0085 read
+POSITIVE (judge says both mechanisms are positive, so removing them must read negative).**
+dragon_n10 matches the judge's DIFFICULTY (level+slope) but INVERTS placement/allocation mechanism
+signs ⇒ demoted to S(N)-difficulty studies only. The pass-1 "WINs" (aniso_on +0.0047, stage2_30
++0.0016) are THEREFORE UNTRUSTED — no K-reads on them. Next: acceptance-test other geometry classes
+(happy_qem running; thai/lucy candidates next) — the controls subset is a 2-minute test per
+candidate, which is the loop's whole point.

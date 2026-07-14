@@ -49,3 +49,10 @@ through merges -> genuinely re-allocates budget. A/B (RC4, N~4920):
 alpha=1.0 (meets the relative criterion). Mesh-dependent optimum: alpha=1 helps depth-deficient meshes,
 mildly hurts already-good ones. Still below the 0.90 absolute target on the hard bracket (a physical
 frontier of 85% compression). Next: refine alpha + full-family check; then JUDGE-test (local is weak).
+
+## ERRATUM (2026-07-14, found by the zoo's DUPE-detection)
+The Phase-3 "G_SUBSET inert" conclusion was measured with subset placement NEVER ENGAGED:
+mein.cpp:1984 (`g_subset_place = false; // diagnostic done`) unconditionally overrides the env
+read added 3 lines earlier. So the c4 subset A/B tested nothing; "inert because disabled", not
+"inert because refine washes it". The G_ZPEN-inert conclusion is unaffected (zpen engages: it
+reads -0.005 on the c3 zoo). Subset remains untested as a mechanism.
