@@ -1,8 +1,8 @@
-# NIGHT-91b — start 0714_1708, 0.0h, 0 subs
+# NIGHT-91b — start 0714_1708, 0.04h, 1 subs
 
 Bank at start **90.554824**. `solver/mein.cpp` untouched; experiments on `campaign.cpp`.
 
-**Best all-green banked: 90.554824** (+0.0)
+**Best all-green banked: 90.590349** (+0.035525)
 
 ## Current best rung per case (the combined config being banked)
 - c3: 6610
@@ -10,6 +10,9 @@ Bank at start **90.554824**. `solver/mein.cpp` untouched; experiments on `campai
 - c5: 4140
 - c6: 8684
 - c7: 0.0272
+
+## New banks
+- **90.590349** (combined c5=4140 c7=0.0272 c6=8684, sub 20046662, 0.04h)
 
 ## Push fronts
 - c7: deepest-pass 0.0272, next 0.0271, wa 0

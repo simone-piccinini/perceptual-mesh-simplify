@@ -4,12 +4,12 @@
 else (why/history/theory) lives elsewhere and is NOT repeated here. Read `CLAUDE.md` for HOW to
 work; this file is WHERE we are.*
 
-**Last updated: 2026-07-13 (evening). Bank 90.554824 [JUDGE 20038759] = c3@6620 (RIM-BUDGET) +
-c4@4930-DETERMINIZED + c5@4172. Branch CleanRepoForAI (never merge). Two breakthroughs today:
-RIM-BUDGET (c3 mechanism) + c4-DETERMINIZE (killed the box-cut coin -> every c3 rung banks
-first-roll). c3 descending past 6620 (wall not hit; 6620 WA'd twice as coins then passed on draw
-rotation). Ladder auto-descends -20/all-green, retreats +10 on 2x c3-WA. Day: 90.4326 -> 90.548
-(+0.115). c3 rim-budget wall deeper than expected.**
+**Last updated: 2026-07-14. Bank 90.590349 [JUDGE campaign] = c3@6610 + c4@4925 + c5@4140-POLISH
++ c6@8684 + c7@0.0272. NEW MECHANISM today: C5 POLISH (post-decimation mini_refine 0.7->2.0,
++6.9e-4 normal channel, moved c5 wall 4163->4140; c5 has CPU margin ratio 1.6x). c3 polish TLEs
+(no margin), c4/c6 refine converged (no headroom). Walls keep moving per-mechanism: c4 4930->4921
+(determinize), c3 6700->6610 (rim), c5 4163->4140 (polish). Campaign pushing c5 finer + banking.
+Day: 90.554 -> 90.590.**
 
 ---
 
