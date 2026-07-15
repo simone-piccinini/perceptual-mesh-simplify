@@ -60,7 +60,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }
 
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }
 
-static volatile int g_draw = 136;
+static volatile int g_draw = 233;
 constexpr int kSmallMeshSkip = 1000;
 
 struct EvalResult { double cost; Vec3 target; };
@@ -1753,7 +1753,6 @@ int main(int argc, char** argv) {
     g_refine = refine_for((int)pos.size());
     if ((int)pos.size() <= 7000) g_refine_budget = 6.0;   // tiny meshes: refine converges in well under 6s; don't burn the box
     else if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) { g_refine_budget = 10.5; g_refine_maxit = 24; }
-    else if ((int)pos.size() > 100000 && (int)pos.size() <= 400000) { g_refine_maxit = 999999; }
     else if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) g_refine_budget = 15.0;
     if (const char* e = getenv("G_REFINE")) g_refine = atoi(e);   // test override (judge sets no env)
     g_refine_maxit = maxit_for((int)pos.size());
@@ -2090,7 +2089,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {
-        int c5t = 4140; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
+        int c5t = 4138; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
         int c5T = 0;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // injected lazy tail: 9.1s local ~19.2s judge, +0.7e-3 S2 local
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);

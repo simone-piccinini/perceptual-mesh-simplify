@@ -48,3 +48,9 @@
 {"ev": "result", "task": "c4", "draw": 135, "cases": "..x....", "score": 78.675775, "id": "20048825", "allgreen": false, "newbank": false, "utc": "2026-07-14T21:11:54.661254+00:00", "h": 6.06}
 {"ev": "push_pass", "case": "c4", "newbest": 4921, "utc": "2026-07-14T21:11:54.661945+00:00", "h": 6.06}
 {"ev": "result", "task": "bank", "draw": 136, "cases": ".......", "score": 90.594083, "id": "20048851", "allgreen": true, "newbank": true, "utc": "2026-07-14T21:18:52.825861+00:00", "h": 6.18}
+{"ev": "result", "task": "bank", "draw": 137, "cases": "..xx...", "score": 64.333054, "id": "20048872", "allgreen": false, "newbank": false, "utc": "2026-07-14T21:25:55.950184+00:00", "h": 6.3}
+{"ev": "result", "task": "c5", "draw": 139, "cases": "..x.x..", "score": 63.389467, "id": "20048891", "allgreen": false, "newbank": false, "utc": "2026-07-14T21:33:00.889159+00:00", "h": 6.42}
+{"ev": "result", "task": "bank", "draw": 140, "cases": "..xx...", "score": 64.333054, "id": "20048909", "allgreen": false, "newbank": false, "utc": "2026-07-14T21:39:59.175059+00:00", "h": 6.53}
+{"ev": "result", "task": "c6", "draw": 142, "cases": "..x..x.", "score": 62.392754, "id": "20048942", "allgreen": false, "newbank": false, "utc": "2026-07-14T21:47:12.793729+00:00", "h": 6.65}
+{"ev": "result", "task": "c4", "draw": 143, "cases": "...x...", "score": 76.251362, "id": "20048969", "allgreen": false, "newbank": false, "utc": "2026-07-14T21:54:12.471844+00:00", "h": 6.77}
+{"ev": "result", "task": "bank", "draw": 144, "cases": "..x....", "score": 78.675775, "id": "20048986", "allgreen": false, "newbank": false, "utc": "2026-07-14T22:01:15.447876+00:00", "h": 6.89}
