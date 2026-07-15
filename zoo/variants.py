@@ -161,4 +161,20 @@ VARIANTS = [
          note="S(N) below the wall: the deficit any 91-mechanism must cover at 6500"),
     dict(name="c3t_6400",   family="schedule", kind="env", env={"G_C3T": "6400"}, expect="-",
          note="S(N) at 6400 (91-arithmetic anchor: 6040 needed for 91-via-c3-alone)"),
+
+    # ---------- WAVE 2 (2026-07-15): map the stage2 curve + stack the two cheap winners ----------
+    # stage2_30 = the only CROSS-MESH winner of pass 1/2 (+0.0015 happy / +0.0016 dragon) and it is
+    # FASTER than base (6.4s vs 7.9s). stage2_15 HURTS (-0.0025 happy) -> non-monotone, map the peak.
+    dict(name="stage2_20",  family="schedule", kind="env", env={"G_2STAGE": "2.0"}, expect="?",
+         note="wave2: bulk-QEM to 2.0x then ordered finish (curve point)"),
+    dict(name="stage2_25",  family="schedule", kind="env", env={"G_2STAGE": "2.5"}, expect="?",
+         note="wave2: bulk to 2.5x (curve point)"),
+    dict(name="stage2_40",  family="schedule", kind="env", env={"G_2STAGE": "4.0"}, expect="?",
+         note="wave2: bulk to 4.0x (curve point)"),
+    dict(name="stage2_50",  family="schedule", kind="env", env={"G_2STAGE": "5.0"}, expect="?",
+         note="wave2: bulk to 5.0x (curve point; more bulk = faster but ordering sees less)"),
+    dict(name="s3_mini16",  family="schedule", kind="env", env={"G_2STAGE": "3.0", "G_MINI": "16"}, expect="?",
+         note="wave2 COMBO: the two cheap positives stacked (stage2_30 + polish cap 16)"),
+    dict(name="s3_mini32",  family="schedule", kind="env", env={"G_2STAGE": "3.0", "G_MINI": "32"}, expect="?",
+         note="wave2 COMBO: stage2_30 + polish cap 32"),
 ]

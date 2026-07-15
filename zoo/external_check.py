@@ -43,8 +43,10 @@ def oracle(inp, out):
     return (float(m.group(1)) if m else None), txt[-500:]
 
 def main():
+    global MESH
     ap = argparse.ArgumentParser(); ap.add_argument("--rung", type=int, default=6610)
-    a = ap.parse_args()
+    ap.add_argument("--mesh", default=MESH)
+    a = ap.parse_args(); MESH = a.mesh
 
     # --- ours: full pipeline at the rung ---
     ours = os.path.join(OUT, f"ours_{a.rung}.obj")

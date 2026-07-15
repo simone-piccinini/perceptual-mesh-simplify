@@ -147,10 +147,17 @@ def main():
     todo = [v for v in sel if (v["name"], a.rung if "G_C3T" not in v.get("env", {}) else int(v["env"]["G_C3T"]), mesh_name) not in done]
     print(f"{len(sel)} selected, {len(sel)-len(todo)} already done, {len(todo)} to run")
 
-    # stage 1: builds (patch variants first, then base once)
+    # stage 1: builds. Pre-build base ONCE (env variants share it - parallel builds would race on
+    # the same output file), then patch variants in parallel, then patch_reuse (needs donors built).
+    if any(v["kind"] == "env" for v in todo):
+        exe, err = build(dict(name="__base__", kind="env"))
+        if err: sys.exit("base build failed: " + err)
+    exes = {}
+    ph1 = [v for v in todo if v["kind"] == "patch"]
+    ph2 = [v for v in todo if v["kind"] != "patch"]
     with cf.ThreadPoolExecutor(max_workers=min(4, a.workers)) as ex:
-        exes = dict(zip([v["name"] for v in todo],
-                        ex.map(lambda v: build(v), todo)))
+        exes.update(zip([v["name"] for v in ph1], ex.map(lambda v: build(v), ph1)))
+    for v in ph2: exes[v["name"]] = build(v)
     # stage 2: runs
     def work(v):
         exe, err = exes[v["name"]]
