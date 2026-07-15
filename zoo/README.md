@@ -111,6 +111,46 @@ signs ⇒ demoted to S(N)-difficulty studies only. The pass-1 "WINs" (aniso_on +
 candidate, which is the loop's whole point.
 
 ---
+## EXTERNAL CHECK 2 (2026-07-15): field-aligned remeshing (Instant Meshes) — uniform-aligned LOSES big [LOCAL]
+
+Testing the "leader uses a non-QEM base" hypothesis (ALGORITHM-LOGIC §9 open dim 1). Instant Meshes
+(Jakob 2015, official Windows binary, batch `-r 6 -p 6 -v 6610 -d`) on happy_qem, oracle-scored at
+equal-N vs the pass-2/3 baselines (same mesh, same oracle; ours re-confirmed 0.9524 this session):
+
+| mesh | N | oracle FinalSSIM | notes |
+|---|---|---|---|
+| ours (full pipeline) | 6,610 | **0.9524** | refine+tail included |
+| MeshLab QEM (raw) | ~6,453 | 0.9098 | no refine |
+| **Instant Meshes (raw)** | 6,221 | **0.9005** | 4 non-manifold edges; Hausdorff OK; undershot -v 6610 |
+
+Adjustments don't save it: vertex handicap (389v × 1.06e-5 ≈ +0.004) + a generous refine-class bonus
+(+0.005–0.01) still leaves it ~0.035 below ours. Vs MeshLab at matched N it's a TIE (~0.907 vs 0.9098)
+⇒ **edge ALIGNMENT alone adds ≈0 over plain greedy QEM; the pipeline's edge is ADAPTIVITY** (hidden-
+first, deficit steering, rim budget), which uniform field-aligned meshing throws away. Structural
+local LOSS = transferable evidence (CLAUDE §2.1). Artifact: `zoo/build/instantmeshes_6221.obj`.
+
+**SAME DAY, TIER 2 — MMGS (MmgTools 5.6.0, INRIA metric-based remesher) closes the branch.**
+Adaptive iso (`-nr`, hausd-bisected to N) and adaptive ANISO (`-A -nr`) at the same rung:
+
+| mesh | N | oracle FinalSSIM | validity |
+|---|---|---|---|
+| ours (full) | 6,610 | **0.9524** | ok |
+| MeshLab QEM raw | ~6,453 | 0.9098 | ok |
+| Instant Meshes raw | 6,221 | 0.9005 | 4 nm edges |
+| MMGS aniso raw | 6,581 | 0.8799 | 199 nm edges, near-degenerate slivers |
+| MMGS iso raw | 6,585 | 0.8726 | 193 nm edges |
+
+Most-generous stacking for the best remesh: 0.8799 + ~0.02 alignment bonus (Marcum–Alauzet IMR23
+measure 30–50% fewer verts for aligned-vs-MMGS-class × happy slope 1.06e-5/v) + ~0.01 refine-class
+≈ 0.91 ≪ 0.9524. **VERDICT: the "leader uses a from-scratch remesher" hypothesis is dead on the
+sign-validated instrument across 3 instantiations (uniform-aligned / adaptive-iso / adaptive-aniso).**
+Mechanism: remeshers RESAMPLE — they satisfy the non-binding constraint (Hausdorff, 3–4e-3 vs limit
+1.14e-2 in every run) while low-pass-filtering the normal field that IS binding; QEM keeps surviving
+vertices ON original detail. Nugget that survives: aniso beat iso by +0.007 *within* MMGS — elongation
+is not poison; the only live descendant is IN-FAMILY anisotropy (flip-alignment prior class).
+Artifacts: `zoo/build/mmgs_aniso_6581.obj`, `zoo/build/mmgs_iso_6585.obj`.
+
+---
 ## PASS-2/3 VERDICT (2026-07-15, happy_qem = sign-validated instrument) — one path survives
 
 **External validation closed:** on the validated mesh OUR pipeline beats MeshLab's independent QEM
