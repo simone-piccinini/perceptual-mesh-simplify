@@ -24,7 +24,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$ROOT"
 OUT="$ROOT/zoo/build"; mkdir -p "$OUT"
 RUNG="${RUNG:-4980}"
 PATCHED="${PATCHED:?set PATCHED=/path/to/patched team_head.cpp (patch_wd_team.py output)}"
-grep -q "depth_score_grad" "$PATCHED" || { echo "PATCHED source lacks the mechanism"; exit 1; }
+grep -q "blended_sg" "$PATCHED" || { echo "PATCHED source lacks the mechanism"; exit 1; }
 for CFG in c4ctrl c4wd; do
   SRC="$OUT/${CFG}.cpp"
   cp "$PATCHED" "$SRC"
