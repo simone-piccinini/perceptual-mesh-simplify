@@ -4,6 +4,15 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-15 (newest first)
+- **MINI16 READ PAIR v4 (20051969 ctrl / 20052003 cap-16) — ALL GREEN at 6710 (night); TWO REAL
+  MEASUREMENTS, mechanism still pending.** Decode (team HEAD K-encode is SINGLE-channel,
+  K=(S2-0.885)/5e-4): K=40 both arms => **S2_night(c3@6710) = 0.9050** = the first direct
+  night-handicap number (-0.0087 vs the 0.9137 day-family expectation; explains ALL night razor
+  'x': 6610-night ~0.894 < 0.90 wall). **dK = 0 EXACTLY** (bit-identical payouts): the cap-16
+  never executed - the c3 repair polish is BUDGET-bound (<8 iters on judge, "budget 2.2 binds"),
+  so a CAP raise alone is invisible. v5 = the SHIPPABLE form: cap16 + budget 1.2->2.4s, funded
+  by sil2-off in BOTH arms (cancels in the differential). Prepared + compile-checked; RUN IN
+  DAYTIME: `bash scripts/mini16_read_pair.sh --submit`. Zoo predicts +2..3 quanta if it transfers.
 - **MINI16 READ PAIR v3 (20051802 ctrl / 20051831 cap-16) — time FIXED, 'x' typed as NIGHT-RAZOR;
   v4 ready for DAYTIME.** sil2-80 funding worked (c3 19.5s/20.4s, was 20.6/21.1) but c3 'x' both
   arms at c3t=6610 = the razor bank rung at NIGHT (night machines starve the boxed refine; same
