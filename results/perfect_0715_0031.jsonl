@@ -32,3 +32,15 @@
 {"ev": "toxic", "task": "bank", "times": {"1": 1.9, "2": 6.3, "3": 20.4, "4": 19.0, "5": 23.0, "6": 18.4, "7": 21.3}, "utc": "2026-07-15T02:02:35.760212+00:00", "h": 3.52}
 {"ev": "probe", "case": "c3", "val": 6606, "cases": "..x....", "case_ok": false, "allgreen": false, "utc": "2026-07-15T02:09:41.610020+00:00", "h": 3.64}
 {"ev": "bank", "cases": ".......", "score": 90.59475, "id": "20049884", "allgreen": true, "newbank": true, "utc": "2026-07-15T02:16:50.134808+00:00", "h": 3.76}
+{"ev": "wall", "case": "c5", "wall": 4138, "utc": "2026-07-15T02:21:31.852005+00:00", "h": 3.83}
+{"ev": "bank", "cases": ".......", "score": 90.59475, "id": "20049907", "allgreen": true, "newbank": false, "utc": "2026-07-15T02:24:02.550211+00:00", "h": 3.88}
+{"ev": "probe", "case": "c4", "val": 4919, "cases": "..xx...", "case_ok": false, "allgreen": false, "utc": "2026-07-15T02:31:08.769024+00:00", "h": 3.99}
+{"ev": "probe", "case": "c6", "val": 8677, "cases": "..x..x.", "case_ok": false, "allgreen": false, "utc": "2026-07-15T02:38:16.070218+00:00", "h": 4.11}
+{"ev": "bank", "cases": "...x...", "score": 76.252028, "id": "20049990", "allgreen": false, "newbank": false, "utc": "2026-07-15T02:45:25.297367+00:00", "h": 4.23}
+{"ev": "probe", "case": "c3", "val": 6608, "cases": "..xxx..", "case_ok": false, "allgreen": false, "utc": "2026-07-15T02:52:37.368503+00:00", "h": 4.35}
+{"ev": "bank", "cases": "..xx...", "score": 64.33372, "id": "20050062", "allgreen": false, "newbank": false, "utc": "2026-07-15T02:59:48.979064+00:00", "h": 4.47}
+{"ev": "bank", "cases": "..x....", "score": 78.676442, "id": "20050099", "allgreen": false, "newbank": false, "utc": "2026-07-15T03:06:55.997148+00:00", "h": 4.59}
+{"ev": "probe", "case": "c4", "val": 4919, "cases": "..xx...", "case_ok": false, "allgreen": false, "utc": "2026-07-15T03:14:01.470123+00:00", "h": 4.71}
+{"ev": "probe", "case": "c6", "val": 8677, "cases": "..x..x.", "case_ok": false, "allgreen": false, "utc": "2026-07-15T03:21:11.402050+00:00", "h": 4.83}
+{"ev": "bank", "cases": ".......", "score": 90.59475, "id": "20050209", "allgreen": true, "newbank": false, "utc": "2026-07-15T03:28:20.741363+00:00", "h": 4.95}
+{"ev": "probe", "case": "c3", "val": 6608, "cases": ".......", "case_ok": true, "allgreen": true, "utc": "2026-07-15T03:35:27.400566+00:00", "h": 5.07}

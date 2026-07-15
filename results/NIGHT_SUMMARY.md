@@ -1,12 +1,15 @@
-# NIGHT-PERFECT — start 0715_0031, 3.64h, 31 subs
+# NIGHT-PERFECT — start 0715_0031, 4.95h, 42 subs
 
-Start bank **90.594083**. Best all-green banked **90.594083** (+0.0).
+Start bank **90.594083**. Best all-green banked **90.59475** (+0.000667).
+
+## New banks
+- **90.59475** (sub 20049884, 3.76h)
 
 ## Per-case wall search (deepest passing rung)
 - c3: best 6610 — searching [6606,6610]
-- c4: best 4921 — searching [4917,4921]
-- c5: best 4138 — searching [4137,4138]
-- c6: best 8680 — searching [8675,8680]
+- c4: best 4921 — searching [4919,4921]
+- c5: best 4138 — WALL pinned 4138
+- c6: best 8680 — searching [8677,8680]
 - c7: best 0.0271 — WALL pinned 0.0271
 
 ## Note
