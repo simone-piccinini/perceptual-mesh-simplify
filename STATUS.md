@@ -26,6 +26,16 @@ is DEPTH-SSIM**. Then tested the depth mechanisms:
   (00005934 α=1 = +0.054/−0.036); α (~0.04) ≈ compiler trajectory variance (~0.03). Judge's c4 (passes
   ≥0.90) sits in the **no-help/harmful** regime.
 
+**UPDATE 2026-07-15 (evening): two fronts moved.** (1) **Open dimension 1 (from-scratch remesh)
+CLOSED [LOCAL×3, sign-validated ruler]**: Instant Meshes 0.9005 / MMGS-aniso 0.8799 / MMGS-iso
+0.8726 vs ours 0.9524 at equal N on happy_qem — remeshers optimize the non-binding Hausdorff and
+low-pass the binding normal field. zoo/README + ROADS §2. (2) **c4 depth-refine gradient (G_WD)
+judge-tested via K-read pair [20055153/20055197]: dS2 = +5e-4 at wd=0.5** — the first mechanism to
+ascend c4's depth channel; below the +1e-3 live threshold, wd=1.0 scaling probe in flight.
+Compile-cliff lesson: team HEAD exhausts the judge compile budget — ANY addition CEs (~24s, empty
+output); remedy = weave new code into existing functions + O1+noinline a big cold fn (sil2_pass)
+as buyback. `scripts/c4wd_read_pair.sh`. Local c4 refine untestable (r_elapsed>6s guard).
+
 Verdict: **do NOT spend judge submissions on c4 allocation.** Full writeup `docs/C4-CALIBRATION.md`;
 roads → `ROADS §2`. Reusable tooling delivered: `winbuild.sh` (-O2, judge-matching), `fast_sweep.sh`,
 `alpha_grid.py`, `config_optimizer.py`, `saliency_validator.py`, 27 calibrated proxies. Lesson: check

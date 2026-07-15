@@ -4,6 +4,19 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-15 (newest first)
+- **C4WD READ PAIR (20055153 ctrl / 20055197 wd=0.5) — depth-SSIM gradient in the c4 refine:
+  dK = +1 → dS2 = +5e-4 [JUDGE] on the real c4 mesh.** First mechanism ever to ascend c4's depth
+  channel (joint Pareto blend (1-wd)·gN + wd·gD, accept on true blend; zpres killed only the
+  normal-sacrificing trade). Both arms all-green except the usual evening c3 'x' (22.4s TLE-type,
+  fork-rung, untouched question). c4@4980 passes 18.7-18.9s. K_ctrl reproduced the bisect
+  20055094 exactly (weave wd=0 = base, judge-side). +5e-4 is BELOW the pre-registered +1e-3
+  "live" threshold (quantization: true dS2 ∈ (0, 1e-3)) → wd=1.0 scaling probe submitted.
+  **Compile-cliff saga (5 CE): 20055048/067/082/135 all died ~24s with EMPTY compiler output;
+  mechanism-free bisect 20055094 compiled → the base exhausts the judge's compile budget and ANY
+  addition tips it. Fix that worked: weave the grad into sil_score_depth (FP-identical score path)
+  + O1+noinline on the 521-line sil2_pass (compile-budget buyback; family note: sil2-O1 shifts
+  c4/c5 float paths — shared by both arms, differential clean, NOT bankable without revalidation).**
+  Tooling: scripts/c4wd_read_pair.sh + scripts/patch_wd_team.py (weave port onto any team HEAD).
 - **POLISH READ PAIR v5 (20052040 ctrl / 20052060 cap16+budget2.4) — MECHANISM ANSWERED: NO
   TRANSFER.** Both all-green at 6710, both decode K=40 => S2=0.9050 identical; dK=0 while the
   polish arm's c3 casetime rose +1.1s (18.8->19.9s) = the extra budget EXECUTED this time and
