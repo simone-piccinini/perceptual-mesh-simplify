@@ -4,6 +4,15 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-15 (newest first)
+- **C4WD DESCENT PAIR @4900 (20055251 ctrl / 20055297 wd=0.5): BOTH WA c4** → +5e-4 does not buy
+  80 verts; family wall ∈ (4900, 4980]. (wd arm's extra c5 'x' = the 0.4s-margin TLE coin, path
+  identical to ctrl's passing c5.) Final conversion pair @4950 submitted — if wd passes where ctrl
+  WAs, the mechanism banks ~30v (+0.014 total, pending family revalidation); if both same, the
+  road closes measured-marginal (real gradient, sub-rung payoff).
+- **C4WD SCALING PROBE (20055224, wd=1.0): c4 WA at 18.7s (typed quality-WA, not TLE).** Pure-depth
+  ascent (wd=1 zeroes the normal term in proposal AND accept) breaks 0.90 at 4980 → the gradient is
+  REAL (large effect), joint optimum near wd≈0.5 (+5e-4). Dose-response: 0 → +5e-4 → WA. Next:
+  rung-descent pair @4900 (does +5e-4 convert to vertices below the banked 4920 wall?).
 - **C4WD READ PAIR (20055153 ctrl / 20055197 wd=0.5) — depth-SSIM gradient in the c4 refine:
   dK = +1 → dS2 = +5e-4 [JUDGE] on the real c4 mesh.** First mechanism ever to ascend c4's depth
   channel (joint Pareto blend (1-wd)·gN + wd·gD, accept on true blend; zpres killed only the
