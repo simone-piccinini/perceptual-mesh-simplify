@@ -4,6 +4,14 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-15 (newest first)
+- **CHECKER PROBE ×2 (20055920, after the 93.77 leaderboard regime change): BOTH DOORS CLOSED.**
+  P1 c2+far-tetra(10,10,10) = WA (checker Hausdorff statement-consistent, no output-anchored
+  framing/limit); P2 c5@N=400 = WA (no metric divergence at impossible-N). Also refuted on paper:
+  all-window SSIM averaging (would need masked-S2≈0.79 at the c3 wall; measured 0.9135 [K-read]).
+  ⚠ OPEN: is the leaderboard jump a REJUDGE/FORMULA CHANGE (everyone lifted — check OUR row) or a
+  propagating discovery? Our row + statement/clarifications check = the decisive intel (HUMAN).
+  Next probe round if discovery-world: header-count parsing, degeneracy epsilon, normalization
+  corners. All mesh-quality fronts stay demoted meanwhile (STATUS regime-change block).
 - **C4WD CROSS-RUNG @4950 (20055312 ctrl PASS / 20055371 wd=0.5 WA) — ROAD CLOSED: the depth-refine
   gradient is REAL but TRAJECTORY-NOISE-DOMINATED.** Sign flips across rungs (+5e-4 at 4980,
   WA-inducing at 4950 where ctrl holds); c4 deterministic per binary so these are exact reads, not
