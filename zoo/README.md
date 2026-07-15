@@ -203,3 +203,13 @@ upper bound => no fitter escape. VIEW-DECOUPLING CLOSED AIRTIGHT.
 image-driven mechanism saw ~34px renders. ALL local screening (incl. zoo sign-validation) ran at
 ~1/9.5 judge resolution. Unit-scale re-validation of image-driven-mechanism conclusions REQUIRED
 (judge meshes are unit-normalized). Tools: zoo/relief_vs_closed.py.
+
+## UNIT-SCALE RE-VALIDATION (2026-07-16) — controls 5 OK / 0 MISS, instrument PROMOTED
+Proxies were ~9.2-9.5x below judge normalization (systematic; ply2solver never normalized).
+happy_unit + dragon_unit created (AABB->origin, unit sphere). Controls on happy_unit @6610:
+rim_off -0.0009 / rim_035 -0.0010 / areaq -0.0028 / nplace_off -0.0050 / qw_005 -0.0062 — ALL
+sign-correct, margins 3-4x the blob-scale run (nplace/qw/areaq now well above the 1.5e-3 floor).
+base S2 = 0.8556 (realistic band vs blob 0.9524). tail_off = DUPE on this fork (tail not engaging
+at this config — engagement quirk, investigate before tail screens). VERDICT: graveyard signs
+SURVIVE; blob-scale MAGNITUDES unreliable — re-read sub-floor verdicts on this ruler. **Screen on
+happy_unit from now on.**
