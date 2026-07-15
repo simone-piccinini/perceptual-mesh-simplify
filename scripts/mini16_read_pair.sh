@@ -1,32 +1,40 @@
 #!/usr/bin/env bash
-# MINI-16 K-READ PAIR — the judge test for the zoo's surviving winner (polish cap 8->16).
+# MINI-16 K-READ PAIR — judge test for the zoo's surviving winner (c3 polish cap 8->16).
+#
+# v2: sources are generated from origin/CleanRepoForAI's mein.cpp (the TEAM HEAD), NOT this fork.
+# Why: sub 20051725 (fork-based ctrl read) = Compile Error with EMPTY compiler output = the
+# documented judge compile-memory OOM signature; this fork carries extra env-gated code on a file
+# already at the compile cliff (CLAUDE.md 2.5 — added without stripping, my error). The team HEAD
+# compiles on the judge daily by construction, and a read on THEIR family is what banking needs.
 #
 # WHAT: two submissions differing ONLY in the c3 mini_refine iteration cap (8 = banked control,
-# 16 = variant), both with the c3 K-read enabled at the DEFAULT safe rung (c3t 6670, passes).
-# Decode: K=(V'-out)/4, S2=0.885+5e-4*(K%40); dS2 = (K_var-K_ctrl)%40 * 5e-4 on the REAL c3 mesh.
-# Local evidence [zoo, sign-validated instrument]: +0.0014 @6610 -> +0.0026 @6500 (grows below the
-# wall), ~zero time cost (bounded by the existing 1.2s repair budget), matches M0's +4.3e-3 ceiling.
+# 16 = variant), both with the c3 K-read enabled at the HEAD's default safe rung.
+# Decode: K=(V'-out)/4; q2=K%40 -> S2=0.885+5e-4*q2; dS2 = (q2_var - q2_ctrl)*5e-4 (same-rung pair).
+# Local evidence [zoo, sign-validated proxy]: +0.0014 @6610 -> +0.0026 @6500 -> +0.0022 @6400,
+# saturating at cap 12-16, ~zero time cost. If +0.0025 transfers: ~200 c3-verts ~ +0.14 total.
 #
-# MODES: default = PREPARE ONLY (writes the two stripped sources + compile-checks; submit is the
-# team's call).  --submit = actually submit both via judge_submit.py with campaign-lock waits.
+# MODES: default = prepare + compile-check only.  --submit = submit both (campaign-lock aware).
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$ROOT"
 OUT="$ROOT/zoo/build"; mkdir -p "$OUT"
-CAP_ANCHOR='<= 30000) ? 8 : (1<<30);'
+git fetch -q origin CleanRepoForAI
 for CFG in ctrl mini16; do
-  git checkout -- solver/mein.cpp
-  sed -i "s/const int kread = 0;/const int kread = 1;/" solver/mein.cpp
-  [ "$CFG" = "mini16" ] && sed -i "s/<= 30000) ? 8 : (1<<30);/<= 30000) ? 16 : (1<<30);/" solver/mein.cpp
-  grep -q "kread = 1" solver/mein.cpp || { echo "PATCH FAILED (kread)"; exit 1; }
-  py -3 scripts/strip_comments.py solver/mein.cpp "$OUT/mein_read_${CFG}.cpp"
-  bash scripts/winbuild.sh "$OUT/read_${CFG}.exe" "$OUT/mein_read_${CFG}.cpp"
-  echo "prepared $OUT/mein_read_${CFG}.cpp (compile OK)"
+  SRC="$OUT/team_${CFG}.cpp"
+  git show origin/CleanRepoForAI:solver/mein.cpp > "$SRC"
+  sed -i "s/const int kread = 0;/const int kread = 1;/" "$SRC"
+  [ "$CFG" = "mini16" ] && sed -i "s/<= 30000) ? 8 : (1<<30);/<= 30000) ? 16 : (1<<30);/" "$SRC"
+  grep -q "kread = 1;" "$SRC" || { echo "PATCH FAILED (kread)"; exit 1; }
+  if [ "$CFG" = "mini16" ]; then grep -q "? 16 : (1<<30);" "$SRC" || { echo "PATCH FAILED (cap)"; exit 1; }; fi
+  py -3 scripts/strip_comments.py "$SRC" "$OUT/team_${CFG}_nc.cpp"
+  SZ=$(stat -c %s "$OUT/team_${CFG}_nc.cpp" 2>/dev/null || wc -c < "$OUT/team_${CFG}_nc.cpp")
+  [ "$SZ" -le 131072 ] || { echo "SIZE FAIL ${SZ} > 128KiB"; exit 1; }
+  bash scripts/winbuild.sh "$OUT/team_${CFG}.exe" "$OUT/team_${CFG}_nc.cpp"
+  echo "prepared team_${CFG}_nc.cpp (${SZ} bytes, compile OK)"
   if [ "$1" = "--submit" ]; then
     while [ -f handoff/.judge_lock ]; do echo "campaign lock; waiting 60s"; sleep 60; done
-    py -3 scripts/judge_submit.py "$OUT/mein_read_${CFG}.cpp" \
-        --note "MINI16 read pair (${CFG}): polish cap 8 vs 16 @c3t6670 - does the zoo's +0.0014/+0.0026 transfer?"
+    py -3 scripts/judge_submit.py "$OUT/team_${CFG}_nc.cpp" \
+        --note "MINI16 read pair v2 TEAM-HEAD (${CFG}): c3 polish cap 8 vs 16 - does zoo's +0.0025 transfer?"
     [ "$CFG" = "ctrl" ] && sleep 260
   fi
 done
-git checkout -- solver/mein.cpp
-echo "PAIR READY. Decode: dS2 = (K_mini16 - K_ctrl) * 5e-4 (K from V' = out_v + 4K; same-rung pair)"
+echo "PAIR DONE. Decode: dS2 = (q2_mini16 - q2_ctrl) * 5e-4, q2 = ((V'-out)/4) % 40"
