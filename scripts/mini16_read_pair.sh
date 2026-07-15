@@ -22,6 +22,11 @@ for CFG in ctrl mini16; do
   SRC="$OUT/team_${CFG}.cpp"
   git show origin/CleanRepoForAI:solver/mein.cpp > "$SRC"
   sed -i "s/const int kread = 0;/const int kread = 1;/" "$SRC"
+  # v3 TIME FUNDING (both arms identically -> cancels in the differential): v2 reads died at the
+  # ~21s ceiling (c3 20.6/21.1s: team HEAD runs c3 ~21s at bank; kread doesn't fit). sil2 200->80
+  # frees ~1.1s (0.8ms/eval judge cost model), expected ctrl ~19.5s / cap16 ~20.0s.
+  sed -i "s/sil2_pass(200, 1);/sil2_pass(80, 1);/" "$SRC"
+  grep -q "sil2_pass(80, 1);" "$SRC" || { echo "PATCH FAILED (sil2 funding)"; exit 1; }
   [ "$CFG" = "mini16" ] && sed -i "s/<= 30000) ? 8 : (1<<30);/<= 30000) ? 16 : (1<<30);/" "$SRC"
   grep -q "kread = 1;" "$SRC" || { echo "PATCH FAILED (kread)"; exit 1; }
   if [ "$CFG" = "mini16" ]; then grep -q "? 16 : (1<<30);" "$SRC" || { echo "PATCH FAILED (cap)"; exit 1; }; fi

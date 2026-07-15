@@ -3,6 +3,15 @@
 Each line is a submission or probe and its judge outcome. "WA" = wrong answer on the named case
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
+## 2026-07-15 (newest first)
+- **MINI16 READ PAIR v2 (20051746 ctrl / 20051788 cap-16) — reads TLE'd on team HEAD, mechanism
+  UNANSWERED, read-cost typed.** Team-HEAD source + kread=1 only: c3 'x' BOTH arms with casetime
+  20.6s/21.1s at the ~21s ceiling = TIME death not SSIM (their HEAD runs c3 ~21s at bank; the read
+  render doesn't fit). Incidentally: ctrl->cap16 casetime +0.5s (single sample). Other 5 cases green,
+  best-counts safe. v3 = fund the read: sil2 200->80 BOTH arms (~-1.1s, cancels in the differential).
+  Fork-based v1 (20051725) = Compile Error, empty output = judge compile-memory OOM (fork carries
+  unstripped session code at the cliff; CLAUDE 2.5) -> reads must build from team HEAD.
+
 ## 2026-07-13 deep night (newest first)
 - **SLIVER-PAINT falsified (v1) [LOCAL, exact scorer].** The one genuinely-new zero-vertex DOF
   found by brainstorming the official text: doubled-bag chord triangles between existing
