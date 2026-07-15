@@ -27,6 +27,12 @@ for CFG in ctrl mini16; do
   # frees ~1.1s (0.8ms/eval judge cost model), expected ctrl ~19.5s / cap16 ~20.0s.
   sed -i "s/sil2_pass(200, 1);/sil2_pass(80, 1);/" "$SRC"
   grep -q "sil2_pass(80, 1);" "$SRC" || { echo "PATCH FAILED (sil2 funding)"; exit 1; }
+  # v4 SAFE RUNG (both arms): v3 fit the time box but 'x' at c3t=6610 = the RAZOR bank rung, at
+  # NIGHT (team doctrine: night judge machines starve the time-boxed refine -> razor rungs crash;
+  # "ladder SOLO di giorno"). 6710 = their judge-validated 18/20 day rung (+~1.2e-3 SSIM margin).
+  # The differential dq2 is rung-independent. RUN THIS IN DAYTIME.
+  sed -i "s/int c3t = 6610;/int c3t = ${RUNG:-6710};/" "$SRC"
+  grep -q "int c3t = ${RUNG:-6710};" "$SRC" || { echo "PATCH FAILED (rung)"; exit 1; }
   [ "$CFG" = "mini16" ] && sed -i "s/<= 30000) ? 8 : (1<<30);/<= 30000) ? 16 : (1<<30);/" "$SRC"
   grep -q "kread = 1;" "$SRC" || { echo "PATCH FAILED (kread)"; exit 1; }
   if [ "$CFG" = "mini16" ]; then grep -q "? 16 : (1<<30);" "$SRC" || { echo "PATCH FAILED (cap)"; exit 1; }; fi

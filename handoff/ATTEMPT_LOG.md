@@ -4,6 +4,16 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-15 (newest first)
+- **MINI16 READ PAIR v3 (20051802 ctrl / 20051831 cap-16) — time FIXED, 'x' typed as NIGHT-RAZOR;
+  v4 ready for DAYTIME.** sil2-80 funding worked (c3 19.5s/20.4s, was 20.6/21.1) but c3 'x' both
+  arms at c3t=6610 = the razor bank rung at NIGHT (night machines starve the boxed refine; same
+  physics as the c4 1/34 overnight crash - "ladder SOLO di giorno"). Local oracle check of the
+  padded output: pads violate Hausdorff ON PROXIES (absolute 0.004-unit offsets vs happy diag
+  0.25) but are proven-passing on the judge's mesh scale [20031760 K~100] - a proxy-testing
+  gotcha, not the judge failure. v4 = same pair at c3t 6710 (judge-validated 18/20 day rung,
+  +1.2e-3 margin; dq2 is rung-independent) - PREPARED + compile-checked, submit in DAYTIME:
+  `bash scripts/mini16_read_pair.sh --submit`. 5 subs on this question so far, each typed a real
+  constraint (compile cliff / read cost / night razor); all free (best-counts).
 - **MINI16 READ PAIR v2 (20051746 ctrl / 20051788 cap-16) — reads TLE'd on team HEAD, mechanism
   UNANSWERED, read-cost typed.** Team-HEAD source + kread=1 only: c3 'x' BOTH arms with casetime
   20.6s/21.1s at the ~21s ceiling = TIME death not SSIM (their HEAD runs c3 ~21s at bank; the read
