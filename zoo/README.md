@@ -213,3 +213,13 @@ base S2 = 0.8556 (realistic band vs blob 0.9524). tail_off = DUPE on this fork (
 at this config — engagement quirk, investigate before tail screens). VERDICT: graveyard signs
 SURVIVE; blob-scale MAGNITUDES unreliable — re-read sub-floor verdicts on this ruler. **Screen on
 happy_unit from now on.**
+
+## FULL PASS on happy_unit (2026-07-16) — family CONVERGED on the faithful ruler
+61 runs, base 0.8557, controls 6/6. NO mechanism above the 1.5e-3 floor: pool_2500 +0.0007,
+sil2_400 +0.0004, all else flat/negative (c3t_6700 +0.0014 = rung sanity, correct sign).
+VALIDATION: the ruler RETRODICTS the judge's mini16 dK=0 (blob ruler predicted +2-3 quanta, judge
+said 0, unit ruler says ~0). RE-PRICING: the deep-tail "+4e-3 at +4.5s" was a blob-scale artifact
+-> Phase-1 throughput prize ~+0.04 total, not +0.23 (parked). The current family's knob space is
+exhausted on a judge-faithful instrument; the leaders' +3 lives OUTSIDE it — discovery hunt is the
+only front. (Report tool caveat: run_zoo --report aggregates all meshes; filter results.jsonl by
+mesh for per-instrument rankings.)
