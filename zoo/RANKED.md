@@ -4,12 +4,16 @@ base S2 = 0.952397 (n=3) | trajectory sigma = 0.00e+00 | NOISE FLOOR = 1.50e-03
 | variant | family | dS2 | dS2n | verdict | expected | note |
 |---|---|---|---|---|---|---|
 | pool_2500 | tail | +0.0040 | +0.0068 | ** WIN ** | ? | pool 2500: offline-depth probe - how much does an unaffordable tail bu |
+| s3_mini16 | schedule | +0.0025 | +0.0050 | ** WIN ** | ? | wave2 COMBO: the two cheap positives stacked (stage2_30 + polish cap 1 |
+| s3_mini32 | schedule | +0.0024 | +0.0050 | ** WIN ** | ? | wave2 COMBO: stage2_30 + polish cap 32 |
 | pool_1200 | tail | +0.0017 | +0.0029 | ** WIN ** | ? | pool 700->1200 (deeper candidate set; judge-time irrelevant locally) |
 | stage2_30 | schedule | +0.0015 | +0.0025 | ** WIN ** | ? | bulk to 3x then ordered finish |
 | mini_16 | polish | +0.0014 | +0.0032 | flat | ? | mini_refine iteration cap 8->16 (c3-determinism cap was chosen for TIM |
 | mini_64 | polish | +0.0014 | +0.0032 | flat | ? | cap 8->64: how much of the +4.3e-3 M0 headroom does the in-pipeline po |
 | sil2_400 | schedule | +0.0012 | +0.0019 | flat | ? | silhouette pass 200->400 evals (judge-costed +1.8s; local quality read |
 | mini_32 | polish | +0.0011 | +0.0026 | flat | ? | cap 8->32: the c5-POLISH transplant, step 2 |
+| mini_24 | polish | +0.0011 | +0.0026 | flat | ? | wave3: cap curve point between 16 and 32 (saturation shape) |
+| mini_12 | polish | +0.0011 | +0.0026 | flat | ? | wave3: cap curve point below 16 (where does the gain start?) |
 | zpen_3 | ordering | +0.0011 | +0.0006 | flat | ? | depth-steepness collapse deferral (c4-inert; organic re-screen) |
 | lac_05 | polish | +0.0007 | +0.0009 | flat | ? | AC-seed: laplacian-of-residual guided zigzag (exploratory, env semanti |
 | alloc_05 | ordering | +0.0005 | +0.0012 | flat | ? | Z-saliency quadric scaling on ORGANIC (was c4-inert/noise; c3 is a dif |
@@ -31,6 +35,7 @@ base S2 = 0.952397 (n=3) | trajectory sigma = 0.00e+00 | NOISE FLOOR = 1.50e-03
 | mpc_off | tail | -0.0001 | -0.0001 | flat | - | multi-placement OFF (judge-validated +: 6710 crossed with it) - semi-c |
 | pool_400 | tail | -0.0001 | -0.0001 | flat | ? | lazy tail pool 700->400 (cheaper, earlier commit) |
 | lsiter_2 | polish | -0.0002 | +0.0003 | flat | ? | guided-seed->refine cycles x2 (family read +1.35e-4 at 1 iter) |
+| stage2_20 | schedule | -0.0002 | +0.0020 | flat | ? | wave2: bulk-QEM to 2.0x then ordered finish (curve point) |
 | lsiter_3 | polish | -0.0004 | +0.0021 | flat | ? | seed cycles x3 |
 | rim_off | control | -0.0004 | +0.0007 | flat | - | RIM-BUDGET off. Judge-VALIDATED positive (c3 wall 6700->6610) => faith |
 | lam_24 | ordering | -0.0009 | -0.0011 | flat | ? | Pivot-A lambda 16->24 (steering up; 24 WA'd once at an old rung - re-s |
@@ -48,7 +53,10 @@ base S2 = 0.952397 (n=3) | trajectory sigma = 0.00e+00 | NOISE FLOOR = 1.50e-03
 | rim_200 | ordering | -0.0030 | -0.0033 | NEG | ? | rim-budget ~3x: where does over-allocation start hurting? |
 | rim_140 | ordering | -0.0030 | -0.0023 | NEG | ? | rim-budget 2x banked |
 | salcost_10 | kernel | -0.0030 | -0.0022 | NEG | ? | same binary as salcost_05, strength 1.0 |
+| stage2_50 | schedule | -0.0040 | -0.0060 | NEG | ? | wave2: bulk to 5.0x (curve point; more bulk = faster but ordering sees |
+| stage2_40 | schedule | -0.0040 | -0.0060 | NEG | ? | wave2: bulk to 4.0x (curve point) |
 | hid_deep | ordering | -0.0043 | -0.0064 | NEG | ? | hidden-pair collapses even earlier (frees budget for visible verts) |
+| stage2_25 | schedule | -0.0047 | -0.0043 | NEG | ? | wave2: bulk to 2.5x (curve point) |
 | lsres_768 | polish | -0.0096 | -0.0058 | NEG | ? | guided-seed at 768 instead of 1024 (cheaper seed -> budget freed downs |
 
 ## Controls acceptance (instrument sign-fidelity)

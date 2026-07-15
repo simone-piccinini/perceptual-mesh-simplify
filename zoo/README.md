@@ -109,3 +109,33 @@ signs ⇒ demoted to S(N)-difficulty studies only. The pass-1 "WINs" (aniso_on +
 +0.0016) are THEREFORE UNTRUSTED — no K-reads on them. Next: acceptance-test other geometry classes
 (happy_qem running; thai/lucy candidates next) — the controls subset is a 2-minute test per
 candidate, which is the loop's whole point.
+
+---
+## PASS-2/3 VERDICT (2026-07-15, happy_qem = sign-validated instrument) — one path survives
+
+**External validation closed:** on the validated mesh OUR pipeline beats MeshLab's independent QEM
+by **+0.043** oracle-FinalSSIM at equal N (0.9524 vs 0.9098) — the dragon "meshlab win" was pure
+inversion artifact. Oracle == self-score to 4 decimals on both meshes (the +0.010 judge-optimism is
+mesh difference, not scoring math). Pipeline and instrument cross-validated in one test.
+
+**stage2 DEMOTED to lottery-knob:** the ×k curve swings −0.0047…+0.0015…−0.0040 across adjacent
+settings on happy — schedule changes re-roll the decimation basin with σ≈3e-3, so its lone +0.0015
+spike is not evidence (it IS a useful draw-family generator for the team's ladder rotation).
+
+**THE SURVIVOR — polish cap (G_MINI 8→16):** the dS2-vs-base map on happy:
+| cap | @6610 | @6500 | @6400 |
+|-----|-------|-------|-------|
+| 12  | +0.0011 | +0.0025 | — |
+| 16  | **+0.0014** | **+0.0026** | **+0.0022** |
+| 24  | +0.0011 | +0.0025 | — |
+| 32  | +0.0011 | +0.0026 | +0.0022 |
+Saturates at cap≈12–16 (converged = M0's prediction; banked cap 8 is under-converged), gain GROWS
+below the wall then plateaus, flat across caps = mechanism-monotone (no basin lottery), time cost
+~0 (bounded by the existing 1.2s repair budget). If +0.0025 transfers: ≈200 c3-verts ≈ +0.14 total.
+
+**Judge deliverable READY (not submitted — team gates):** `scripts/mini16_read_pair.sh` prepares +
+compile-checks the control/variant K-read pair (only diff = cap 8 vs 16, same safe rung 6670);
+`--submit` runs both with campaign-lock waits. Decode: dS2 = (K_var − K_ctrl)·5e-4 on the real c3
+mesh. CAVEAT for banking (not for the read): this fork is 90.51-era; the team HEAD's c3 runs ~21s
+(sil2-200) where "c3 polish TLEs" — the read answers TRANSFER; shipping to the bank needs the cap
+re-timed on THEIR HEAD inside the box.

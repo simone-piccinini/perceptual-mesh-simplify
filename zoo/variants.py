@@ -177,4 +177,12 @@ VARIANTS = [
          note="wave2 COMBO: the two cheap positives stacked (stage2_30 + polish cap 16)"),
     dict(name="s3_mini32",  family="schedule", kind="env", env={"G_2STAGE": "3.0", "G_MINI": "32"}, expect="?",
          note="wave2 COMBO: stage2_30 + polish cap 32"),
+
+    # ---------- WAVE 3 (2026-07-15): the polish-cap pursuit (the surviving path) ----------
+    # mini_16 grows below the wall (+0.0014 @6610 -> +0.0026 @6500) with ~zero time cost, is
+    # mechanism-monotone (no basin re-roll), and matches M0's +4.3e-3 convergence ceiling.
+    dict(name="mini_12",    family="polish", kind="env", env={"G_MINI": "12"}, expect="?",
+         note="wave3: cap curve point below 16 (where does the gain start?)"),
+    dict(name="mini_24",    family="polish", kind="env", env={"G_MINI": "24"}, expect="?",
+         note="wave3: cap curve point between 16 and 32 (saturation shape)"),
 ]
