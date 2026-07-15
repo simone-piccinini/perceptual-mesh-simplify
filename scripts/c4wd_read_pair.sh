@@ -46,7 +46,7 @@ for CFG in c4ctrl c4wd; do
     while [ -f handoff/.judge_lock ]; do echo "campaign lock; waiting 60s"; sleep 60; done
     py -3 scripts/judge_submit.py "$OUT/${CFG}_nc.cpp" \
         --note "C4WD read pair (${CFG}): depth-SSIM term in c4 refine gradient wd=0.5 vs 0, team-HEAD base, rung ${RUNG}, c4 pads=blended S2 - dS2=dK*5e-4"
-    [ "$CFG" = "c4ctrl" ] && sleep 260
+    [ "$CFG" = "c4ctrl" ] && sleep 300   # 260 proved marginal: token refusal silently dropped the wd arm (20055312 session)
   fi
 done
 echo "PAIR DONE. Decode: K = (V'_c4 - ${RUNG})/4; S2 = 0.885 + K*5e-4; dS2 = dK*5e-4"

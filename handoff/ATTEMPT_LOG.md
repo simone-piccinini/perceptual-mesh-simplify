@@ -4,7 +4,14 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-15 (newest first)
-- **C4WD DESCENT PAIR @4900 (20055251 ctrl / 20055297 wd=0.5): BOTH WA c4** → +5e-4 does not buy
+- **C4WD CROSS-RUNG @4950 (20055312 ctrl PASS / 20055371 wd=0.5 WA) — ROAD CLOSED: the depth-refine
+  gradient is REAL but TRAJECTORY-NOISE-DOMINATED.** Sign flips across rungs (+5e-4 at 4980,
+  WA-inducing at 4950 where ctrl holds); c4 deterministic per binary so these are exact reads, not
+  coins. Same verdict class as C4-CALIBRATION's allocation finding, now established judge-side for
+  the refine mechanism. Full trial: pair(4980) + dose(wd=1.0) + descent(4900) + cross-rung(4950) =
+  4 informative reads, 13 submissions incl. the 5-CE compile-cliff fight. c4's depth channel is
+  attackable but nothing in the gradient family yields a STABLE payoff — the remaining depth room
+  needs a coverage/contour-class mechanism (interior depth-contour SIL2 extension, untested). (20055251 ctrl / 20055297 wd=0.5): BOTH WA c4** → +5e-4 does not buy
   80 verts; family wall ∈ (4900, 4980]. (wd arm's extra c5 'x' = the 0.4s-margin TLE coin, path
   identical to ctrl's passing c5.) Final conversion pair @4950 submitted — if wd passes where ctrl
   WAs, the mechanism banks ~30v (+0.014 total, pending family revalidation); if both same, the
