@@ -4,6 +4,17 @@ Each line is a submission or probe and its judge outcome. "WA" = wrong answer on
 (FinalSSIM < 0.90 unless stated). Best-counts means a WA never lowered the standing.
 
 ## 2026-07-15 (newest first)
+- **POLISH READ PAIR v5 (20052040 ctrl / 20052060 cap16+budget2.4) — MECHANISM ANSWERED: NO
+  TRANSFER.** Both all-green at 6710, both decode K=40 => S2=0.9050 identical; dK=0 while the
+  polish arm's c3 casetime rose +1.1s (18.8->19.9s) = the extra budget EXECUTED this time and
+  bought < 2.5e-4 (half-quantum) on the real c3 mesh vs the zoo's predicted +0.0012-0.0014.
+  ALSO: v5(sil2-OFF)=v4(sil2-80)=0.9050 exactly, night AND now => the current determinized HEAD
+  family scores S2(6710)=0.905 reproducibly; the v4 'night handicap -0.0087' reading was partly
+  wrong - the -0.009 vs the 0.9137 old-anchor is a FAMILY gap (deep-tail-era anchor vs current
+  COLCROP/sil2/capped family), and v3's 6610-'x' = this family is deterministically sub-wall at
+  6610 with the read on. NET: c3 position-space polish is dead on the judge (third falsification
+  class: biased ruler, faithful ruler, now judge differential); the read machinery is proven
+  (5 consecutive all-green reads, clean decodes). 9 subs total on this chain, all best-counts-free.
 - **MINI16 READ PAIR v4 (20051969 ctrl / 20052003 cap-16) — ALL GREEN at 6710 (night); TWO REAL
   MEASUREMENTS, mechanism still pending.** Decode (team HEAD K-encode is SINGLE-channel,
   K=(S2-0.885)/5e-4): K=40 both arms => **S2_night(c3@6710) = 0.9050** = the first direct
