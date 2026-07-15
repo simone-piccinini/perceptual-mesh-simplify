@@ -26,6 +26,17 @@ is DEPTH-SSIM**. Then tested the depth mechanisms:
   (00005934 α=1 = +0.054/−0.036); α (~0.04) ≈ compiler trajectory variance (~0.03). Judge's c4 (passes
   ≥0.90) sits in the **no-help/harmful** regime.
 
+**⚠⚠ REGIME CHANGE 2026-07-15 (late evening) — LEADERBOARD JUMPED [user-observed, Kattis]:**
+#1 NEU.AddictedTribes **93.77** (2472 tries) / #2 Moon Night **93.49** (+2.03 in ~6 days) /
+#3 Vamos **92.37** / #4 Zazmuz **92.15** (8872 tries). Gap to #1 now ~19 SUMMED points. Mean 93.77
+requires case compressions our measured S(N) curves say are IMPOSSIBLE in the mesh-quality axis
+(family ceiling fully-extracted ≈ 91.0). Multiple teams jumping +1.3..+2.3 in days = a SHARED
+DISCRETE DISCOVERY propagating (second wave; the escapees' +1.9 was the first). **All mesh-quality
+fronts (incl. the +0.23 throughput plan) are DEMOTED to rank-noise until the discovery is found.
+Active front = the checker's actual behavior vs the statement.** First probes submitted: P1 c2+far-
+tetra (does the checker anchor Hausdorff/framing to OUTPUT geometry?) + P2 c5@N=400 (does checker
+SSIM diverge from the oracle?) — statement predicts WA on both; ANY pass = the door.
+
 **UPDATE 2026-07-15 (evening): two fronts moved.** (1) **Open dimension 1 (from-scratch remesh)
 CLOSED [LOCAL×3, sign-validated ruler]**: Instant Meshes 0.9005 / MMGS-aniso 0.8799 / MMGS-iso
 0.8726 vs ours 0.9524 at equal N on happy_qem — remeshers optimize the non-binding Hausdorff and
