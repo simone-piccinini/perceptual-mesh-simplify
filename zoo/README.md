@@ -192,3 +192,14 @@ budget: 6-8x below parity, ~10x below the 6-shell arithmetic (adaptivity buys ~2
 The honest mesh IS the near-optimal multi-view relief union — surface sharing is a benefit, not a
 tax. Tools: zoo/relief_hf.py (heightfield), zoo/relief_test.py (QEM path). Undecimated-relief
 sanity: 0.9945. The leaders' discovery is NOT view decoupling.
+
+## COMPLETION (2026-07-16): closed-mesh curve at relief budgets — decoupling DOMINATED everywhere
++Z blend at N~480/1270/2600/6000: relief 0.471/0.565/0.630/0.704 vs closed 0.423/0.631/0.703/0.794.
+At equal TOTAL budget (6 reliefs vs 1 closed): closed wins by ~0.27 blend; relief wins only in the
+starved <500/view regime (absolute ~0.47, irrelevant vs the 0.90 gate). Closed curve = adaptivity
+upper bound => no fitter escape. VIEW-DECOUPLING CLOSED AIRTIGHT.
+⚠⚠ INSTRUMENT BOMBSHELL (same data): plain pymeshlab@5999 Final6=0.8028 BEATS ours_6610 (0.7747,
++611 verts) on the UNIT-SCALE proxy — ours_6610 was produced on the blob-scale input where every
+image-driven mechanism saw ~34px renders. ALL local screening (incl. zoo sign-validation) ran at
+~1/9.5 judge resolution. Unit-scale re-validation of image-driven-mechanism conclusions REQUIRED
+(judge meshes are unit-normalized). Tools: zoo/relief_vs_closed.py.
