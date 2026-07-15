@@ -11,7 +11,7 @@ import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
-MESH = os.path.join(ROOT, "probe", "cache", "c3cand", "happy_qem.obj")
+MESH = os.path.join(ROOT, "zoo", "build", "happy_unit.obj")
 
 
 def read_judge(path):
@@ -72,7 +72,7 @@ def main():
             for j in range(G-1):
                 a, b, c, dd = idx[i, j], idx[i, j+1], idx[i+1, j], idx[i+1, j+1]
                 if min(a, b, c, dd) < 0: continue
-                Fo.append((a, c, b)); Fo.append((b, c, dd))
+                Fo.append((a, b, c)); Fo.append((b, dd, c))   # winding fixed: was inverted -> normals sign-flipped, Sn ~ -0.007
         out = os.path.join(ROOT, "zoo", "build", f"relief_hf_{len(Vo)}.obj")
         with open(out, "w", newline="\n") as f:
             f.write(f"{len(Vo)} {len(Fo)}\n")
@@ -81,7 +81,7 @@ def main():
         r = subprocess.run([sys.executable, "-m", "src.imc_eval.cli", "--input", MESH, "--output", out],
                            capture_output=True, text=True, encoding="utf-8", errors="replace",
                            cwd=ROOT, timeout=1800)
-        m = re.search(r"\+Z:\s+([\d.]+)\s+([\d.]+)\s+->\s+([\d.]+)", r.stdout + r.stderr)
+        m = re.search(r"\+Z:\s+(-?[\d.]+)\s+(-?[\d.]+)\s+->\s+(-?[\d.]+)", r.stdout + r.stderr)
         print(f"HF grid {G}x{G}  N={len(Vo):5d}  +Z: {m.group(0) if m else 'PARSE FAIL: ' + (r.stdout + r.stderr)[-300:]}")
 
 

@@ -179,3 +179,16 @@ compile-checks the control/variant K-read pair (only diff = cap 8 vs 16, same sa
 mesh. CAVEAT for banking (not for the read): this fork is 90.51-era; the team HEAD's c3 runs ~21s
 (sil2-200) where "c3 polish TLEs" — the read answers TRANSFER; shipping to the bank needs the cap
 re-timed on THEIR HEAD inside the box.
+
+---
+## VIEW-DECOUPLING SCREEN (2026-07-16) — CLOSED [LOCAL, exact metric, true scale]
+Hypothesis (post-93.77 regime change): 6 per-view relief shells beat one multi-view mesh.
+Instrument fixes en route: proxies are ~9.5x SMALLER than judge normalization (happy renders as
+a 34px blob; unit-scaled, ours_6610 FinalSSIM drops 0.9524->0.7747 — pixel-scale-sensitive proxy
+conclusions do NOT transfer); relief fitters: QEM shreds open sheets, heightfield needs correct
+winding. VERDICT on happy_unit: heightfield relief Sn(+Z) = 0.21/0.31/0.40/0.50 at N=464/1273/
+2626/5972 vs honest mesh 0.5627 at 6610-for-ALL-SIX-views. One view alone costs ~the whole honest
+budget: 6-8x below parity, ~10x below the 6-shell arithmetic (adaptivity buys ~2-3x, not enough).
+The honest mesh IS the near-optimal multi-view relief union — surface sharing is a benefit, not a
+tax. Tools: zoo/relief_hf.py (heightfield), zoo/relief_test.py (QEM path). Undecimated-relief
+sanity: 0.9945. The leaders' discovery is NOT view decoupling.
