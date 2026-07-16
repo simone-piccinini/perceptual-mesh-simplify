@@ -229,3 +229,12 @@ Controls 5 OK / 0 MISS on dragon_unit (rim_off -0.0007, rim_035 -0.0002, qw_005 
 areaq -0.0057, nplace_off -0.0043). Blob-scale dragon_n10's inverted signs (pass-1: nplace_off
 +0.0085 etc.) were caused ENTIRELY by the 9.1x under-normalization, not by geometry class.
 TWO certified instruments now: happy_unit (harder) + dragon_unit — bracket every future screen.
+
+## SLAT-PAINTING PROBE (2026-07-16) — interpenetration family CLOSED
+233 oriented slats on closed_2584: Final6 0.7212 -> 0.7086, +Z blend 0.7032 -> 0.6768 — WORSE than
+the bare base even on the painted view. Mechanism: O(perimeter) boundary damage (hard normal edges
++ eps depth cracks) exceeds interior gain; fixing it converges to a continuous surface = the honest
+mesh. THIRD independent proof of the continuity law (impostors 0.689, view-shells dominated, slats
+negative): sigma-xy structurally rewards continuous representation; discontinuous shortcuts lose at
+their borders. Legality was sound (interpenetration judge-proven via pads) — the METRIC kills it,
+not the rules. zoo/slat_probe.py.
