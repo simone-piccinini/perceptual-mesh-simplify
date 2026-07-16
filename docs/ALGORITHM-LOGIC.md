@@ -237,37 +237,47 @@ inputs, count dispatch.
 | Zero-vertex "paint" components can't beat σxy | LOCAL exact scorer, mechanism-level |
 | Trajectory noise floors: c4 ±0.03 S2d, c3-schedule ±3e-3 | measured; any idea must exceed them |
 
-**Genuinely OPEN dimensions** (where a paper could change things):
+**The 5 "open dimensions" — ALL MEASURED 2026-07-15/16. None survived.** (Kept with their verdicts:
+this is the idea-hunting map, and its value now is telling you what NOT to re-derive. Full rows in
+`ROADS.md §2`; numbers in `zoo/README.md`.)
 
-1. **The global vertex set / representation** — formally open (only local swap search and one
-   differentiable relaxation were killed), but every probe discourages it. A *constructive*
-   generator that plans the whole budget against σxy (not greedy collapse) is the only untested
-   shape here. Literature slots: appearance-driven remeshing, field-aligned meshing
-   (Instant-Meshes class — never tested locally), perceptual/HVS-guided simplification, learned
-   simplification.
-2. **The σxy objective, attacked directly.** Our tail *selects* by rendered SSIM, our refine
-   *ascends* it — but nothing *generates* geometry to maximize window correlation. The structure
-   term rewards spatially-correlated normal detail; decimation can only delete. Slots: normal-map
-   / appearance-preserving simplification (Cohen 98), detail transfer / normal-field synthesis,
-   micro-displacement within the **loose 5% v2v Hausdorff** (the tilt/normal-subspace idea exists
-   as an experimental phase-C and is barely explored).
-3. **c4's depth channel, attacked directly.** No mechanism in the family targets depth structure.
-   Slots: depth-buffer-aware simplification, feature-edge preservation with budgets (QEM with
-   constraints), structure-aware CAD decimation.
-4. **Time reallocation.** Budgets are historically grown, not globally optimized; the c4 headroom
-   (~5 s) and c2's trivial budget are unspent capital. Any mechanism that is throughput-bound
-   (deep tail pool: +4e-3 available at +4.5 s) becomes shippable if made ~3× cheaper — an
-   engineering slot (incremental SSIM updates, hierarchical windows), same class as the prefix-sum
-   unlock that already moved the bank once.
-5. **Legality surface.** Disconnected closed components are accepted; Hausdorff is v2v-loose;
-   score counts only vertex count. The paint family is closed, but this surface is where a
-   "discrete discovery" could live — the escapees' +1.9 (3–4 teams, days, ~150 tries) is still
-   unexplained by any lever we can measure, and rules-lawyering the statement + probing this
-   surface is the only known route to their tier.
+1. **The global vertex set / representation** — ~~open~~ **CLOSED, 3 ways.** (a) From-scratch remesh:
+   Instant Meshes 0.9005 / MMGS-aniso 0.8799 / MMGS-iso 0.8726 vs ours 0.9524 at equal N — remeshers
+   RESAMPLE: they optimize the non-binding Hausdorff (3–4e-3 vs a 1.14e-2 limit) and low-pass the
+   binding normal field, while QEM keeps vertices ON original detail. (b) Constructive redistribution
+   (edge-split at deficit + collapse at saturation): **judge-WA ×4**, confounds excluded one by one
+   [20043585/20044274/20044330/20044572] ⇒ *the c3 deficit is resolution-bound, not reallocatable.*
+   (c) LT-2000 teleports re-measured on the faithful ruler: **+0.0013** (per-mille). Field-aligned
+   meshing IS now tested — the "never tested locally" note is obsolete.
+2. **The σxy objective, attacked directly** — ~~open~~ **CLOSED by the CONTINUITY LAW** (3 independent
+   proofs): 2D impostors 0.689 vs 0.810 · per-view relief shells dominated at every budget · slat
+   painting (interpenetration, legality judge-proven) WORSE than its own base. Mechanism: any
+   discontinuous overlay pays O(perimeter) boundary damage (hard normal edges + depth cracks) that
+   exceeds its interior gain; the fix converges to "make it continuous" = the honest mesh. Flat
+   shading + region-mean ⇒ the only σxy freedom is region SHAPE, and QEM+nplace+refine already take it.
+3. **c4's depth channel** — ~~open~~ **CLOSED, judge-typed.** G_WD (depth-SSIM in the refine gradient,
+   joint Pareto) is the first mechanism to ever ascend it: dose-response +5e-4 @wd=0.5, WA @wd=1.0
+   (gradient real) — **but the sign FLIPS across rungs** (WA at 4950 where the control passes)
+   ⇒ trajectory-noise-dominated, no stable payoff. Decimation-time depth (penalty/subset/allocation)
+   = inert or noise. *One untested descendant:* interior depth-contour SIL2 (coverage/directed-move
+   class, not gradient).
+4. **Time reallocation** — ~~open~~ **RE-PRICED to ~+0.04 total, not +0.23.** The "+4e-3 deep tail at
+   +4.5 s" was a **blob-scale artifact** (§ instrument bug below): on the unit ruler pool_2500 buys
+   +0.0007. And depth itself is capped: **9× compute = +0.006** at rung 5800 (the leader gap would
+   need ~1e9×). Tail carries all of it; refine adds nil (positions converged, reconfirmed).
+5. **Legality surface** — **probed hard, all doors shut** (each in the judge's own words, via the
+   validator messages): far-tetra → *"too much geometric deviation"* (Hausdorff ENFORCED as stated);
+   header under-declaring V → *"mesh is invalid"* (the checker parses the whole file and cross-checks
+   the header); impossible-N → *"SSIM is too low"*; disconnected/interpenetrating components are legal
+   but the metric kills every use (see #2); background-window dilution refuted by K-read arithmetic.
 
-**The strategic summary in one sentence**: the solver is a converged greedy-QEM + steering +
-image-space-refinement machine whose ordering, positions and local sets are all measured at their
-ceilings; the remaining room is (a) c4's untouched depth term, (b) σxy-generative ideas that add
-correlated normal detail instead of only deleting geometry, (c) throughput engineering that turns
-measured-but-unaffordable gains shippable, and (d) whatever the escapees found outside the
-mesh-quality axis entirely.
+**⚠ INSTRUMENT BUG that invalidated older numbers:** the `probe/cache/c3cand/*` proxies were **9.5×
+under-normalized** (rendered as ~34-px blobs; `ply2solver.py` never normalized), so every
+image-driven magnitude measured on them before 2026-07-16 is wrong (signs survived). Use
+`happy_unit`/`dragon_unit` (controls 6/6 & 5/5) or Alberto's `instrument/` (unit-scale all along).
+
+**The strategic summary in one sentence** *(rewritten 2026-07-16)*: every algorithmic dimension —
+representation, σxy generation, c4 depth, throughput, and the legality surface — is now MEASURED at
+its ceiling (paradigm ≈ 90.60, and the night bot banked it: 90.59475); the leaders at 93.77 are
+~19 summed points away, which no mechanism we can construct explains, so the remaining work is
+**information retrieval** (the contest clarifications page, teammate sync), not algorithm invention.

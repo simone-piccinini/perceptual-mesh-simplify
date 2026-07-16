@@ -48,10 +48,17 @@ guinzaglio più corto del necessario. Con la spaziatura tipica dei nostri vertic
 ### 2. La connessione NON è richiesta per l'output — ⚠ PROVATO SUL GIUDICE
 Il PDF garantisce l'input "connected" ma i 4 vincoli di output non menzionano mai la
 connessione. **Probe del 2026-07-04: output di c2 + tetraedro disconnesso → Accepted 7/7
-(90.222274).** Il giudice accetta componenti multiple, watertight per-componente. Porte
-aperte: sigillatura delle zone mai fotografate (cancellare geometria nascosta e richiudere,
-recupero stimato 0.5–0.8% dei vertici sui casi organici); componenti-rilievo per vista
-(imposter geometrici — legali, EV incerto per la perdita di condivisione multi-vista).
+(90.222274).** Il giudice accetta componenti multiple, watertight per-componente. ~~Porte
+aperte~~ **PORTE MISURATE E CHIUSE (2026-07-16)**: (a) *sigillatura delle zone mai fotografate* —
+falsificata localmente (branch `kernel-aniso-tail`: "hidden-surface sealing FALSIFIED locally").
+(b) *componenti-rilievo per vista (imposter geometrici)* — **l'EV è NEGATIVO, e proprio per il
+motivo sospettato qui**: la perdita di condivisione multi-vista domina. Misura su happy_unit (scala
+unit, oracle esatto): 6 rilievi da ~1000v danno ~0.53 per vista; UNA mesh chiusa da 6000v ne dà
+~0.79 a TUTTE e sei (−0.27 blend). La curva della mesh chiusa è il limite superiore dell'adattività
+⇒ nessuna scappatoia "fitter migliore". Dettagli: `ROADS.md §2` (riga VIEW-DECOUPLING),
+`zoo/README.md`, tool `zoo/relief_vs_closed.py`. (c) *slat/paint interpenetranti* — legali (provato
+sul giudice dai pad delle K-read) ma **peggiori della base**: la LEGGE DI CONTINUITÀ (3 prove
+indipendenti) — ogni overlay discontinuo paga in O(perimetro) più di quanto guadagni dentro.
 
 ### 3. Niente rejudging: "the current test cases are final"
 Clarification ufficiale. Il best-counts è definitivo: ogni submission fallita è gratis per sempre.
