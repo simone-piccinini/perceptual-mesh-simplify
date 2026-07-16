@@ -251,3 +251,15 @@ disabled guard.
 DECOMPOSITION: tail-depth alone (no refine) = +0.0065 (0.8396->0.8461) ~= the full deep gain
 (+0.0060) — refine adds nothing beyond the tail; positions-converged reconfirmed. Self-score ==
 oracle to 4 decimals at unit scale (instrument cross-check).
+
+## LT-2000 VERTEX-TELEPORT PROBE (2026-07-16, from user-supplied papers) — measured, PARKED
+Lindstrom-Turk Image-Driven Mesh Optimization: teleport = worst-deficit edge-split + cheapest
+collapse + local opt. Batch implementation (G_TELE in the lab binary: per-face 1024 deficit vs
+g_orig_n, midpoint splits, seed_heap+Decimate rebalance per R-zeta, mini_refine polish).
+happy_unit @5800: 288 teleports (48x6) = S2 0.8396 -> 0.8409 (+0.0013) at 1.8x compute.
+FIRST faithful-ruler measurement of the global-vertex-set freedom: reallocation is per-MILLE,
+not per-cent — below the 9x-depth arm (+0.006), far below discovery scale. A per-move-accept
+variant (LT's exact form) might reach tail-class (+2-3e-3) and could stack with a future bank
+push; NOT the leaders' +3. Other two papers (Xia-Varshney 96, FastMesh 01) = runtime
+view-dependent LOD, not applicable offline. Tooling: scratchpad patch_tele.py (session) — port
+to scripts/ if the mechanism is ever revived.
