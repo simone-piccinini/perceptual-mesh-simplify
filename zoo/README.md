@@ -238,3 +238,13 @@ mesh. THIRD independent proof of the continuity law (impostors 0.689, view-shell
 negative): sigma-xy structurally rewards continuous representation; discontinuous shortcuts lose at
 their borders. Legality was sound (interpenetration judge-proven via pads) — the METRIC kills it,
 not the rules. zoo/slat_probe.py.
+
+## SEARCH-DEPTH CEILING PROBE (2026-07-16) — throughput/depth hypothesis CLOSED at true scale
+Lab binary (local-only: r_elapsed>6s refine guard disabled) on happy_unit @rung 5800:
+ctrl (shipped budgets) S2=0.8396 @13.0s vs deep (G_BUDGET=400, caps off, tail box 90s, pool 2500,
+deep tail 1500, flips on) S2=0.8456 @114.8s. **9x compute = +0.006 SSIM; pass needs 0.90 (-0.054).**
+Extrapolation: leader-scale gaps need ~1e9x compute. Convergence extends through deep budgets on the
+faithful ruler -> the leaders' +3 is NOT search depth, NOT tuning, NOT any family we can construct.
+CONCLUSION OF THE WEEK: the discovery is INFORMATION we don't have (clarifications/statement
+subtlety), not an algorithm we haven't tried. Lab binary recipe in this entry; never ship the
+disabled guard.
