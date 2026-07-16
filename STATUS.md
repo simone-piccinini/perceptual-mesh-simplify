@@ -99,7 +99,18 @@ needing a HUMAN (the API token is submit-only; all Kattis pages 403):
 ENFORCED) · `SSIM is too low` (quality). ⚠ The recurring evening c3/c5 'x'es are **quality WAs, not
 TLEs** — slow machines starve the time-boxed refine → worse mesh. Run ladders in DAYTIME.
 
-## 6. IF YOU ARE A NEW AGENT, READ IN THIS ORDER
+## 6. WHICH BRANCH? → **`experiment/new-mechanism`** (this one). Verified by fresh-clone test.
+
+It is the ONLY branch with all four: the **bank solver** (byte-identical), the **bot**, both
+**instruments**, and the **knowledge of all 3 agents**. `CleanRepoForAI` has the live bank + bot but
+NONE of the knowledge (no `zoo/`, no `instrument/`, no `ALGORITHM-LOGIC`, no `sigmaxy-handroll/`);
+`session/all` has knowledge but an experimental solver. ⚠ The branch NAME is a historical lie — it is
+no longer an experiment, it is the handoff.
+
+**Before shipping anything:** `git fetch && git diff origin/CleanRepoForAI -- solver/mein.cpp`
+(that branch is the LIVE bank track; the solver here is a verified snapshot, not a live mirror).
+
+## 7. IF YOU ARE A NEW AGENT, READ IN THIS ORDER
 
 1. `CLAUDE.md` (how to work) → this file → `docs/JUDGE-ENVELOPE.md` (judge facts)
 2. `zoo/README.md` (the certified screen + every 07-15/16 closure)
