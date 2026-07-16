@@ -101,6 +101,15 @@ subs.append((
 '        cur = refine_score_grad(nullptr);\n        if (getenv("G_RDBG")) std::fprintf(stderr, "[hyb] 1024 baseline',
 '        cur = blended_sg(nullptr);\n        if (getenv("G_RDBG")) std::fprintf(stderr, "[hyb] 1024 baseline'))
 
+# W8 — compile-budget buyback: O1+noinline the 521-line sil2_pass (biggest fn; called once/case
+# so runtime impact is bounded). The base compiles at ~24s and ANY addition CE's (4x: 20055048/067/
+# 082/135 all die ~24s, bisect 20055094 without the mechanism compiles) -> pay for the mechanism by
+# demoting the monster. FAMILY NOTE: O1 changes sil2's float path -> c4/c5 read family shifts, but
+# both arms share it (differential clean). NOT for banking without revalidation.
+subs.append((
+"static void sil2_pass(int bdef = 150, int diag = 0) {",
+"static __attribute__((optimize(\"O1\"),noinline)) void sil2_pass(int bdef = 150, int diag = 0) {"))
+
 # W7 — env hook
 subs.append((
 '    if (const char* e = getenv("G_MAXIT")) g_refine_maxit = atoi(e);',
