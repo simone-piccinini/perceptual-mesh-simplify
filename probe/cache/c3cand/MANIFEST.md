@@ -53,3 +53,24 @@ two candidates:
   0.9524 vs judge ~0.9135 at the rung; slope 1.06e-5 ~ judge 1.25e-5), and 3 of 5 control margins
   sit inside the 1.5e-3 floor (sign-consistent, individually weak). Screen on happy_qem; check
   level-sensitivity of winners on dragon_n10; confirm on the judge with K-read pairs.
+
+---
+## ⚠ UNIT-SCALE PROXIES (2026-07-16) — USE THESE, NOT THE ONES ABOVE
+
+`ply2solver.py` never normalized: every proxy above is **~9.5x SMALLER** than the judge's
+convention (judge input = AABB centred, vertices in the unit sphere). At the oracle's fixed camera
+(D=2.5, focal 800) they render as ~34-px blobs, so every image-driven mechanism was screened on
+noise. Signs survived; MAGNITUDES did not (the "+4e-3 deep-tail prize" was an artifact; real ~+7e-4).
+
+| file | source | scale | certification |
+|---|---|---|---|
+| `happy_unit.obj` | happy_qem.obj normalized | unit ✓ | **controls 6/6** (rim_off/rim_035/qw_005/nplace_off/areaq/mpc_off) — the primary screen; base S2 0.8556 @6610 |
+| `dragon_unit.obj` | dragon_n10.obj normalized | unit ✓ | **controls 5/5** — the easier bracket; its blob-scale ancestor's "inverted signs" (pass-1 rejection) were PURELY this bug |
+
+Reproduce (same transform for input AND any comparison mesh):
+```python
+c = (V.max(0) + V.min(0)) / 2          # AABB centre -> origin
+s = 1.0 / np.linalg.norm(V - c, axis=1).max()   # vertices into the unit sphere
+V = (V - c) * s
+```
+Alberto's `instrument/meshes/*.obj` were unit-scale all along — unaffected by this bug.
