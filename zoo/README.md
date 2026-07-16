@@ -248,3 +248,6 @@ faithful ruler -> the leaders' +3 is NOT search depth, NOT tuning, NOT any famil
 CONCLUSION OF THE WEEK: the discovery is INFORMATION we don't have (clarifications/statement
 subtlety), not an algorithm we haven't tried. Lab binary recipe in this entry; never ship the
 disabled guard.
+DECOMPOSITION: tail-depth alone (no refine) = +0.0065 (0.8396->0.8461) ~= the full deep gain
+(+0.0060) — refine adds nothing beyond the tail; positions-converged reconfirmed. Self-score ==
+oracle to 4 decimals at unit scale (instrument cross-check).
