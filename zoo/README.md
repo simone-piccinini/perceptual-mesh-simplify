@@ -223,3 +223,9 @@ said 0, unit ruler says ~0). RE-PRICING: the deep-tail "+4e-3 at +4.5s" was a bl
 exhausted on a judge-faithful instrument; the leaders' +3 lives OUTSIDE it — discovery hunt is the
 only front. (Report tool caveat: run_zoo --report aggregates all meshes; filter results.jsonl by
 mesh for per-instrument rankings.)
+
+## dragon_unit CERTIFIED (2026-07-16 night) — the pass-1 "rejection" was the scale artifact
+Controls 5 OK / 0 MISS on dragon_unit (rim_off -0.0007, rim_035 -0.0002, qw_005 -0.0055,
+areaq -0.0057, nplace_off -0.0043). Blob-scale dragon_n10's inverted signs (pass-1: nplace_off
++0.0085 etc.) were caused ENTIRELY by the 9.1x under-normalization, not by geometry class.
+TWO certified instruments now: happy_unit (harder) + dragon_unit — bracket every future screen.
