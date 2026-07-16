@@ -27,7 +27,7 @@ Multiple teams gained +1.3–2.3 in days. 93.77 is IMPOSSIBLE in the mesh-qualit
 | branch | author | holds | status |
 |---|---|---|---|
 | **`CleanRepoForAI`** | Emanuel (notHuber) | **THE BANK** + the autonomous night bot (10h wall-finder / combined-best banker) + `results/` campaign logs | LIVE — bank track |
-| `experiment/new-mechanism` | Simone (this) | certified unit-scale instruments, `zoo/` screen, c4-depth + remesh + relief + slat closures, validator decoder | knowledge only — do NOT ship its mein.cpp |
+| **`experiment/new-mechanism`** | Simone (this) | **EVERYTHING: bank solver (byte-identical) + bot + both instruments + all 3 agents' knowledge** — certified unit-scale rulers, `zoo/` screen, c4-depth/remesh/relief/slat closures, validator decoder | **START HERE** (see §6) |
 | `session/all` | Alberto (asaiko) | **compile-cliff UNLOCK**, σxy constructive mechanism (judge-falsified ×4), `instrument/`, `cemetery_revival/` | knowledge merged here (docs only) |
 
 **`experiment/new-mechanism` is now the consolidated branch — best solver AND best instruments:**
