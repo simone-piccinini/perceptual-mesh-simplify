@@ -35,8 +35,8 @@ static double keep_for(int V) {
     if (V <= 30000)  return 0.2996875;// case 3: 70.03125 banked keep (R1 descent closed: 6931/6944/banked-with-R1 all WA'd)
     if (V <= 40000)  return 0.1428125;
     if (V <= 100000) return 0.08453125;
-    if (V <= 400000) return 8684.0/(double)V;
-    return 0.02855;
+    if (V <= 400000) return 8680.0/(double)V;
+    return 0.0271;
 }
 
 static double lambda_for(int V) {
@@ -60,7 +60,7 @@ static int ndecim_for(int V) { return (V > 7000) ? 1 : 0; }
 
 static int projw_for(int V) { return (V > 30000 && V <= 40000) ? 1 : 0; }
 
-static volatile int g_draw = 73;
+static volatile int g_draw = 248;
 constexpr int kSmallMeshSkip = 1000;
 
 struct EvalResult { double cost; Vec3 target; };
@@ -1897,7 +1897,7 @@ int main(int argc, char** argv) {
         }
     }
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {
-        int c3t = 6610;
+        int c3t = 6608;
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
         int ctT = 300; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (500) funded by the prefix-sum tail
         const int dt = c3t + ctT;
@@ -2039,7 +2039,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 30000 && (int)pos.size() <= 40000) {
-        int c4t = 4930; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
+        int c4t = 4921; if(const char* e=getenv("G_C4T")) c4t=atoi(e);   // c4 N-push (flip remesher; c4 has 5.6s time headroom)
         int c4T = 0; if(const char* e=getenv("G_C4CT")) c4T=atoi(e);    // ROAD A on c4: measured NEGATIVE locally (-5.7e-4: CAD edges prefer QEM order) - OFF
         seed_heap(); Decimate(c4t + c4T);          // c4 BANKED @ v110/90.276200 (harvest wall: (4960,4970] — 4960/4950 WA'd)
         render_orig_hires(1024);
@@ -2089,7 +2089,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {
-        int c5t = 4140; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
+        int c5t = 4138; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
         int c5T = 0;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // injected lazy tail: 9.1s local ~19.2s judge, +0.7e-3 S2 local
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);

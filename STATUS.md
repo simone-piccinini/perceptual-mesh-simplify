@@ -30,11 +30,23 @@ Multiple teams gained +1.3–2.3 in days. 93.77 is IMPOSSIBLE in the mesh-qualit
 | `experiment/new-mechanism` | Simone (this) | certified unit-scale instruments, `zoo/` screen, c4-depth + remesh + relief + slat closures, validator decoder | knowledge only — do NOT ship its mein.cpp |
 | `session/all` | Alberto (asaiko) | **compile-cliff UNLOCK**, σxy constructive mechanism (judge-falsified ×4), `instrument/`, `cemetery_revival/` | knowledge merged here (docs only) |
 
-**Knowledge from all three is now consolidated on `experiment/new-mechanism`** (`instrument/`,
-`cemetery_revival/`, `sigmaxy-handroll/`, `wall-probes/`, `results/`, `docs/DIFF-BUILD.md` imported).
-Solver code was deliberately NOT merged: each branch carries a different experimental `mein.cpp`,
-and the bank's binary is `CleanRepoForAI`'s. **To ship anything: port the mechanism onto
-`CleanRepoForAI`'s mein.cpp** (`scripts/patch_wd_team.py` is a working example of that pattern).
+**`experiment/new-mechanism` is now the consolidated branch — best solver AND best instruments:**
+
+- **SOLVER = THE BANK, byte-identical** [`solver/mein.cpp` sha256 `81b21f951939…`, imported from
+  `CleanRepoForAI` 2026-07-16]. Prova del nove passed: builds at -O2 and emits exactly **6610** on a
+  c3-band proxy. The stale 90.51-era fork that used to live here (plus its judge-DEAD G_WD mechanism)
+  is GONE — the mechanism survives only as a patcher, `scripts/patch_wd_team.py`, if ever needed.
+- **BOT = imported**: `scripts/night_perfect.py` (10h autonomous wall-finder/banker: binary-search
+  rungs, combined-best + g_draw rotation, stale-guard, toxic-draw filter, 2-roll coin confirm, prova
+  del nove per submit) + `night91*_campaign.py`, `campaign_summary.py`, `solver/campaign.cpp`.
+- **INSTRUMENTS = both lineages** (§4) + the `zoo/` screen + `src/imc_eval` oracle + ABC c4 proxies.
+- **KNOWLEDGE = all three agents** (`instrument/`, `cemetery_revival/`, `sigmaxy-handroll/`,
+  `wall-probes/`, `results/`, `docs/DIFF-BUILD.md`).
+
+⚠ **Two caveats.** (1) The solver here is a **snapshot**: `CleanRepoForAI` is the LIVE bank track and
+Emanuel's bot may advance it — `git fetch && git diff origin/CleanRepoForAI -- solver/mein.cpp`
+before shipping. (2) The committed rungs are the base config (c3t 6610 / c4t 4930); the bot patches
+rungs per submission, so `results/NIGHT_SUMMARY.md` walls (c4 4921) can sit below the source default.
 
 **THE DUPLICATION LESSON (paid for twice on 2026-07-15/16):** this fragmentation cost a full session
 — the compile cliff was re-fought (5 CEs) though Alberto had unlocked it, and constructive
