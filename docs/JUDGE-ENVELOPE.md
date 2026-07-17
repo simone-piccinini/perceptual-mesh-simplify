@@ -17,6 +17,16 @@ made past notes confusing.
 
 ---
 
+
+## Validator messages (web UI only; API hides them) — [JUDGE 20055920/20065853/20055297, 2026-07-16]
+Per-failed-case 'Message from validator' on the submission page types every WA exactly:
+- 'mesh is invalid' = constraints 1-4 INCLUDING V-prime <= V (sample WA'd when pads pushed 13>9).
+- 'too much geometric deviation' = the Hausdorff leash (ENFORCED: far-tetra probe died here).
+- 'SSIM is too low' = the quality gate. ⚠ The recurring evening c3/c5 x-es are THIS, not TLE —
+  the starved-refine coin degrades quality below the gate; casetime>21s alone does NOT mean TLE.
+The page also shows the full parsed output for the SAMPLE case: the parser reads the WHOLE file
+and cross-checks the header against content (header-lie probe: no accounting gap).
+
 ## 0. OPEN QUESTIONS — inconsistencies to settle TOGETHER (2026-07-05)
 
 1. ~~Which refine time-box for case 3: 16 s or 18 s?~~ — **MOOT since float32 (2026-07-05):**

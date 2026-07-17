@@ -11,7 +11,7 @@ import numpy as np
 
 from .config import DEFAULT_CONFIG
 from .geometry import aabb_diagonal, build_views, face_normals
-from .hausdorff import symmetric_hausdorff
+from .hausdorff import symmetric_hausdorff, symmetric_hausdorff_v2v
 from .render import render_view
 from .ssim import ssim_depth, ssim_normal
 from .validity import check_validity
@@ -29,9 +29,11 @@ class Report:
     per_view: list
     final_ssim: float
     ssim_ok: bool
-    hausdorff: float
+    hausdorff: float          # vertex-to-surface reading (loose)
     hausdorff_limit: float
     hausdorff_ok: bool
+    hausdorff_v2v: float      # vertex-to-vertex reading (strict; CLAUDE.md says judge)
+    hausdorff_v2v_ok: bool
     passed: bool          # would this case score > 0 on the judge?
 
     @property
@@ -50,6 +52,8 @@ def evaluate(Vo, Fo, Vs, Fs, config=DEFAULT_CONFIG):
     haus = symmetric_hausdorff(Vo, Fo, Vs, Fs)
     haus_limit = HAUSDORFF_FRACTION * diag
     haus_ok = haus <= haus_limit
+    haus_v2v = symmetric_hausdorff_v2v(Vo, Vs)
+    haus_v2v_ok = haus_v2v <= haus_limit
 
     views = build_views()
     fno = face_normals(Vo, Fo)
@@ -71,12 +75,13 @@ def evaluate(Vo, Fo, Vs, Fs, config=DEFAULT_CONFIG):
     final_ssim = float(np.mean(finals))
     ssim_ok = final_ssim >= SSIM_THRESHOLD
     compression = 100.0 - 100.0 * len(Vs) / len(Vo)
-    passed = validity["all_ok"] and ssim_ok and haus_ok
+    passed = validity["all_ok"] and ssim_ok and haus_ok and haus_v2v_ok
 
     return Report(
         v_orig=len(Vo), v_simp=len(Vs), compression=compression,
         validity=validity, per_view=per_view,
         final_ssim=final_ssim, ssim_ok=ssim_ok,
         hausdorff=haus, hausdorff_limit=haus_limit, hausdorff_ok=haus_ok,
+        hausdorff_v2v=haus_v2v, hausdorff_v2v_ok=haus_v2v_ok,
         passed=passed,
     )

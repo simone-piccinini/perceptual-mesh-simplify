@@ -771,9 +771,9 @@ static int ctail_lazy(int target, int pool, int RB, double tbox) {
                     }
                     if (aw > 0 && nbar.norm() > 1e-12*aw) {
                         nbar /= aw; M = M/aw - nbar*nbar.transpose();
-                        Vec3 _ev(1.0,0.5,0.25); for(int _pi=0;_pi<12;++_pi){ _ev=M*_ev; double _l=_ev.norm(); if(_l>1e-20)_ev/=_l; }  // hand-rolled dominant eigenvector (power iteration) = same dir as SelfAdjointEigenSolver, ~30MB less compile RAM (rule 5)
+                        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(M);
                         Vec3 nrm = nbar.normalized();
-                        Vec3 dflat = nrm.cross(_ev); double dl = dflat.norm();
+                        Vec3 dflat = nrm.cross(es.eigenvectors().col(2)); double dl = dflat.norm();
                         if (dl > 1e-12) { dflat /= dl;
                             const double sc = (pos[e.u]-pos[e.v]).norm();
                             const Vec3 base = e.xb;
@@ -838,48 +838,6 @@ static int ctail_pass(int target, int K, int rounds) {
         if(applied==0) break;
     }
     return done;
-}
-
-// SIGMA-XY CONSTRUCTIVE (2026-07-13): manifold-safe edge split. Adds one vertex w at position p on
-// manifold edge (u,v), splitting its two incident faces into four (orientation preserved via the
-// shared-edge-opposite rule, same conventions as Collapse). Returns w, or -1 if (u,v) is a
-// boundary/non-manifold edge. Caller manages alive_count (we ++ it, mirroring Collapse's caller --).
-static int __attribute__((optimize("O0"))) edge_split(int u, int v, const Vec3& p) {
-    int f1 = -1, f2 = -1;
-    for (int f : vfaces[u]) {
-        if (!face_alive[f]) continue;
-        const int* t = faces[f].data();
-        if (t[0]==v || t[1]==v || t[2]==v) {
-            if (f1 < 0) f1 = f; else if (f2 < 0) f2 = f; else return -1;   // >2 incident faces = non-manifold edge
-        }
-    }
-    if (f1 < 0 || f2 < 0) return -1;   // boundary or non-manifold edge -> skip
-    const int w = (int)pos.size();
-    pos.push_back(p);
-    Q.push_back(Q[u]);                                          // Eigen-light init (avoid 4x4 expr; Q[w] only matters if w is later collapsed)
-    { Vec3 nw; for (int c=0;c<3;++c) nw[c]=0.5*(nref[u][c]+nref[v][c]); nref.push_back(nw); }
-    alive.push_back(1);
-    vfaces.push_back(std::vector<int>());
-    ++alive_count;
-    int fs[2] = { f1, f2 };
-    for (int s = 0; s < 2; ++s) {
-        const int f = fs[s];
-        int* t = faces[f].data();
-        int pi = -1;
-        for (int k = 0; k < 3; ++k) { int x=t[k], y=t[(k+1)%3]; if ((x==u&&y==v)||(x==v&&y==u)) { pi=k; break; } }
-        const int Qv = t[(pi+1)%3];        // endpoint replaced by w in the reused face
-        const int A  = t[(pi+2)%3];        // opposite (third) vertex, shared by both sub-faces
-        t[(pi+1)%3] = w;                    // reuse f as (P, w, A)
-        vfaces_erase(vfaces[Qv], f);
-        vfaces[w].push_back(f);
-        const int fn = (int)faces.size();  // new face (w, Qv, A) keeps consistent winding
-        faces.push_back({w, Qv, A});
-        face_alive.push_back(1);
-        vfaces[w].push_back(fn);
-        vfaces[Qv].push_back(fn);
-        vfaces[A].push_back(fn);
-    }
-    return w;
 }
 
 // Fast SSIM-driven flip remesher: per round, cache the base render once, rank edges by cheap rendered-normal
@@ -1708,9 +1666,9 @@ EvalResult Evaluate(int i, int j) {
             }
             if (aw > 0 && nbar.norm() > 1e-12*aw) {
                 nbar /= aw; M = M/aw - nbar*nbar.transpose();
-                Vec3 _ev(1.0,0.5,0.25); for(int _pi=0;_pi<12;++_pi){ _ev=M*_ev; double _l=_ev.norm(); if(_l>1e-20)_ev/=_l; }  // hand-rolled dominant eigenvector (power iteration) = same dir as SelfAdjointEigenSolver, ~30MB less compile RAM (rule 5)
+                Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(M);
                 Vec3 nrm = nbar.normalized();
-                Vec3 emax = _ev;      // max normal-variation = max-curvature dir
+                Vec3 emax = es.eigenvectors().col(2);      // max normal-variation = max-curvature dir
                 Vec3 d = nrm.cross(emax); double dl = d.norm();
                 if (dl > 1e-12) { d /= dl;
                     const double sc = (pos[i]-pos[j]).norm();
@@ -2033,60 +1991,6 @@ static void sil2_pass(int bdef = 150, int diag = 0) {
         
 }
 
-// STAGE 2 (2026-07-13): sigma-xy deficit redistribution at FIXED vertex count. Renders the current
-// mesh, ranks edges by per-face rendered-normal deficit (where appearance mismatches the original),
-// splits the top-nswap deficit edges (adds DOF where sigma-xy is worst), refines so the new vertices
-// ascend to the SSIM optimum, then collapses nswap low-deficit edges to restore the count. Paired
-// split/collapse = targeted redistribution (a global re-decimate would just undo the splits).
-// Requires g_orig_n already populated (a prior render_orig_hires in the band block).
-static int __attribute__((optimize("O0"))) sigma_redistribute(int nswap, double rtime) {
-    const int W = g_res;
-    remesh_cache_render();
-    std::vector<double> ferr(faces.size(), 0.0);
-    for (int v = 0; v < 6; ++v) { const std::vector<int>& fsb = g_rfs[v];
-        for (size_t k = 0; k < (size_t)W*W; ++k) { int f = fsb[k]; if (f < 0) continue; Vec3 n = face_nrm(f);
-            ferr[f] += std::fabs((n[0]+1.0)*127.5 - g_orig_n[v][0][k])
-                     + std::fabs((n[1]+1.0)*127.5 - g_orig_n[v][1][k])
-                     + std::fabs((n[2]+1.0)*127.5 - g_orig_n[v][2][k]); } }
-    // SORT-FREE per-edge deficit (parallel primitive arrays only; no struct/std::sort -> ~25MB less compile RAM)
-    std::unordered_map<long long,int> first; first.reserve(faces.size()*2);
-    const long long NV = (long long)pos.size();
-    std::vector<double> ed; std::vector<int> eu, ev, ef2;
-    for (int f = 0; f < (int)faces.size(); ++f) { if (!face_alive[f]) continue; const int* t = faces[f].data();
-        for (int e = 0; e < 3; ++e) { int a = t[e], b = t[(e+1)%3]; if (a > b) std::swap(a,b);
-            auto ins = first.emplace((long long)a*NV+b, (int)ed.size());
-            if (ins.second) { ed.push_back(ferr[f]); eu.push_back(a); ev.push_back(b); ef2.push_back(-1); }
-            else { int i = ins.first->second; if (ef2[i] < 0) { ed[i] += ferr[f]; ef2[i] = f; } } } }
-    double mean = 0; int cnt = 0;
-    for (size_t i = 0; i < ed.size(); ++i) if (ef2[i] >= 0) { mean += ed[i]; ++cnt; }
-    if (cnt == 0) return 0;
-    mean /= cnt;
-    // split the hottest edges (deficit >= 2*mean), up to nswap
-    const double hi = 2.0*mean;
-    int nsp = 0;
-    for (size_t i = 0; i < ed.size() && nsp < nswap; ++i) if (ef2[i] >= 0 && ed[i] >= hi) {
-        Vec3 mid; for (int c=0;c<3;++c) mid[c]=0.5*(pos[eu[i]][c]+pos[ev[i]][c]);
-        if (edge_split(eu[i], ev[i], mid) >= 0) ++nsp; }
-    if (rtime > 0) { int _mmi = g_mini_maxit; g_mini_maxit = 40; mini_refine(rtime); g_mini_maxit = _mmi; }   // QUALITATIVE TEST: ample refine (cap 40 vs 8) so the split verts actually ascend to the SSIM optimum
-    // collapse exactly nsp of the coldest edges to restore the count (multi-threshold passes = no sort)
-    const double thr[3] = { 0.4*mean, mean, 2.0*mean };
-    int nco = 0;
-    for (int pass = 0; pass < 3 && nco < nsp; ++pass)
-        for (size_t i = 0; i < ed.size() && nco < nsp; ++i)
-            if (ef2[i] >= 0 && ed[i] <= thr[pass] && alive[eu[i]] && alive[ev[i]]) {
-                const Quadric& Qu = Q[eu[i]]; const Quadric& Qv = Q[ev[i]];   // QEM-optimal placement, hand-rolled 3x3 Cramer (plain doubles = no heavy Eigen solve, keeps compile RAM low)
-                double Am[3][3], bb[3];
-                for(int r=0;r<3;++r){ for(int c=0;c<3;++c) Am[r][c]=Qu(r,c)+Qv(r,c); bb[r]=-(Qu(r,3)+Qv(r,3)); }
-                double det = Am[0][0]*(Am[1][1]*Am[2][2]-Am[1][2]*Am[2][1]) - Am[0][1]*(Am[1][0]*Am[2][2]-Am[1][2]*Am[2][0]) + Am[0][2]*(Am[1][0]*Am[2][1]-Am[1][1]*Am[2][0]);
-                Vec3 x;
-                if (std::fabs(det) > 1e-12) { for(int k=0;k<3;++k){ double Mm[3][3]; for(int r=0;r<3;++r)for(int c=0;c<3;++c) Mm[r][c]=(c==k)?bb[r]:Am[r][c];
-                    x[k]=(Mm[0][0]*(Mm[1][1]*Mm[2][2]-Mm[1][2]*Mm[2][1]) - Mm[0][1]*(Mm[1][0]*Mm[2][2]-Mm[1][2]*Mm[2][0]) + Mm[0][2]*(Mm[1][0]*Mm[2][1]-Mm[1][1]*Mm[2][0]))/det; } }
-                else { for(int c=0;c<3;++c) x[c]=0.5*(pos[eu[i]][c]+pos[ev[i]][c]); }
-                if (SafeToCollapse(eu[i], ev[i], x)) { Collapse(eu[i], ev[i], x); --alive_count; ++nco; } }
-    if (getenv("G_RDBG")) std::fprintf(stderr, "SIGMA-REDIST split=%d collapse=%d alive=%d mean=%.1f\n", nsp, nco, alive_count, mean);
-    return nsp - nco;
-}
-
 int main(int argc, char** argv) {
     g_t0 = std::chrono::steady_clock::now();   // wall-clock origin for the optimizer time-box
     if (getenv("G_ITERDBG")) std::atexit([]{ std::fprintf(stderr, "[iters] stock_pass=%ld cpu=%.2fs\n", g_refine_iters, r_elapsed()); });
@@ -2261,9 +2165,9 @@ int main(int argc, char** argv) {
         }
     }
     if ((int)pos.size() > 7000 && (int)pos.size() <= 30000) {   // ===== PROBE-RC3-READ =====
-        int c3t = 6775;                            // SIGMA-XY PROBE: read at the SAFE rung where nmetric=0 baseline is known (S2=0.9145 @6775, read 20031760) -> clean A/B vs the constructive redist. env G_C3T (Emanuel ladder rung=6610)
+        int c3t = 6610;                            // BANK ladder: 6760 judge-PASS [20031783]; S2(deep@6775)=0.9145, slope 1.25e-5/v -> margin ~+4e-4 here. env G_C3T
         if (const char* e = getenv("G_C3T")) c3t = atoi(e);
-        int ctT = 0; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // QUALITATIVE TEST: no deep tail; redist replaces it (frees ~2.5s to fund ample split-refine). Banked=300
+        int ctT = 300; if (const char* e = getenv("G_CT")) ctT = atoi(e);   // CTAIL: the last T collapses are image-driven; deep (500) funded by the prefix-sum tail
         const int dt = c3t + ctT;
         seed_heap(); Decimate(dt);
         for (int uw = 0; uw < 2 && alive_count > dt; ++uw) {
@@ -2274,7 +2178,7 @@ int main(int argc, char** argv) {
             if (vertex_remove_pass(alive_count - dt) == 0) break;
             seed_heap(); Decimate(dt);
         }
-        if (getenv("G_SIL2ON")) sil2_pass(200, 1);   // SIGMA-XY: funded to the redist (budget-neutral swap; ~+1.8s judge). G_SIL2ON restores it. Baseline: 200x20=4000 evals = +1.8s, +2.1e-4 local
+        sil2_pass(200, 1);   // JUDGE COST MODEL [20036592 TLE 23.6s]: 0.8ms/eval judge (3.2x local, AoS does not replicate). 200x20=4000 evals = +1.8s vs banked -> c3 ~21. +2.1e-4 local
         int lsiter = 1; if (const char* li = getenv("G_LSITER")) lsiter = atoi(li);
         for (int lsit = 0; lsit < lsiter; ++lsit) {   // GUIDED L2 SEED, iterable: seed->refine->seed (family +1.35e-4 at 1 iter)
             double lam = -1.0; if (const char* le = getenv("G_LSEED")) lam = atof(le);
@@ -2349,14 +2253,8 @@ int main(int argc, char** argv) {
             if (getenv("G_FLIPON")) remesh_flip_local(1, 1000, r_elapsed() + 1.6);   // swapped out for sil2 (time)      // flip pass; 2 rounds (r2 measured +0 flips, -0.7s judge)
             g_force_nocrop = 0;
         }
-        {   // STAGE 3: sigma-xy redistribution, DEFAULT-ON for the judge, budgeted for the c3 time box (env-overridable locally)
-            int ns = 300; if (const char* er = getenv("G_REDIST")) ns = atoi(er);
-            double rt = 3.0; if (const char* rt2 = getenv("G_REDT")) rt = atof(rt2);   // QUALITATIVE TEST: ample refine budget (was 0.8)
-            int rounds = 1; if (const char* rr = getenv("G_REDROUNDS")) rounds = atoi(rr);
-            if (ns > 0) { g_force_nocrop = 1; for (int r = 0; r < rounds; ++r) sigma_redistribute(ns, rt); g_force_nocrop = 0; }
-        }
         double Sn2=0, Sd2=0, S2=0;
-        const int kread = 1;   // SIGMA-XY PROBE: S-read ON to decode nmetric=3's S2 @6775 vs the 0.9145 baseline (read 20031760); read-only, best-counts protects the bank
+        const int kread = 0;   // BANK MODE (read 20031760 done: S2=0.9145@6775)
         if (kread || getenv("G_RDBG") || getenv("G_S2")) {   // score needed for K-encoding; debug-gated otherwise
             Sn2 = refine_score_grad(nullptr); Sd2 = sil_score_depth(); S2 = 0.5*Sn2 + 0.5*Sd2;
             std::fprintf(stderr, "RC3 V=%d S2n=%.6f S2d=%.6f S2=%.6f t=%.1f\n", alive_count, Sn2, Sd2, S2, r_elapsed());
@@ -2459,7 +2357,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if ((int)pos.size() > 40000 && (int)pos.size() <= 100000) {   // ===== PROBE-RLIVE-C5 =====
-        int c5t = 4172; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
+        int c5t = 4140; if(const char* e=getenv("G_C5T")) c5t=atoi(e);   // lazy-inj tail rung (walk: 4150/4130/...)
         int c5T = 0;  if(const char* e=getenv("G_C5CT")) c5T=atoi(e);  // injected lazy tail: 9.1s local ~19.2s judge, +0.7e-3 S2 local
         seed_heap(); Decimate(c5t + c5T);          // the bank-mode twin's extra collapses (at 512 state)
         render_orig_hires(1024);                   // pristine normal+depth maps at JUDGE res
@@ -2491,7 +2389,7 @@ int main(int argc, char** argv) {
                 pos[i] += (st/nl) * nref[i];
             }
         }
-        mini_refine(g_remesh ? 0.7 : 1.5);         // trim re-ascent to fund the remesh (c5 judge ratio ~1.6x is tight)
+        mini_refine(g_remesh ? 2.0 : 1.5);         // C5 POLISH (judge-validated: c5@4140 PASS 20.8s, +6.9e-4 normal; c5 has CPU margin ratio 1.6x)
         if (g_remesh) {   // FLIP remesher on c5 (organic, deterministic wall may move like c3's)
             g_force_nocrop = 1;
             remesh_flip_local(10, 1200, r_elapsed() + 2.2);

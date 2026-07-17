@@ -62,7 +62,10 @@ def config(best, draw, push=None):
     # c6
     c6 = best["c6"]
     if c6 != 8684: b = re.sub(r"8684\.0/\(double\)V", f"{c6}.0/(double)V", b, count=1)
-    # c3 / c4 stay at banked defaults (6610 / 4930)
+    # c4 (best may be below the 4930 default)
+    c4 = best["c4"]
+    if c4 != 4930: b = re.sub(r"int c4t = 4930;", f"int c4t = {c4};", b, count=1)
+    # c3 stays at the banked 6610
     # push one case deeper
     if push:
         cs, val, var = push["case"], push["val"], push.get("var","plain")
@@ -71,7 +74,7 @@ def config(best, draw, push=None):
         elif cs == "c6":
             b = re.sub(r"8684\.0/\(double\)V" if c6==8684 else rf"{c6}\.0/\(double\)V", f"{val}.0/(double)V", b, count=1)
             if var=="det": b = b.replace("g_refine_maxit = 999999; // C6MAXIT","g_refine_maxit = 40; // C6MAXIT")
-        elif cs == "c4": b = re.sub(r"int c4t = 4930;", f"int c4t = {val};", b, count=1)
+        elif cs == "c4": b = re.sub(r"int c4t = \d+;", f"int c4t = {val};", b, count=1)
     return b
 
 def build(best, draw, push, proxy, expect):
@@ -95,12 +98,20 @@ def is_toxic():
     except Exception: pass
     return False
 
+def _last_id():
+    try: return json.loads(open(LEDGER).readlines()[-1]).get("id")
+    except Exception: return None
 def submit(note):
+    before=_last_id()
     r=sh(f'python3 scripts/judge_submit.py {NC} --force --note "{note}"',t=900)
     if r is None: return None
     out=(r.stdout or "")+(r.stderr or "")
     try: d=json.loads(open(LEDGER).readlines()[-1])
     except Exception: d={}
+    # STALE GUARD: if the ledger did not gain a new id, the submission never reached the judge
+    # (no network / rate refusal). Return None so the caller waits+retries — never fabricate a result.
+    if d.get("id")==before or "CASES" not in out:
+        return None
     m=re.search(r"CASES ([.x?]+)",out)
     return {"cases":(m.group(1) if m else d.get("cases")),"score":d.get("score"),"id":d.get("id"),
             "times":d.get("casetimes") or {},"newbank":("NEW BANK" in out)}
@@ -128,14 +139,14 @@ def write_md(best, walls, banks, subs, pushes):
     open(MD,"w").write("\n".join(L))
 
 def main():
-    best={"c3":6610,"c4":4930,"c5":4165,"c6":8684,"c7":0.0272}
+    best={"c3":6610,"c4":4925,"c5":4140,"c6":8684,"c7":0.0272}
     walls={}; banks=[]; subs=0; draw=80
     # push fronts: finer steps below the v1 last-pass, toward the wall
     pushes={
-      "c7":{"seq":[0.0270,0.0268,0.0266,0.0264,0.0262,0.0260],"i":0,"best":0.0272,"wa":0,"next":0.0270},
-      "c5":{"seq":[4163,4161,4159,4157,4155],"i":0,"best":4165,"wa":0,"next":4163},
-      "c6":{"seq":[8650,8600,8550],"i":0,"best":8684,"wa":0,"next":8650,"var":"plain"},
-      "c4":{"seq":[4925,4920,4915],"i":0,"best":4930,"wa":0,"next":4925},
+      "c7":{"seq":[0.0271],"i":0,"best":0.0272,"wa":0,"next":0.0271},
+      "c5":{"seq":[4135,4130,4128,4125,4122,4120],"i":0,"best":4140,"wa":0,"next":4135},
+      "c6":{"seq":[8680,8670,8660,8650],"i":0,"best":8684,"wa":0,"next":8680,"var":"plain"},
+      "c4":{"seq":[4924,4923,4922,4921,4920],"i":0,"best":4925,"wa":0,"next":4924},
     }
     order=["bank","c7","c5","bank","c7","c6","c4","bank"]; oi=0
     jlog({"ev":"start","best":best})
@@ -158,7 +169,7 @@ def main():
             if err: jlog({"ev":"builderr","task":c,"val":val,"err":err}); st["i"]+=1; continue
             res=submit(f"NIGHT91b push {c}={val} v={var} draw={draw}")
         subs+=1
-        if res is None: jlog({"ev":"subfail","task":task}); time.sleep(120); continue
+        if res is None: jlog({"ev":"subfail_or_nonet","task":task}); time.sleep(300); continue
         if is_toxic(): jlog({"ev":"toxic","task":task,"times":res["times"]}); time.sleep(280); continue
         cases=res["cases"] or ""
         allgreen=len(cases)>=7 and all(ch=="." for ch in cases)

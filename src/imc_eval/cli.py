@@ -34,7 +34,8 @@ def print_report(r):
         print(f"  {name}:  {p['normal']:.4f}  {p['depth']:.4f}  ->  {p['blended']:.4f}")
     print("-" * 60)
     print(f"FinalSSIM : {r.final_ssim:.4f}   [{_flag(r.ssim_ok)}] (>= 0.90)")
-    print(f"Hausdorff : {r.hausdorff:.4e} / limit {r.hausdorff_limit:.4e}   [{_flag(r.hausdorff_ok)}]")
+    print(f"Hausdorff : {r.hausdorff:.4e} / limit {r.hausdorff_limit:.4e}   [{_flag(r.hausdorff_ok)}]  (v2s)")
+    print(f"Haus. v2v : {r.hausdorff_v2v:.4e} / limit {r.hausdorff_limit:.4e}   [{_flag(r.hausdorff_v2v_ok)}]")
     print(line)
     if r.passed:
         print(f"RESULT: PASS  ->  scores {r.compression:.2f}%")

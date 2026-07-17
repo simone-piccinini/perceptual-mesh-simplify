@@ -1,15 +1,15 @@
-"""Symmetric point-to-surface Hausdorff distance (matches the judge).
+"""Symmetric Hausdorff distance, in BOTH conventions the statement leaves open.
 
-The judge measures, in each direction, the largest distance from the *vertices*
-of one mesh to the *surface* (triangles) of the other:
+The PDF defines d(A,B) = max_{a in A} min_{b in B} ||a-b|| without pinning whether
+A and B are vertex SETS or the continuous SURFACES. The two readings differ
+exactly on adaptive meshes (sparse flat regions):
 
-    d_dir(A, B) = max over a in vertices(A) of  min over triangles t of B  dist(a, t)
-    d_H(A, B)   = max( d_dir(A, B), d_dir(B, A) )
+  * vertex-to-surface (v2s): min over the closest point of any triangle. Looser.
+  * vertex-to-vertex  (v2v): min over the other mesh's vertices only. Stricter
+    (v2s <= v2v always). CLAUDE.md records the judge as v2v — so v2v is the
+    conservative screen and the oracle reports BOTH (score.py gates on both).
 
-This replaces the old vertex-to-vertex shortcut, which over-reported badly: a
-removed surface-interior vertex sits far from any surviving *vertex* yet still
-lies on the simplified *surface* (distance ~0). Distances here use the exact
-closest point on each triangle.
+v2s here uses the exact closest point on each triangle; v2v uses a KD-tree.
 
 Performance: for each source vertex we test all target triangles (vectorised),
 which is O(V * F) -- fine for the oracle's small/medium test meshes. For
@@ -97,3 +97,14 @@ def directed_hausdorff(P, Vb, Fb):
 def symmetric_hausdorff(Va, Fa, Vb, Fb):
     """Symmetric vertex-to-surface Hausdorff between meshes (Va,Fa) and (Vb,Fb)."""
     return max(directed_hausdorff(Va, Vb, Fb), directed_hausdorff(Vb, Va, Fa))
+
+
+def symmetric_hausdorff_v2v(Va, Vb):
+    """Symmetric vertex-to-vertex Hausdorff between the two vertex sets."""
+    from scipy.spatial import cKDTree
+
+    ta = cKDTree(Va)
+    tb = cKDTree(Vb)
+    d_ab = tb.query(Va, workers=-1)[0].max()
+    d_ba = ta.query(Vb, workers=-1)[0].max()
+    return float(max(d_ab, d_ba))
