@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="875" height="427" viewBox="0 0 875 427" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="Compression per test case at its judge-pinned wall. Case 3 reaches only 70.1% while the other five reach 85.9 to 99.3%.">
+<rect width="875" height="427" rx="10" fill="#fcfcfb"/>
+<text x="22" y="36" font-size="19" font-weight="600" fill="#0b0b0b">Where the score comes from</text>
+<text x="22" y="57" font-size="11.5" fill="#52514e">Compression per hidden test case at its judge-pinned wall &#8212; five cases are near-maxed, one is not.</text>
+<text x="853" y="40" text-anchor="end" font-size="29" font-weight="600" fill="#0b0b0b">90.28</text>
+<text x="853" y="57" text-anchor="end" font-size="10.5" fill="#52514e">mean of the six &#183; 7/7 accepted</text>
+<line x1="250.0" y1="82" x2="250.0" y2="348" stroke="#cfcec9" stroke-width="1"/>
+<text x="250.0" y="366" text-anchor="middle" font-size="10" fill="#6f6e6a">0</text>
+<line x1="387.5" y1="82" x2="387.5" y2="348" stroke="#e6e5e1" stroke-width="1"/>
+<text x="387.5" y="366" text-anchor="middle" font-size="10" fill="#6f6e6a">25%</text>
+<line x1="525.0" y1="82" x2="525.0" y2="348" stroke="#e6e5e1" stroke-width="1"/>
+<text x="525.0" y="366" text-anchor="middle" font-size="10" fill="#6f6e6a">50%</text>
+<line x1="662.5" y1="82" x2="662.5" y2="348" stroke="#e6e5e1" stroke-width="1"/>
+<text x="662.5" y="366" text-anchor="middle" font-size="10" fill="#6f6e6a">75%</text>
+<line x1="800.0" y1="82" x2="800.0" y2="348" stroke="#e6e5e1" stroke-width="1"/>
+<text x="800.0" y="366" text-anchor="middle" font-size="10" fill="#6f6e6a">100%</text>
+<text x="236" y="103" text-anchor="end" font-size="12.5" font-weight="400" fill="#52514e">Case 2 &#183; tiny</text>
+<text x="236" y="116" text-anchor="end" font-size="10" fill="#6f6e6a">4,098 &#8594; 30 v</text>
+<path d="M250.0,95.0 H792.0 Q796.0,95.0 796.0,99.0 V109.0 Q796.0,113.0 792.0,113.0 H250.0 Z" fill="#8f8e87"/>
+<text x="806.0" y="108" font-size="12.5" font-weight="400" fill="#52514e">99.27%</text>
+<text x="236" y="145" text-anchor="end" font-size="12.5" font-weight="600" fill="#0b0b0b">Case 3 &#183; organic</text>
+<text x="236" y="158" text-anchor="end" font-size="10" fill="#6f6e6a">23,201 &#8594; 6,941 v</text>
+<path d="M250.0,137.0 H631.5 Q635.5,137.0 635.5,141.0 V151.0 Q635.5,155.0 631.5,155.0 H250.0 Z" fill="#2a78d6"/>
+<text x="645.5" y="150" font-size="12.5" font-weight="600" fill="#0b0b0b">70.08%</text>
+<text x="236" y="199" text-anchor="end" font-size="12.5" font-weight="400" fill="#52514e">Case 4 &#183; CAD</text>
+<text x="236" y="212" text-anchor="end" font-size="10" fill="#6f6e6a">35,292 &#8594; 4,970 v</text>
+<path d="M250.0,191.0 H718.5 Q722.5,191.0 722.5,195.0 V205.0 Q722.5,209.0 718.5,209.0 H250.0 Z" fill="#8f8e87"/>
+<text x="732.5" y="204" font-size="12.5" font-weight="400" fill="#52514e">85.92%</text>
+<text x="236" y="241" text-anchor="end" font-size="12.5" font-weight="400" fill="#52514e">Case 5 &#183; organic</text>
+<text x="236" y="254" text-anchor="end" font-size="10" fill="#6f6e6a">49,987 &#8594; 4,212 v</text>
+<path d="M250.0,233.0 H749.7 Q753.7,233.0 753.7,237.0 V247.0 Q753.7,251.0 749.7,251.0 H250.0 Z" fill="#8f8e87"/>
+<text x="763.7" y="246" font-size="12.5" font-weight="400" fill="#52514e">91.57%</text>
+<text x="236" y="283" text-anchor="end" font-size="12.5" font-weight="400" fill="#52514e">Case 6 &#183; large</text>
+<text x="236" y="296" text-anchor="end" font-size="10" fill="#6f6e6a">377,084 &#8594; 8,684 v</text>
+<path d="M250.0,275.0 H783.3 Q787.3,275.0 787.3,279.0 V289.0 Q787.3,293.0 783.3,293.0 H250.0 Z" fill="#8f8e87"/>
+<text x="797.3" y="288" font-size="12.5" font-weight="400" fill="#52514e">97.70%</text>
+<text x="236" y="325" text-anchor="end" font-size="12.5" font-weight="400" fill="#52514e">Case 7 &#183; huge</text>
+<text x="236" y="338" text-anchor="end" font-size="10" fill="#6f6e6a">1,009,118 &#8594; 28,800 v</text>
+<path d="M250.0,317.0 H780.3 Q784.3,317.0 784.3,321.0 V331.0 Q784.3,335.0 780.3,335.0 H250.0 Z" fill="#8f8e87"/>
+<text x="794.3" y="330" font-size="12.5" font-weight="400" fill="#52514e">97.15%</text>
+<path d="M659.2,159 L654.2,167 L664.2,167 Z" fill="#eb6834"/>
+<text x="669.2" y="171" font-size="10.5" fill="#eb6834">74.4% &#8594; mean 91.0 (&#8776;5,940 v)</text>
+<text x="22" y="392" font-size="9.5" fill="#6f6e6a">Compression = 100&#183;(1 &#8722; N/V). N is the lowest vertex count the judge has accepted for that case; one step below it the mesh fails FinalSSIM &#8805; 0.90.</text>
+<text x="22" y="406" font-size="9.5" fill="#6f6e6a">The banked 90.285538 is a hair above this mean because the judge counts the best result per case across submissions, not any single run.</text>
+</svg>
